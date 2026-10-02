@@ -1,5 +1,12 @@
 # Changelog
 
+- Added the optional PostgreSQL 17 / PostGIS 3.5 Compose stack for GW-85, with
+  persistent storage, resource limits, checksummed migrations, a server-only
+  least-privilege connection pool, and the initial identity, workspace, position,
+  feed and camera schema. Hourly history retention and daily logical backups run
+  as separate workers. The database gate verifies migrations, permissions,
+  spatial queries, restart persistence and restoration of a real backup.
+
 - Public Overpass instances are no longer used by default. Street Traffic
   roads come from TomTom flow tiles, OpenFreeMap vector tiles, or both, chosen
   on the layer row (TomTom / OSM / Hybrid) or with `?trafficRoads=`. With a

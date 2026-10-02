@@ -1,5 +1,8 @@
 node_modules
 dist
+.gev-secrets/
+.gev-backups/
+.worktrees/
 # Credential files. `.env` alone is not enough: Vite's loadEnv (see
 # server/standalone/vite.config.js) and scripts/setup-doctor.mjs both read the
 # full dotenv ladder — .env, .env.local, .env.<mode> and .env.<mode>.local —

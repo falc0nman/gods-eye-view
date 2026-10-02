@@ -46,7 +46,12 @@
     "test:track": "node scripts/track-regression.mjs",
     "qa:map-source-tray": "node scripts/qa-map-source-tray.mjs",
     "check:boundaries": "node scripts/check-import-directions.mjs && node scripts/check-package-boundaries.mjs",
-    "qa:transit": "node scripts/qa-transit.mjs"
+    "qa:transit": "node scripts/qa-transit.mjs",
+    "db:secrets": "node scripts/db-secrets.mjs",
+    "db:migrate": "node server/database/migrate.js",
+    "db:up": "docker compose up --build -d",
+    "db:backup": "docker compose run --rm backup --once",
+    "qa:database": "node scripts/qa-database.mjs"
   },
   "dependencies": {
     "@jtarrio/signals": "^0.10.0",
@@ -58,6 +63,7 @@
     "hls.js": "^1.7.3",
     "mgrs": "^2.1.0",
     "pbf": "^5.1.2",
+    "pg": "^8.23.1",
     "satellite.js": "^6.0.2",
     "seek-bzip": "^2.0.0"
   },
@@ -251,6 +257,9 @@
     "./layers/transit/standalone": "./src/data/transit.js",
     "./layers/transit/source": "./src/layers/transit/source.js",
     "./sources/transit-service": "./src/sources/transitService.js",
-    "./sources/map-features": "./src/sources/overpassFeatures.js"
+    "./sources/map-features": "./src/sources/overpassFeatures.js",
+    "./server/providers/database": {
+      "node": "./server/providers/database.js"
+    }
   }
 }

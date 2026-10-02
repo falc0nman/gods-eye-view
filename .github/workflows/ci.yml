@@ -13,6 +13,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  database:
+    name: PostgreSQL, PostGIS and backup restore
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Use Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24.14.0
+      - name: Generate local database credentials
+        run: node scripts/db-secrets.mjs
+      - name: Verify database, persistence and backup restore
+        run: node scripts/qa-database.mjs
+      - name: Show service state
+        if: failure()
+        run: docker compose ps --all && docker compose logs --tail=100 db migrate maintenance backup app
+      - name: Stop containers and preserve volumes
+        if: always()
+        run: docker compose down
+
   verify:
     name: Node ${{ matrix.node }}
     runs-on: ubuntu-latest

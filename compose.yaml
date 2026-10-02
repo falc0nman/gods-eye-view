@@ -1,0 +1,153 @@
+name: gev
+
+x-database-environment: &database-environment
+  GEV_DB_HOST: db
+  GEV_DB_NAME: gev
+
+services:
+  db:
+    image: postgis/postgis:17-3.5
+    entrypoint: [/bin/sh, /opt/gev/entrypoint.sh]
+    command: [postgres]
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: gev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_postgres
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    secrets: [db_postgres, db_app, db_migrator, db_backup]
+    volumes:
+      - database:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+      - ./database/entrypoint.sh:/opt/gev/entrypoint.sh:ro
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U postgres -d gev']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+    cpus: 2.0
+    mem_limit: 1g
+    shm_size: 256mb
+    stop_grace_period: 30s
+
+  migrate:
+    image: gev-app:local
+    pull_policy: never
+    command: [node, server/database/migrate.js]
+    environment:
+      <<: *database-environment
+      GEV_DB_MIGRATOR_PASSWORD_FILE: /run/secrets/db_migrator
+    secrets: [db_migrator]
+    depends_on:
+      db:
+        condition: service_healthy
+    cpus: 0.5
+    mem_limit: 256m
+
+  app:
+    image: gev-app:local
+    build: .
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      <<: *database-environment
+      GEV_DB_PASSWORD_FILE: /run/secrets/db_app
+      HOST: 0.0.0.0
+      PORT: 4173
+    secrets: [db_app]
+    ports: ['127.0.0.1:4173:4173']
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:4173/api/database/health').then(r => { if (!r.ok) process.exit(1); }).catch(() => process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    cpus: 2.0
+    mem_limit: 2g
+
+  maintenance:
+    image: gev-app:local
+    pull_policy: never
+    restart: unless-stopped
+    command: [node, server/database/maintenance.js]
+    environment:
+      <<: *database-environment
+      GEV_DB_MIGRATOR_PASSWORD_FILE: /run/secrets/db_migrator
+    secrets: [db_migrator]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    cpus: 0.5
+    mem_limit: 256m
+
+  backup:
+    image: postgis/postgis:17-3.5
+    restart: unless-stopped
+    entrypoint: [/bin/sh, /opt/gev/backup.sh]
+    environment:
+      PGHOST: db
+      PGDATABASE: gev
+      PGUSER: gev_backup
+      GEV_BACKUP_INTERVAL_SECONDS: 86400
+      GEV_BACKUP_KEEP_DAYS: 14
+    secrets: [db_backup]
+    volumes:
+      - ./.gev-backups:/backups
+      - ./database/backup.sh:/opt/gev/backup.sh:ro
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    cpus: 0.5
+    mem_limit: 256m
+
+  qa:
+    profiles: [tools]
+    image: gev-app:local
+    command: [node, scripts/db-integration.mjs]
+    environment:
+      <<: *database-environment
+      GEV_DB_PASSWORD_FILE: /run/secrets/db_app
+      GEV_DB_MIGRATOR_PASSWORD_FILE: /run/secrets/db_migrator
+    secrets: [db_app, db_migrator]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  restore-check:
+    profiles: [tools]
+    image: postgis/postgis:17-3.5
+    entrypoint: [/bin/sh, /opt/gev/restore-check.sh]
+    secrets: [db_postgres]
+    volumes:
+      - ./.gev-backups:/backups:ro
+      - ./database/restore-check.sh:/opt/gev/restore-check.sh:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    cpus: 0.5
+    mem_limit: 256m
+
+secrets:
+  db_postgres:
+    file: ./.gev-secrets/postgres
+  db_app:
+    file: ./.gev-secrets/app
+  db_migrator:
+    file: ./.gev-secrets/migrator
+  db_backup:
+    file: ./.gev-secrets/backup
+
+volumes:
+  database:
