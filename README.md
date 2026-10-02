@@ -25,3 +25,11 @@
 <p>Discord OAuth and Google OIDC use server-enforced application roles. Google identities require explicit administrator approval. See <a href="docs/AUTHENTICATION.md">authentication setup</a> for callback URLs, guild role mappings and emergency administrator bootstrap.</p>
 
 <p>Provider Settings and the credential-writing setup endpoints are removed. Pinokio manages non-secret launcher controls only. Browser-exposed Google Maps and Cesium ion credentials require provider restrictions and a frontend rebuild when changed; see <a href="SECURITY.md">credential security</a>.</p>
+
+<h3>Globe tools and data sources</h3>
+
+DISPLAY ▸ **Draw** adds marks, areas and routes to the map with pointer controls.
+
+Nineteen layers and map sources. **Seventeen have a keyless path.** Provider provenance and courtesy attribution for open realtime transit vehicle data are documented in [DATA_SOURCES.md](DATA_SOURCES.md).
+
+**Sits on the real ground.** Entity heights are aligned to work with Google 3D tiles, so aircraft park on aprons and cameras stand on street corners instead of floating.
