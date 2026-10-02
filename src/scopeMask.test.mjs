@@ -24,10 +24,21 @@ import {
   SCOPE_TERMINUS_NEAR_M,
   SCOPE_TERMINUS_QUANTUM,
   _resetScopeMaskForTest,
+  isScopeMaskEnabled,
 } from './scopeMask.js';
 import { KEYHOLE_OUTER_RADIUS } from './celestialRing.js';
 
-beforeEach(() => _resetScopeMaskForTest());
+// The scope boots OFF (full-screen storm-chase console). These tests exercise
+// the scope's own painting, so each starts with it switched on.
+beforeEach(() => {
+  _resetScopeMaskForTest();
+  setScopeMaskEnabled(true);
+});
+
+test('the scope boots off — the console is full screen by default', () => {
+  _resetScopeMaskForTest();
+  assert.equal(isScopeMaskEnabled(), false);
+});
 
 test('geometry anchors the visible edge to the shared keyhole radius', () => {
   const geo = scopeMaskGeometry(1440, 860, 0.4);

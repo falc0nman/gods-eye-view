@@ -29,7 +29,9 @@ test('the complete Realtime tool payload pins the additive analyst, satellite, L
     digest,
     // Re-derived for the additive `local-adsb` set_layer_visibility value and
     // the Cyber HUD layout; the separate sonar tool is excluded above.
-    '590d537d93e132ac64ac5e211ad5bb9d7d1b1f22e2dd963dda5465fab4510a3b',
+    // Re-derived again for the storm-chase layer ids (weather-radar, nexrad, nws-warnings,
+    // team-chasers) and their common-name mapping.
+    '132f1cb70a59986ca443e6c286dc246579cebce925e5886ab3e5a07778d60333',
   );
 });
 
@@ -106,10 +108,19 @@ test('all legacy action arguments are byte-identical after removing the delibera
   visibility.enum = visibility.enum.filter(
     (key) => !['local-adsb', 'fire-perimeters'].includes(key),
   );
+  // Storm chase adds three layer ids to both layer enums.
+  const stormChase = [
+    'weather-radar',
+    'nexrad',
+    'nws-warnings',
+    'team-chasers',
+  ];
   for (const tool of legacy) {
     for (const value of Object.values(tool.parameters.properties)) {
       if (value.enum)
-        value.enum = value.enum.filter((key) => key !== 'fire-perimeters');
+        value.enum = value.enum.filter(
+          (key) => key !== 'fire-perimeters' && !stormChase.includes(key),
+        );
     }
   }
   // Independently derived by executing trusted c9f9896 actionSchemas in the restricted container.

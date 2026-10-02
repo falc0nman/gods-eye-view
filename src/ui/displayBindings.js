@@ -140,6 +140,8 @@ export class DisplayBindings {
           setScopeMaskEnabled(next);
           this._scopeBtn.classList.toggle('active', next);
           this._scopeBtn.setAttribute('aria-pressed', String(next));
+          // Labels near the edge change fade with the scope; repaint them now.
+          this.viewer?.scene?.requestRender?.();
           this._syncShareState();
         },
         setScopeFeather: (value) => {

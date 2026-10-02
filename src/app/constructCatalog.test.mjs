@@ -39,7 +39,9 @@ test('catalogs construct distinct layers and classification from their supplied 
     signal: b.signal,
     surface: fixtureSurface(b.signal),
   });
-  assert.equal(first.layers.length, 29);
+  assert.equal(first.layers.length, 32);
+  for (const id of ['nexrad', 'nws-warnings', 'team-chasers'])
+    assert.ok(first.get(id), `${id} (storm chase) is registered`);
   assert.ok(first.get('local-adsb'), 'Local ADS-B is registered');
   assert.deepEqual(
     first.metadata.find(({ id }) => id === 'local-adsb'),

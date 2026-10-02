@@ -63,6 +63,20 @@ export function setKeyholeFadeTuning({ fadeRatio, outsideOpacity } = {}) {
   return getKeyholeFadeTuning();
 }
 
+/**
+ * Whether labels fade at the keyhole edge. The scope mask owns this flag
+ * (src/scopeMask.js sets it with its own enabled state): with the circular
+ * scope off the view is full screen, so nothing is "outside" the keyhole.
+ * Default OFF, matching the scope's full-screen default.
+ */
+let keyholeEdgeFadeEnabled = false;
+export function setKeyholeEdgeFadeEnabled(enabled) {
+  keyholeEdgeFadeEnabled = Boolean(enabled);
+}
+export function isKeyholeEdgeFadeEnabled() {
+  return keyholeEdgeFadeEnabled;
+}
+
 /** Read the current normalized keyhole fade settings. */
 export function getKeyholeFadeTuning() {
   return { fadeRatio: keyholeFadeRatio, outsideOpacity: keyholeOutsideOpacity };

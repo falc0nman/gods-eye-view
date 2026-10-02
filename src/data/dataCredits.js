@@ -144,6 +144,18 @@ export const DATA_CREDITS = [
     html: 'Earthquakes: Data courtesy of the U.S. Geological Survey',
   },
   {
+    key: 'nws-alerts',
+    html: 'Storm warnings: National Weather Service (api.weather.gov), U.S. public domain',
+  },
+  {
+    key: 'nexrad-level3-aws',
+    html:
+      'Single-radar products: NOAA NEXRAD Level III via ' +
+      '<a href="https://registry.opendata.aws/noaa-nexrad/" target="_blank" rel="noopener">NOAA Open Data on AWS</a>' +
+      '; radar sites from the ' +
+      '<a href="https://mesonet.agron.iastate.edu/" target="_blank" rel="noopener">Iowa Environmental Mesonet</a>',
+  },
+  {
     key: 'nasa-gibs',
     html:
       'Recent imagery: We acknowledge the use of imagery provided by services from ' +

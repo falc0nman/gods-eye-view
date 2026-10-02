@@ -616,6 +616,12 @@ export const LAYER_STATE_REGISTRY = Object.freeze([
     token: 'i',
     disposition: 'enabled-only',
   }),
+  Object.freeze({ id: 'nexrad', token: '0', disposition: 'enabled-only' }),
+  Object.freeze({
+    id: 'nws-warnings',
+    token: '3',
+    disposition: 'enabled-only',
+  }),
   Object.freeze({
     id: 'radio',
     token: 'r',
@@ -638,6 +644,11 @@ export const LAYER_STATE_REGISTRY = Object.freeze([
     token: 's',
     disposition: 'enabled+options',
     optionOwner: 'satellites',
+  }),
+  Object.freeze({
+    id: 'team-chasers',
+    token: '4',
+    disposition: 'enabled-only',
   }),
   Object.freeze({
     id: 'telegeography-submarine-cables',

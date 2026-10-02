@@ -296,7 +296,12 @@ export class LocationNavigation {
     }
   }
 
-  resetToGlobeView() {
+  /**
+   * @param {{center?: {latitude: number, longitude: number}, heightM?: number}} [frame]
+   *   Optional regional framing (e.g. Storm Chase over the central US); omitted,
+   *   the reset keeps the current sub-camera point at full-globe height.
+   */
+  resetToGlobeView(frame = {}) {
     const {
       GLOBE_VIEW,
       flyToGlobeView,
@@ -354,6 +359,8 @@ export class LocationNavigation {
     this.viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
     this._beginWorldJumpTransition();
 
+    const targetHeightM =
+      Number(frame.heightM) > 0 ? Number(frame.heightM) : GLOBE_VIEW.heightM;
     let resolveReset;
     const resetPromise = new Promise((resolve) => {
       resolveReset = resolve;
@@ -371,7 +378,7 @@ export class LocationNavigation {
         ok: !cancelled,
         action: 'zoom_to_globe',
         cancelled,
-        heightKm: Math.round(GLOBE_VIEW.heightM / 1000),
+        heightKm: Math.round(targetHeightM / 1000),
         centeredOn: {
           latitude: Number(Cesium.Math.toDegrees(carto.latitude).toFixed(2)),
           longitude: Number(Cesium.Math.toDegrees(carto.longitude).toFixed(2)),
@@ -393,8 +400,7 @@ export class LocationNavigation {
     timer = window.setTimeout(() => {
       const height = this.viewer.camera.positionCartographic?.height;
       finish(
-        !Number.isFinite(height) ||
-          Math.abs(height - GLOBE_VIEW.heightM) > 1000,
+        !Number.isFinite(height) || Math.abs(height - targetHeightM) > 1000,
       );
     }, 4200);
     this._resetGlobeBtn?.setAttribute(
@@ -406,6 +412,8 @@ export class LocationNavigation {
       'Resetting cockpit to full globe view',
     );
     const target = flyToGlobeView(this.viewer, {
+      center: frame.center,
+      heightM: frame.heightM,
       onComplete: () => finish(false),
       onCancel: () => finish(true),
     });

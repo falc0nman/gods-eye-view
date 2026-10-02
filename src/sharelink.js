@@ -117,7 +117,10 @@ export class ShareLinkManager {
     // question and deliberately stays at 5.
     this._detectionOutsideOpacityPct = 1;
     this._celestialRingEnabled = false;
-    this._scopeEnabled = true;
+    // Full screen by default (scope OFF) — mirrors `_enabled` in scopeMask.js.
+    // The `sc` PARSE fallback stays `true`: a link without `sc` predates the
+    // field and was authored when the scope was always on.
+    this._scopeEnabled = false;
     // Feather opens on a soft 11% scope-mask edge (owner final lock 2026-08-24,
     // superseding the 08-22 hard-crop and 08-23 8% rulings) — mirrors
     // SCOPE_FEATHER_RATIO_DEFAULT in scopeMask.js and the slider's markup value.

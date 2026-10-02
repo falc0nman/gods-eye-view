@@ -538,20 +538,26 @@ export const GLOBE_VIEW = Object.freeze({
  * Fly straight out to the full-earth globe view, keeping the current sub-camera
  * point centered so the user's continent stays in front of them.
  * @param {Cesium.Viewer} viewer
- * @param {{duration?: number, onComplete?: Function, onCancel?: Function}} options
+ * A caller that frames a specific region passes `center` and/or `heightM`.
+ * @param {{duration?: number, onComplete?: Function, onCancel?: Function,
+ *   center?: {latitude: number, longitude: number}, heightM?: number}} options
  * @returns {{latitude: number, longitude: number, heightM: number}}
  */
 export function flyToGlobeView(viewer, options = {}) {
   const carto = viewer.camera.positionCartographic;
-  const longitude = Cesium.Math.toDegrees(carto.longitude);
-  const latitude = Cesium.Math.toDegrees(carto.latitude);
+  const centered =
+    Number.isFinite(options.center?.latitude) &&
+    Number.isFinite(options.center?.longitude);
+  const longitude = centered
+    ? options.center.longitude
+    : Cesium.Math.toDegrees(carto.longitude);
+  const latitude = centered
+    ? options.center.latitude
+    : Cesium.Math.toDegrees(carto.latitude);
+  const heightM = finitePositive(options.heightM) || GLOBE_VIEW.heightM;
   viewer.camera.cancelFlight();
   viewer.camera.flyTo({
-    destination: Cesium.Cartesian3.fromDegrees(
-      longitude,
-      latitude,
-      GLOBE_VIEW.heightM,
-    ),
+    destination: Cesium.Cartesian3.fromDegrees(longitude, latitude, heightM),
     orientation: {
       heading: 0,
       pitch: Cesium.Math.toRadians(GLOBE_VIEW.pitchDeg),
@@ -566,7 +572,7 @@ export function flyToGlobeView(viewer, options = {}) {
     complete: options.onComplete,
     cancel: options.onCancel,
   });
-  return { latitude, longitude, heightM: GLOBE_VIEW.heightM };
+  return { latitude, longitude, heightM };
 }
 
 /**

@@ -24,6 +24,8 @@ import { keySetupEndpoint } from '../standalone/key-setup.js';
 import { weatherProxy } from './weather.js';
 import { firePerimetersProxy } from './firePerimeters.js';
 import { cycloneProxy } from './cyclones.js';
+import { nexradLevel3Proxy } from './nexrad.js';
+import { life360ChasersProxy } from './life360.js';
 import { windProxy } from './wind.js';
 
 /** Construct the local provider plugins in their established order. */
@@ -54,6 +56,8 @@ function localProviderPlugins() {
     windProxy(),
     weatherProxy(),
     cycloneProxy(),
+    nexradLevel3Proxy(),
+    life360ChasersProxy(),
     firePerimetersProxy(),
     keySetupEndpoint(),
   ];

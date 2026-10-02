@@ -2,6 +2,9 @@ import { createWeatherClock } from '../layers/weather/clock.js';
 import { createWeatherLayer } from '../layers/weather/index.js';
 import { createCyclonesLayer } from '../layers/cyclones/index.js';
 import { createWindLayer } from '../layers/wind/index.js';
+import { createNexradLayer } from '../layers/nexrad/index.js';
+import { createApplicationNwsWarnings } from './layers/nwsWarnings.js';
+import { createApplicationTeamChasers } from './layers/teamChasers.js';
 import { createLayerCatalog } from './catalog.js';
 import { LAYER_STATE_REGISTRY } from '../data/layerState.js';
 import { createMilitaryRegistry } from '../layers/aircraft/classification.js';
@@ -52,6 +55,9 @@ const SOURCE_METHODS = Object.freeze({
   wind: ['getSnapshot'],
   weather: ['getSnapshot'],
   cyclones: ['getSnapshot'],
+  nexrad: ['getSites', 'getScan', 'getValue'],
+  'nws-warnings': ['getSnapshot'],
+  'team-chasers': ['getSnapshot', 'getRoster', 'saveSelection'],
   earthquakes: ['getSnapshot'],
   'fire-perimeters': ['getSnapshot'],
   cables: ['fetch'],
@@ -182,6 +188,9 @@ export function createApplicationCatalog({
           clock: weatherClock,
         }),
         createCyclonesLayer({ feed: sources.cyclones }),
+        createNexradLayer({ source: sources.nexrad }),
+        createApplicationNwsWarnings({ source: sources['nws-warnings'] }),
+        createApplicationTeamChasers({ source: sources['team-chasers'] }),
         ...createInfrastructureLayers(localGeoJsonServices),
         createApplicationCables({ source: sources.cables }),
         createApplicationFirms({

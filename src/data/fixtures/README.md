@@ -41,3 +41,10 @@
   2026-09-25. Each record names its XYZ tile and expected traffic eligibility.
   Modified, test-only OpenStreetMap data; same ODbL attribution and database
   share-alike terms as the OpenFreeMap fixtures above.
+- `level3-KTLX-{N0S,N0K,EET}-20261002-0109.bin` — three real NEXRAD Level III
+  product files from KTLX (Oklahoma City), volume scan 2026-10-02 01:09:25Z,
+  downloaded unmodified from NOAA's public `unidata-nexrad-level3` bucket
+  (AWS Open Data; U.S. public domain). One per encoding the decoder handles:
+  N0S storm-relative velocity (uncompressed, run-length radials), N0K
+  specific differential phase (bzip2, float32 scale/offset) and EET echo
+  tops (bzip2, masked levels). Used ONLY by `src/layers/nexrad/level3.test.mjs`.
