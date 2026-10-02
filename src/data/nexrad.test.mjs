@@ -115,9 +115,10 @@ test('radar never drapes onto a 3D tileset, and says so when the globe is hidden
   layer.disable(viewer);
 });
 
-// ── Single-radar products ───────────────────────────────────────────────────
+// ── Single-radar Level III products ─────────────────────────────────────────
 
-import { nearestRadarSite, parseRadarSites, radarIcao, siteTileTemplate } from './nexrad.js';
+import * as Cesium from 'cesium';
+import { NEXRAD_PRODUCTS, nearestRadarSite, parseRadarSites, radarIcao } from './nexrad.js';
 
 const SITES_GEOJSON = {
   features: [
@@ -141,56 +142,111 @@ test('the nearest radar wins, and nothing is chosen out of range', () => {
   assert.equal(nearestRadarSite(sites, 30, -40), null, 'mid-Atlantic has no radar');
 });
 
-test('single-radar tiles pin a scan or fall back to latest; ids are validated', () => {
-  assert.match(siteTileTemplate('TLX', 'N0B', '202610020105'), /ridge::TLX-N0B-202610020105\/\{z\}/);
-  assert.match(siteTileTemplate('TLX', 'N0S', null), /ridge::TLX-N0S-0\/\{z\}/);
-  assert.throws(() => siteTileTemplate('../x', 'N0B', null));
+test('every product maps to the Level III codes NOAA publishes, lowest tilt first', () => {
+  assert.deepEqual(NEXRAD_PRODUCTS.ref.codes, ['N0B', 'N1B', 'N2B', 'N3B']);
+  assert.deepEqual(NEXRAD_PRODUCTS.vel.codes, ['N0G', 'N1G']);
+  assert.deepEqual(NEXRAD_PRODUCTS.cc.codes, ['N0C', 'N1C', 'N2C', 'N3C']);
+  assert.deepEqual(NEXRAD_PRODUCTS.vil.codes, ['DVL']);
+  assert.equal(NEXRAD_PRODUCTS.composite.codes, undefined);
 });
 
-function siteLayer({ center = { lat: 35.5, lon: -97.5 }, siteMeta = { meta: { valid: '2026-10-02T00:05:00Z' } } } = {}) {
+const BOUNDS = { west: -100.6, south: 32.6, east: -94, north: 38 };
+
+function scanPayload(code, { elevationDeg = 0.5 } = {}) {
+  return {
+    key: `TLX_${code}_2026_10_02_00_05_00`,
+    product: code,
+    scanMs: Date.parse('2026-10-02T00:05:00Z'),
+    elevationDeg,
+    bounds: BOUNDS,
+    image: `/api/radar/l3/image/TLX_${code}_2026_10_02_00_05_00.png`,
+  };
+}
+
+function siteLayer({ center = { lat: 35.5, lon: -97.5 }, scan = (code) => fakeResponse(scanPayload(code)) } = {}) {
   const urls = [];
   const added = [];
+  const removed = [];
+  const provided = [];
   const layer = createNexradLayer({
     fetchImpl: async (url) => {
       urls.push(url);
       if (url.includes('NEXRAD.geojson')) return fakeResponse(SITES_GEOJSON);
-      if (url.includes('/ridge/')) return siteMeta ? fakeResponse(siteMeta) : fakeResponse(null, { ok: false, status: 404 });
+      const l3 = /\/api\/radar\/l3\/scan\?site=TLX&product=([A-Z0-9]{3})/.exec(url);
+      if (l3) return scan(l3[1]);
       return fakeResponse({ meta: { valid: VALID_ISO, radar_quorum: '143/147' } });
     },
     now: () => VALID_MS,
     locate: () => center,
+    // A real provider object (never fetched in Node) so ImageryLayer accepts it.
+    makeProvider: async (spec) => { provided.push(spec); return new Cesium.UrlTemplateImageryProvider({ url: 'x/{z}/{x}/{y}' }); },
   });
   const viewer = {
-    imageryLayers: { add: (l) => added.push(l), contains: () => true, remove() {} },
+    imageryLayers: { add: (l) => added.push(l), contains: (l) => added.includes(l) && !removed.includes(l), remove: (l) => removed.push(l) },
     scene: { globe: { show: true }, primitives: { length: 0 } },
   };
   layer.init(viewer);
   layer.enable(viewer);
-  return { layer, viewer, urls, added };
+  return { layer, viewer, urls, added, removed, provided };
 }
 
-test('REFLECTIVITY follows the nearest radar and reports it by ICAO and scan time', async () => {
-  const { layer, viewer, urls, added } = siteLayer();
-  assert.equal(layer.setParams({ product: 'ref' }), true);
+test('VEL asks the app server for the nearest radar and shows its decoded image', async () => {
+  const { layer, viewer, urls, provided } = siteLayer();
+  assert.equal(layer.setParams({ product: 'vel' }), true);
   await layer.update(viewer);
-  assert.ok(urls.some((u) => u.endsWith('/ridge/TLX/N0B_0.json')));
-  assert.equal(added.length, 1);
-  assert.equal(layer.getStats().loadingLabel, 'KTLX REF · scan 00:05Z · Oklahoma City');
-  assert.deepEqual(layer.getRowControls().chips.filter((c) => c.active).map((c) => c.id), ['ref']);
+  assert.ok(urls.includes('/api/radar/l3/scan?site=TLX&product=N0G'));
+  assert.equal(provided.at(-1).image, '/api/radar/l3/image/TLX_N0G_2026_10_02_00_05_00.png');
+  assert.deepEqual(provided.at(-1).bounds, BOUNDS);
+  assert.equal(layer.getStats().loadingLabel, 'KTLX VEL 0.5° · scan 00:05Z · Oklahoma City');
   layer.disable(viewer);
 });
 
-test('SRV with no scan metadata falls back to the latest tiles and says so', async () => {
-  const { layer, viewer } = siteLayer({ siteMeta: null });
+test('the TILT chip steps through elevations and wraps', async () => {
+  const { layer, viewer, urls } = siteLayer();
+  layer.setParams({ product: 'cc' });
+  await layer.update(viewer);
+  let tilt = layer.getRowControls().chips.find((c) => c.id === 'tilt');
+  assert.equal(tilt.label, 'TILT 1/4 0.5°');
+  assert.deepEqual(tilt.params, { tilt: 1 });
+  layer.setParams(tilt.params);
+  await layer.update(viewer);
+  assert.ok(urls.includes('/api/radar/l3/scan?site=TLX&product=N1C'));
+  layer.setParams({ tilt: 3 });
+  tilt = layer.getRowControls().chips.find((c) => c.id === 'tilt');
+  assert.deepEqual(tilt.params, { tilt: 0 }, 'wraps back to the lowest tilt');
   layer.setParams({ product: 'srv' });
-  await layer.update(viewer);
-  const stats = layer.getStats();
-  assert.equal(stats.fallback, true);
-  assert.equal(stats.loadingLabel, 'KTLX SRV · latest scan · Oklahoma City');
+  assert.equal(layer.getRowControls().chips.find((c) => c.id === 'tilt'), undefined, 'single-tilt products have no TILT chip');
+  assert.equal(layer.getParams().tilt, 0, 'a new product starts at the lowest tilt');
   layer.disable(viewer);
 });
 
-test('no radar near the view is a calm guidance state, and unknown products are refused', async () => {
+test('switching product replaces the image at once; a new scan of the same product crossfades', async () => {
+  const { layer, viewer, added, removed } = siteLayer();
+  layer.setParams({ product: 'ref' });
+  await layer.update(viewer);
+  layer.setParams({ product: 'vel' });
+  await layer.update(viewer);
+  assert.equal(added.length, 2);
+  assert.deepEqual(removed, [added[0]], 'REF removed the moment VEL arrived');
+  layer.disable(viewer);
+});
+
+test('an unavailable product clears the old image and says why', async () => {
+  const { layer, viewer, added, removed } = siteLayer({
+    scan: (code) => (code === 'N0K'
+      ? fakeResponse({ error: 'N0K is not available from this radar right now' }, { ok: false, status: 404 })
+      : fakeResponse(scanPayload(code))),
+  });
+  layer.setParams({ product: 'ref' });
+  await layer.update(viewer);
+  layer.setParams({ product: 'kdp' });
+  await layer.update(viewer);
+  assert.deepEqual(removed, [added[0]]);
+  assert.match(layer.getStats().error, /not available/);
+  layer.disable(viewer);
+});
+
+test('no radar near the view is a calm guidance state, and bad params are refused', async () => {
   const { layer, viewer, added } = siteLayer({ center: { lat: 30, lon: -40 } });
   layer.setParams({ product: 'ref' });
   await layer.update(viewer);
@@ -198,5 +254,6 @@ test('no radar near the view is a calm guidance state, and unknown products are 
   assert.equal(layer.getStats().status, 'idle');
   assert.match(layer.getStats().loadingLabel, /no radar near/);
   assert.equal(layer.setParams({ product: 'N0Q' }), false);
+  assert.equal(layer.setParams({ tilt: 7 }), false);
   layer.disable(viewer);
 });

@@ -1,24 +1,28 @@
 import * as Cesium from 'cesium';
 
 /**
- * NEXRAD weather radar from the Iowa Environmental Mesonet (IEM). Keyless and
- * CORS-open. Three products, picked with the row's chips:
+ * NEXRAD weather radar. Picked with the row's chips:
  *
- *   COMPOSITE    national base-reflectivity mosaic (N0Q), CONUS, ~1 km
- *   REFLECTIVITY one radar's super-resolution reflectivity (Level III N0B)
- *   SRV          one radar's storm-relative velocity (Level III N0S)
+ *   COMPOSITE  national base-reflectivity mosaic (N0Q, CONUS, ~1 km) — IEM tiles
+ *   REF        super-res reflectivity        N0B…N3B   (4 tilts)
+ *   VEL        super-res base velocity       N0G, N1G  (2 tilts)
+ *   SRV        storm-relative velocity       N0S
+ *   CC         correlation coefficient       N0C…N3C   (4 tilts)
+ *   ZDR        differential reflectivity     N0X…N3X   (4 tilts)
+ *   KDP        specific differential phase   N0K…N3K   (4 tilts)
+ *   HC         hydrometeor classification    N0H…N3H   (4 tilts)
+ *   VIL        digital vertically integrated liquid (DVL)
+ *   ET         enhanced echo tops (EET)
  *
- * The single-radar products follow the radar nearest the centre of the view,
- * re-chosen when the camera stops moving. They use N0B, not N0Q/N0U: NWS
- * retired the per-site N0Q/N0U in 2022 and IEM's copies froze then (verified
- * 2026-10-01: their last scan is 2022-09-08). IEM serves no other current
- * per-site products (base velocity N0G, dual-pol, higher tilts) — those need
- * decoding NOAA's raw Level II/III files, which this layer does not do.
+ * Every product but COMPOSITE is a Level III file from NOAA, decoded and
+ * rendered by this app's own server (/api/radar/l3, see vite.config.js) for
+ * the radar nearest the centre of the view, re-chosen when the camera stops
+ * moving. The browser only receives one finished image per scan.
  *
- * Every refresh pins the imagery to ONE named scan instead of the rolling
- * "latest" alias, so the tiles on screen match the scan time the row reports.
- * Only when the metadata probe fails does the layer fall back to the rolling
- * alias, and it says so (`fallback`) rather than claiming a scan time.
+ * Every refresh pins the imagery to ONE named scan, so what is on screen
+ * matches the scan time the row reports. Only when the composite's metadata
+ * probe fails does the layer fall back to IEM's rolling alias, and it says so
+ * (`fallback`) rather than claiming a scan time.
  *
  * The imagery rides ONLY `viewer.imageryLayers` — the Cesium globe used by the
  * Esri/Bing/OSM stacks. It must NOT be draped onto the Google Photorealistic
@@ -36,15 +40,12 @@ const IEM_TILE_ROOT = 'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0';
 const LATEST_ALIAS = 'nexrad-n0q-900913';
 const META_URL = 'https://mesonet.agron.iastate.edu/data/gis/images/4326/USCOMP/n0q_0.json';
 const SITES_URL = 'https://mesonet.agron.iastate.edu/geojson/network/NEXRAD.geojson';
-const SITE_META_URL = (site, code) =>
-  `https://mesonet.agron.iastate.edu/data/gis/images/4326/ridge/${site}/${code}_0.json`;
+const L3_SCAN_URL = (site, code) => `/api/radar/l3/scan?site=${site}&product=${code}`;
 
 /** The N0Q composite's extent (CONUS). No tiles are requested outside it. */
 export const NEXRAD_COVERAGE_DEG = Object.freeze({ west: -126, south: 24, east: -66, north: 50 });
 /** ~1 km source resolution; deeper zooms upsample instead of re-requesting. */
 export const NEXRAD_MAX_TILE_LEVEL = 8;
-/** Super-res single-radar products hold detail to roughly zoom 10. */
-const SITE_MAX_TILE_LEVEL = 10;
 /** Single-radar products reach ~460 km from the radar. */
 const SITE_RANGE_KM = 460;
 /** IEM publishes every 5 min; three missed mosaics reads as stale. */
@@ -52,10 +53,20 @@ export const NEXRAD_STALE_AFTER_MS = 20 * 60_000;
 export const NEXRAD_LAYER_ALPHA = 0.7;
 const RETIRE_PREVIOUS_SCAN_MS = 8_000;
 
+const tilts = (letter, count) => Object.freeze(Array.from({ length: count }, (_, i) => `N${i}${letter}`));
+
+/** `codes` are the Level III products per tilt, lowest first. */
 export const NEXRAD_PRODUCTS = Object.freeze({
-  composite: Object.freeze({ chip: 'COMPOSITE', short: 'COMPOSITE', title: 'National base reflectivity mosaic' }),
-  ref: Object.freeze({ code: 'N0B', chip: 'REFLECTIVITY', short: 'REF', title: 'Nearest radar · super-resolution reflectivity (N0B)' }),
-  srv: Object.freeze({ code: 'N0S', chip: 'SRV', short: 'SRV', title: 'Nearest radar · storm-relative velocity (N0S)' }),
+  composite: Object.freeze({ chip: 'COMPOSITE', title: 'National base reflectivity mosaic' }),
+  ref: Object.freeze({ codes: tilts('B', 4), chip: 'REF', title: 'Nearest radar · super-res reflectivity (dBZ)' }),
+  vel: Object.freeze({ codes: tilts('G', 2), chip: 'VEL', title: 'Nearest radar · super-res base velocity (m/s; green toward, red away)' }),
+  srv: Object.freeze({ codes: Object.freeze(['N0S']), chip: 'SRV', title: 'Nearest radar · storm-relative velocity (kt)' }),
+  cc: Object.freeze({ codes: tilts('C', 4), chip: 'CC', title: 'Nearest radar · correlation coefficient (low CC in a hook = debris)' }),
+  zdr: Object.freeze({ codes: tilts('X', 4), chip: 'ZDR', title: 'Nearest radar · differential reflectivity (dB)' }),
+  kdp: Object.freeze({ codes: tilts('K', 4), chip: 'KDP', title: 'Nearest radar · specific differential phase (°/km)' }),
+  hc: Object.freeze({ codes: tilts('H', 4), chip: 'HC', title: 'Nearest radar · hydrometeor classification' }),
+  vil: Object.freeze({ codes: Object.freeze(['DVL']), chip: 'VIL', title: 'Nearest radar · vertically integrated liquid (kg/m²)' }),
+  et: Object.freeze({ codes: Object.freeze(['EET']), chip: 'ET', title: 'Nearest radar · enhanced echo tops (kft)' }),
 });
 
 /**
@@ -82,17 +93,6 @@ const isStamp = (stamp) => /^\d{12}$/.test(String(stamp ?? ''));
 export function nexradTileTemplate(stamp) {
   const product = isStamp(stamp) ? `ridge::USCOMP-N0Q-${stamp}` : LATEST_ALIAS;
   return `${IEM_TILE_ROOT}/${product}/{z}/{x}/{y}.png`;
-}
-
-/**
- * Single-radar tile URL template; no stamp → that radar's latest scan.
- * @param {string} site IEM 3-letter id, e.g. `TLX`.
- * @param {string} code Level III product, e.g. `N0B`.
- * @param {string|null} stamp
- */
-export function siteTileTemplate(site, code, stamp) {
-  if (!/^[A-Z0-9]{3}$/.test(site) || !/^[A-Z0-9]{3}$/.test(code)) throw new Error('bad radar site or product');
-  return `${IEM_TILE_ROOT}/ridge::${site}-${code}-${isStamp(stamp) ? stamp : '0'}/{z}/{x}/{y}.png`;
 }
 
 /**
@@ -177,19 +177,12 @@ function imageryTargets(viewer) {
   return viewer?.imageryLayers ? [viewer.imageryLayers] : [];
 }
 
-function createProvider(spec) {
-  if (spec.site) {
-    const latSpan = SITE_RANGE_KM / 111;
-    const lonSpan = latSpan / Math.max(0.2, Math.cos((spec.site.lat * Math.PI) / 180));
-    return new Cesium.UrlTemplateImageryProvider({
-      url: siteTileTemplate(spec.site.id, spec.code, spec.stamp),
-      tilingScheme: new Cesium.WebMercatorTilingScheme(),
-      rectangle: Cesium.Rectangle.fromDegrees(
-        spec.site.lon - lonSpan, Math.max(-85, spec.site.lat - latSpan),
-        spec.site.lon + lonSpan, Math.min(85, spec.site.lat + latSpan),
-      ),
-      maximumLevel: SITE_MAX_TILE_LEVEL,
-      enablePickFeatures: false,
+/** Imagery for one spec: a server-rendered single-radar scan, or the IEM composite. */
+async function defaultMakeProvider(spec) {
+  if (spec.image) {
+    const { west, south, east, north } = spec.bounds;
+    return Cesium.SingleTileImageryProvider.fromUrl(spec.image, {
+      rectangle: Cesium.Rectangle.fromDegrees(west, south, east, north),
     });
   }
   const { west, south, east, north } = NEXRAD_COVERAGE_DEG;
@@ -219,13 +212,16 @@ export function createNexradLayer({
   fetchImpl = (...args) => fetch(...args),
   now = () => Date.now(),
   locate = viewCenter,
+  makeProvider = defaultMakeProvider,
 } = {}) {
   let _viewer = null;
   let _enabled = false;
-  /** @type {{key: string, attachments: Array<{collection: any, layer: any}>}|null} */
+  /** @type {{key: string, series: string, attachments: Array<{collection: any, layer: any}>}|null} */
   let _current = null;
   const _retiring = new Set();
   let _product = 'composite';
+  let _tilt = 0;
+  let _scan = null;
   let _meta = null;
   let _site = null;
   let _sites = null;
@@ -253,17 +249,32 @@ export function createNexradLayer({
     _current = null;
   };
 
-  const show = (spec) => {
-    const key = `${spec.site?.id ?? 'US'}|${spec.code ?? 'N0Q'}|${spec.stamp ?? 'latest'}`;
+  /**
+   * Put one scan on the globe. `series` is the product stream (radar +
+   * product, or the composite): a newer scan of the SAME series crossfades;
+   * switching series replaces at once, so two products never overlap.
+   */
+  const show = async (spec, seq) => {
+    const key = spec.key ?? `US|N0Q|${spec.stamp ?? 'latest'}`;
     if (!_viewer || (_current && _current.key === key)) return;
-    const attachments = imageryTargets(_viewer).map((collection) => {
-      const layer = new Cesium.ImageryLayer(createProvider(spec), { alpha: NEXRAD_LAYER_ALPHA });
+    let providers;
+    try {
+      providers = await Promise.all(imageryTargets(_viewer).map(() => makeProvider(spec)));
+    } catch {
+      _lastError = 'radar image failed to load';
+      return;
+    }
+    if (seq !== _seq || !_enabled) return;
+    const attachments = imageryTargets(_viewer).map((collection, i) => {
+      const layer = new Cesium.ImageryLayer(providers[i], { alpha: NEXRAD_LAYER_ALPHA });
       collection.add(layer);
       return { collection, layer };
     });
     const previous = _current;
-    _current = { key, attachments };
-    if (previous) {
+    _current = { key, series: spec.series, attachments };
+    if (previous && previous.series !== spec.series) {
+      detach(previous.attachments);
+    } else if (previous) {
       const timer = { id: null, attachments: previous.attachments };
       timer.id = setTimeout(() => {
         _retiring.delete(timer);
@@ -281,6 +292,11 @@ export function createNexradLayer({
     return response.json();
   };
 
+  const productCode = () => {
+    const codes = NEXRAD_PRODUCTS[_product].codes;
+    return codes[Math.min(_tilt, codes.length - 1)];
+  };
+
   async function refreshComposite(signal, seq) {
     let meta = null;
     try {
@@ -295,21 +311,20 @@ export function createNexradLayer({
       _meta = meta;
       _fallback = false;
       _lastUpdate = now();
-      show({ stamp: meta.stamp });
-    } else if (!_current) {
-      // Metadata hiccup with nothing on screen: the tiles are a separate
+      await show({ series: 'US', stamp: meta.stamp }, seq);
+    } else if (!_current || _current.series !== 'US') {
+      // Metadata hiccup with no composite on screen: the tiles are a separate
       // endpoint and usually still fine, so show the rolling composite and
       // report it as a fallback rather than leaving the map empty.
       _fallback = true;
       _lastUpdate = now();
-      show({ stamp: null });
+      await show({ series: 'US', stamp: null }, seq);
       console.warn(`[Data:NEXRAD] ${_lastError}; showing latest composite`);
       _lastError = null;
     }
   }
 
   async function refreshSite(signal, seq) {
-    const product = NEXRAD_PRODUCTS[_product];
     if (!_sites) {
       try {
         _sites = parseRadarSites(await getJson(SITES_URL, signal));
@@ -327,24 +342,38 @@ export function createNexradLayer({
       // Over the ocean / abroad: nothing to show, and say why.
       retireAll();
       _site = null;
+      _scan = null;
       _meta = null;
       _lastError = null;
       return;
     }
-    let meta = null;
+    const code = productCode();
+    const series = `${site.id}_${code}`;
+    let scan;
     try {
-      meta = parseNexradMeta(await getJson(SITE_META_URL(site.id, product.code), signal));
-      _lastError = meta ? null : 'Malformed IEM metadata';
+      const response = await fetchImpl(L3_SCAN_URL(site.id, code), { signal, cache: 'no-store' });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.image || !payload?.bounds) {
+        throw new Error(payload?.error || `radar server HTTP ${response.status}`);
+      }
+      scan = payload;
     } catch (error) {
       if (signal?.aborted) throw error;
-      _lastError = null; // tiles may still be fine — fall back to latest below
+      if (seq !== _seq) return;
+      // Never leave another product's image under this product's label.
+      if (_current?.series !== series) retireAll();
+      _site = site;
+      _lastError = error.message;
+      return;
     }
     if (seq !== _seq || !_enabled) return;
     _site = site;
-    _meta = meta;
-    _fallback = !meta;
+    _scan = scan;
+    _meta = Number.isFinite(scan.scanMs) ? { validMs: scan.scanMs } : null;
+    _fallback = false;
+    _lastError = null;
     _lastUpdate = now();
-    show({ site, code: product.code, stamp: meta?.stamp ?? null });
+    await show({ series, key: scan.key, image: scan.image, bounds: scan.bounds }, seq);
   }
 
   const refresh = async (signal) => {
@@ -365,7 +394,7 @@ export function createNexradLayer({
     id: 'nexrad',
     name: 'NEXRAD Radar (US)',
     icon: '🌧️',
-    source: 'NOAA NEXRAD via IEM',
+    source: 'NOAA NEXRAD',
     updateInterval: 120_000,
 
     init(viewer) {
@@ -406,27 +435,42 @@ export function createNexradLayer({
     },
 
     getRowControls() {
-      return {
-        chips: Object.entries(NEXRAD_PRODUCTS).map(([id, p]) => ({
-          id,
-          label: p.chip,
-          title: p.title,
-          active: _product === id,
-          params: { product: id },
-        })),
-      };
+      const chips = Object.entries(NEXRAD_PRODUCTS).map(([id, p]) => ({
+        id,
+        label: p.chip,
+        title: p.title,
+        active: _product === id,
+        params: { product: id },
+      }));
+      const codes = NEXRAD_PRODUCTS[_product].codes;
+      if (codes?.length > 1) {
+        const tilt = Math.min(_tilt, codes.length - 1);
+        const elev = Number.isFinite(_scan?.elevationDeg) ? ` ${_scan.elevationDeg.toFixed(1)}°` : '';
+        chips.push({
+          id: 'tilt',
+          label: `TILT ${tilt + 1}/${codes.length}${elev}`,
+          title: 'Next elevation angle (wraps to the lowest)',
+          params: { tilt: (tilt + 1) % codes.length },
+        });
+      }
+      return { chips };
     },
 
     getParams() {
-      return { product: _product };
+      return { product: _product, tilt: _tilt };
     },
 
+    /** `{product}` and/or `{tilt}` (0 = lowest elevation). */
     setParams(params = {}) {
-      if (!Object.hasOwn(NEXRAD_PRODUCTS, params.product)) return false;
-      if (params.product !== _product) {
-        _product = params.product;
+      const product = params.product ?? _product;
+      const tilt = params.tilt ?? (params.product && params.product !== _product ? 0 : _tilt);
+      if (!Object.hasOwn(NEXRAD_PRODUCTS, product)) return false;
+      if (!Number.isInteger(tilt) || tilt < 0 || tilt > 3) return false;
+      if (product !== _product || tilt !== _tilt) {
+        _product = product;
+        _tilt = tilt;
+        _scan = null;
         _meta = null;
-        _site = null;
         _noRadar = false;
         _fallback = false;
         _lastError = null;
@@ -446,10 +490,12 @@ export function createNexradLayer({
           ? 'latest composite · scan time unknown'
           : (_meta ? `${formatScanLabel(_meta.validMs)} · ${_meta.radarsReporting ?? '?'}/${_meta.radarsTotal ?? '?'} radars` : '');
       } else if (_noRadar) {
-        label = `${product.short} · no radar near the view centre`;
+        label = `${product.chip} · no radar near the view centre`;
+      } else if (_site && _scan) {
+        const elev = Number.isFinite(_scan.elevationDeg) ? ` ${_scan.elevationDeg.toFixed(1)}°` : '';
+        label = `${radarIcao(_site)} ${product.chip}${elev} · ${formatScanLabel(_meta?.validMs)} · ${_site.name}`;
       } else if (_site) {
-        const scan = _fallback ? 'latest scan' : formatScanLabel(_meta?.validMs);
-        label = `${radarIcao(_site)} ${product.short} · ${scan} · ${_site.name}`;
+        label = `${radarIcao(_site)} ${product.chip} · ${_site.name}`;
       } else {
         label = '';
       }

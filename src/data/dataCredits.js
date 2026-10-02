@@ -77,6 +77,12 @@ export const DATA_CREDITS = [
       '<a href="https://mesonet.agron.iastate.edu/" target="_blank" rel="noopener">Iowa Environmental Mesonet</a>',
   },
   {
+    key: 'nexrad-level3-aws',
+    html:
+      'Single-radar products: NOAA NEXRAD Level III via ' +
+      '<a href="https://registry.opendata.aws/noaa-nexrad/" target="_blank" rel="noopener">NOAA Open Data on AWS</a>',
+  },
+  {
     key: 'overpass',
     html:
       'Road geometry (traffic): ' +

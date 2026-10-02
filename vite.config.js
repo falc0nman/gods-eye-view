@@ -47,6 +47,10 @@ import { createRequire } from 'node:module';
 import { defineConfig, loadEnv } from 'vite';
 import cesium from 'vite-plugin-cesium';
 import { normalizeRadioCountryInput } from './src/data/radioCountry.js';
+import zlib from 'node:zlib';
+import Bunzip from 'seek-bzip';
+import { decodeLevel3 } from './src/data/level3.js';
+import { encodePng, renderLevel3 } from './src/data/level3Render.js';
 import {
   buildChaserPlacefile,
   chaserPositions,
@@ -1486,6 +1490,141 @@ function life360Chasers() {
     configureServer: install,
     configurePreviewServer: install,
   };
+}
+
+/**
+ * NEXRAD Level III — decoded and rendered here, so browsers only ever receive
+ * a finished image. Source: NOAA's public `unidata-nexrad-level3` bucket
+ * (AWS Open Data, keyless, ~every 2–5 min per radar). See src/data/level3.js
+ * and src/data/level3Render.js.
+ *
+ * Routes:
+ *   GET /api/radar/l3/scan?site=TLX&product=N0G
+ *       → {key, product, scanMs, elevationDeg, bounds, site, image}
+ *   GET /api/radar/l3/image/<key>.png   (immutable per scan key)
+ *
+ * Each scan is fetched from NOAA once and rendered once; the newest-scan
+ * lookup is cached 30 s, and the last 40 rendered scans are kept in memory.
+ *
+ * @returns {import('vite').Plugin}
+ */
+function nexradLevel3() {
+  const BUCKET = 'https://unidata-nexrad-level3.s3.amazonaws.com';
+  const PRODUCTS = new Set([
+    'N0B', 'N1B', 'N2B', 'N3B', 'N0G', 'N1G', 'N0S',
+    'N0C', 'N1C', 'N2C', 'N3C', 'N0X', 'N1X', 'N2X', 'N3X',
+    'N0K', 'N1K', 'N2K', 'N3K', 'N0H', 'N1H', 'N2H', 'N3H', 'DVL', 'EET',
+  ]);
+  const KEY_RE = /^[A-Z0-9]{3}_[A-Z0-9]{3}_\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2}$/;
+  const LIST_TTL_MS = 30_000;
+  const MAX_SCANS = 40;
+  const MAX_FILE_BYTES = 8 * 1024 * 1024;
+  /** @type {Map<string, {at: number, key: string|null}>} */
+  const latest = new Map();
+  /** @type {Map<string, Promise<{png: Uint8Array, meta: object}>>} insertion-ordered LRU */
+  const scans = new Map();
+
+  const dayPrefix = (ms) => new Date(ms).toISOString().slice(0, 10).replace(/-/g, '_');
+  async function listKeys(prefix) {
+    const res = await fetch(`${BUCKET}/?list-type=2&prefix=${encodeURIComponent(prefix)}`, {
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!res.ok) throw new Error(`NOAA list HTTP ${res.status}`);
+    const xml = await res.text();
+    return [...xml.matchAll(/<Key>([^<]+)<\/Key>/g)].map((m) => m[1]).filter((k) => KEY_RE.test(k));
+  }
+  async function latestKey(site, product) {
+    const id = `${site}_${product}`;
+    const cached = latest.get(id);
+    if (cached && Date.now() - cached.at < LIST_TTL_MS) return cached.key;
+    // Today's scans; just after 00Z, yesterday's are the newest.
+    let keys = await listKeys(`${id}_${dayPrefix(Date.now())}`);
+    if (!keys.length) keys = await listKeys(`${id}_${dayPrefix(Date.now() - 86_400_000)}`);
+    const key = keys.sort().at(-1) ?? null;
+    latest.set(id, { at: Date.now(), key });
+    return key;
+  }
+  function scan(key) {
+    if (scans.has(key)) {
+      const hit = scans.get(key);
+      scans.delete(key);
+      scans.set(key, hit); // refresh LRU position
+      return hit;
+    }
+    const work = (async () => {
+      const res = await fetch(`${BUCKET}/${key}`, { signal: AbortSignal.timeout(20_000) });
+      if (!res.ok) throw new Error(`NOAA file HTTP ${res.status}`);
+      const bytes = new Uint8Array(await readResponseTextCappedBytes(res, MAX_FILE_BYTES));
+      const product = decodeLevel3(bytes, { bunzip: (data) => Bunzip.decode(Buffer.from(data)) });
+      const image = renderLevel3(product);
+      const png = encodePng(image, { deflate: (data) => zlib.deflateSync(data, { level: 6 }), crc32: zlib.crc32 });
+      return {
+        png,
+        meta: {
+          key,
+          product: key.slice(4, 7),
+          scanMs: product.scanMs,
+          elevationDeg: product.elevationDeg,
+          bounds: image.bounds,
+          site: product.site,
+          image: `/api/radar/l3/image/${key}.png`,
+        },
+      };
+    })();
+    // A failed scan must not stay cached.
+    work.catch(() => scans.delete(key));
+    scans.set(key, work);
+    while (scans.size > MAX_SCANS) scans.delete(scans.keys().next().value);
+    return work;
+  }
+  const sendJson = (res, status, obj) => {
+    if (res.headersSent) return;
+    res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify(obj));
+  };
+  const install = (server) => {
+    server.middlewares.use('/api/radar/l3', async (req, res) => {
+      const url = new URL(req.url || '/', 'http://local');
+      try {
+        if (url.pathname === '/scan') {
+          const site = String(url.searchParams.get('site') || '').toUpperCase();
+          const product = String(url.searchParams.get('product') || '').toUpperCase();
+          if (!/^[A-Z0-9]{3}$/.test(site) || !PRODUCTS.has(product)) {
+            sendJson(res, 400, { error: 'site must be a 3-letter radar id and product a supported Level III code' });
+            return;
+          }
+          const key = await latestKey(site, product);
+          if (!key) {
+            sendJson(res, 404, { error: `${product} is not available from this radar right now` });
+            return;
+          }
+          sendJson(res, 200, (await scan(key)).meta);
+          return;
+        }
+        const image = /^\/image\/([A-Z0-9_]+)\.png$/.exec(url.pathname);
+        if (image && KEY_RE.test(image[1]) && PRODUCTS.has(image[1].slice(4, 7))) {
+          const { png } = await scan(image[1]);
+          res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400, immutable' });
+          res.end(png);
+          return;
+        }
+        sendJson(res, 404, { error: 'unknown radar route' });
+      } catch (err) {
+        console.warn('[nexrad-l3]', err?.message || err);
+        sendJson(res, 502, { error: 'radar decode failed' });
+      }
+    });
+  };
+  return { name: 'nexrad-level3', configureServer: install, configurePreviewServer: install };
+}
+
+/** Read a fetch() body as bytes with a hard cap. */
+async function readResponseTextCappedBytes(response, maxBytes) {
+  const declared = Number(response.headers.get('content-length'));
+  if (Number.isFinite(declared) && declared > maxBytes) throw new Error('Upstream response too large');
+  const buffer = await response.arrayBuffer();
+  if (buffer.byteLength > maxBytes) throw new Error('Upstream response too large');
+  return buffer;
 }
 
 function radioBrowserProxy() {
@@ -7881,6 +8020,7 @@ export default defineConfig(({ mode }) => {
       tomtomProxy(),
       firmsProxy(),
       life360Chasers(),
+      nexradLevel3(),
       rocketLaunchesProxy(),
       terrainHeightsProxy(),
       adsbdbProxy(),
