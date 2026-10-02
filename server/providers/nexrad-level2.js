@@ -2,9 +2,11 @@ import zlib from 'node:zlib';
 import Bunzip from 'seek-bzip';
 import { defineProvider } from './common/provider.js';
 import { decodeLevel2 } from './nexrad/level2.js';
+import { createNotificationFeed } from './notifications/feed.js';
 import {
   createChunkListingFeed,
   LEVEL2_CHUNK_BUCKET,
+  LEVEL2_CHUNK_BUCKET_NAME,
   LEVEL2_VOLUME_BUCKET,
   listBucket,
 } from './nexrad/level2Feed.js';
@@ -67,6 +69,29 @@ const dayPrefix = (ms) =>
   new Date(ms).toISOString().slice(0, 10).replace(/-/g, '/');
 
 /**
+ * Chunks are announced by NOAA's notifications (GW-81) when a dispatcher is
+ * supplied. The chunk-bucket listing backfills a newly watched site and
+ * takes over whenever the notification stream lapses or is down.
+ */
+export function level2Feed({ dispatcher, fetchImpl, chunkBucket, now }) {
+  const listing = createChunkListingFeed({
+    fetchImpl,
+    bucket: chunkBucket,
+    now,
+  });
+  if (!dispatcher) return listing;
+  return createNotificationFeed({
+    dispatcher,
+    product: 'nexrad-level2-chunks',
+    bucket: LEVEL2_CHUNK_BUCKET_NAME,
+    match: (site, key) => key.startsWith(`${site}/`),
+    fallback: listing,
+    backfill: listing.backfill,
+    now,
+  });
+}
+
+/**
  * Chunk ingest, assembly, completed-volume fallback and routes. Exported for
  * tests: everything with I/O or time is injectable.
  */
@@ -75,7 +100,8 @@ export function createLevel2Ingest({
   now = () => Date.now(),
   chunkBucket = LEVEL2_CHUNK_BUCKET,
   volumeBucket = LEVEL2_VOLUME_BUCKET,
-  feed = createChunkListingFeed({ fetchImpl, bucket: chunkBucket, now }),
+  dispatcher = null,
+  feed = level2Feed({ dispatcher, fetchImpl, chunkBucket, now }),
   setTimeout: schedule = globalThis.setTimeout,
   clearTimeout: unschedule = globalThis.clearTimeout,
 } = {}) {
@@ -167,8 +193,11 @@ export function createLevel2Ingest({
           chunkType: key.chunkType,
           lastModified: item.lastModified ?? null,
           // When NOAA made the chunk available (notification or listing).
-          availableAt: item.lastModified ?? null,
+          // Backfilled chunks predate the watch, so they say nothing about
+          // feed latency.
+          availableAt: item.backfill ? null : (item.lastModified ?? null),
           via: item.via ?? 'listing',
+          backfill: Boolean(item.backfill),
         },
       };
     },
@@ -242,7 +271,14 @@ export function createLevel2Ingest({
 
   async function snapshot(site) {
     const feedStatus = feed.status(site);
-    let volume = assembler.newestVolume(site, { source: 'chunks' });
+    // A volume that has only its start chunk has nothing to draw yet; keep
+    // serving the previous one and name the next.
+    const started = assembler.newestVolume(site, { source: 'chunks' });
+    let volume = assembler.newestVolume(site, {
+      source: 'chunks',
+      withSweeps: true,
+    });
+    const nextVolume = started && started !== volume ? started.id : null;
     let mode = volume ? 'chunks' : 'pending';
     // Serve the newest completed volume while the chunk feed cannot deliver:
     // nothing assembled yet, or the feed is unavailable or stale.
@@ -303,6 +339,7 @@ export function createLevel2Ingest({
               ),
             }))
         : [],
+      nextVolume,
       latency: assembler.latency(site),
       generatedAt: t,
     };

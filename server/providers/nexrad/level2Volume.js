@@ -138,7 +138,7 @@ export function createVolumeAssembler({ now = () => Date.now() } = {}) {
     volume.chunks.add(key.sequence);
     addRadials(volume, radials);
     if (key.chunkType === 'E') volume.complete = true;
-    if (radials.length) {
+    if (radials.length && !record.provenance.backfill) {
       const lastRadialMs = Math.max(...radials.map((r) => r.timeMs));
       const lastModified = record.provenance.lastModified;
       const samples = siteState(key.site).latency;
@@ -167,9 +167,10 @@ export function createVolumeAssembler({ now = () => Date.now() } = {}) {
     return volume;
   }
 
-  function newestVolume(site, { source } = {}) {
+  function newestVolume(site, { source, withSweeps = false } = {}) {
     const volumes = [...(sites.get(site)?.volumes.values() ?? [])]
       .filter((v) => !source || v.source === source)
+      .filter((v) => !withSweeps || v.sweeps.size > 0)
       .sort((a, b) => (a.id < b.id ? -1 : 1));
     return volumes.at(-1) ?? null;
   }

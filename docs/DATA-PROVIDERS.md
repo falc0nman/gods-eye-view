@@ -1,7 +1,7 @@
 # Data providers
 
 Status: interface defined (GW-80), notification dispatch defined (GW-81).
-Reference implementation in progress: chunked NEXRAD Level II (GW-74).
+Reference implementation: chunked NEXRAD Level II (GW-74).
 Existing per-layer proxies are registered as **legacy** entries and move over
 one at a time.
 
@@ -194,10 +194,13 @@ dispatcher.status())` so `GET /api/providers` reports it under `streams`.
 ## Reference implementation: chunked Level II (GW-74)
 
 GW-74 is the first provider written against this interface, and the
-interface was shaped to fit it. Status: work in progress and not registered
-yet. The decoder, sweep assembly and provider are in
+interface was shaped to fit it. Read
 [`server/providers/nexrad-level2.js`](../server/providers/nexrad-level2.js)
-and [`server/providers/nexrad/`](../server/providers/nexrad/).
+and its tests in
+[`src/layers/nexrad/level2Ingest.test.mjs`](../src/layers/nexrad/level2Ingest.test.mjs)
+as the worked example. The decoder (`level2.js`), sweep assembly
+(`level2Volume.js`) and chunk-listing feed (`level2Feed.js`) are in
+[`server/providers/nexrad/`](../server/providers/nexrad/).
 
 | Stage       | Level II chunks                                                                                                                     |
 | ----------- | ----------------------------------------------------------------------------------------------------------------------------------- |
@@ -207,3 +210,37 @@ and [`server/providers/nexrad/`](../server/providers/nexrad/).
 | `decode`    | bzip2-decompress and parse Message 31 radials                                                                                       |
 | `normalize` | One record per chunk: `validTime` = first radial time; `provenance` = `{ object, volumeId, sequence, chunkType, availableAt, via }` |
 | `publish`   | The radar route assembles partial sweeps while a volume is in progress                                                              |
+
+### Level II routes
+
+- `GET /api/radar/l2/live?site=KTLX` watches the radar for the next three
+  minutes and returns what has arrived so far:
+  - `mode`: `chunks`, `volume` (completed-volume fallback) or `pending`
+  - `feed`: `via` (`notifications` or `polling`), `state` and `backfill`
+  - `volume`: id, number, VCP, `complete` and location
+  - `sweeps[]`: elevation, `radials` / `expectedRadials`, `complete`,
+    `dataAgeMs` and image URLs
+  - `nextVolume`: a volume that has started but has no radials yet
+  - `latency`: `radialToIngestMs` and `objectToIngestMs` (last and median)
+- `GET /api/radar/l2/image/<SITE>/<volumeId>/<elevation>/<REF|VEL>.png?rev=n`
+  returns one sweep as a PNG in the Level III projection. A sweep in progress
+  renders as the wedge scanned so far. Complete sweeps are cached as
+  immutable.
+
+### Behaviour
+
+- **Watching a radar:** its chunks are announced by notifications, or by
+  listing the volume's prefix every 4 s when the notification stream is down.
+  When notifications are in use, the chunks already written for the volume
+  in progress are backfilled once. Backfilled chunks are not counted as
+  latency samples.
+- **New volumes:** clients keep getting the previous volume until the new
+  one has radials (`nextVolume` names it in the meantime).
+- **Fallback:** until chunks for a radar are assembled, or while the feed is
+  unavailable or stale, the newest completed volume is served.
+- **Latency:** on the polling fallback (2026-10-02, KTLX), a chunk was decoded
+  about 2.4 s after NOAA wrote it and about 4 s after the radar collected its
+  last radial. The completed volume file appears about 4 minutes after the
+  scan starts.
+- **Memory:** only REF and VEL are kept, for the two newest volumes per
+  watched radar. Radars nobody has asked about for three minutes are dropped.

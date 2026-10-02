@@ -25,6 +25,9 @@ import { weatherProxy } from './weather.js';
 import { firePerimetersProxy } from './firePerimeters.js';
 import { cycloneProxy } from './cyclones.js';
 import { nexradLevel3Proxy } from './nexrad.js';
+import { nexradLevel2Provider } from './nexrad-level2.js';
+import { createNotificationDispatcher } from './notifications/dispatcher.js';
+import { unconfiguredTransport } from './notifications/transport.js';
 import { life360ChasersProxy } from './life360.js';
 import { windProxy } from './wind.js';
 import { createProviderRegistry } from './registry.js';
@@ -35,8 +38,14 @@ import { createProviderRegistry } from './registry.js';
  * `registry.register(definition)`; the rest are per-layer proxies awaiting
  * migration and are installed unchanged. See docs/DATA-PROVIDERS.md.
  */
-function localProviderRegistry() {
+function localProviderRegistry({ notificationTransport } = {}) {
   const registry = createProviderRegistry();
+  // NOAA new-object notifications (GW-81). The SNS → SQS consumer is supplied
+  // by the backend; without one, feeds poll.
+  const dispatcher = createNotificationDispatcher({
+    transport: notificationTransport ?? unconfiguredTransport(),
+  });
+  registry.registerStream('notifications', dispatcher.status);
   registry.registerLegacy('opensky', openSkyProxy);
   registry.registerLegacy('celestrak', celestrakProxy);
   registry.registerLegacy('tomtom', tomtomProxy);
@@ -65,6 +74,7 @@ function localProviderRegistry() {
   registry.registerLegacy('weather', weatherProxy);
   registry.registerLegacy('cyclones', cycloneProxy);
   registry.registerLegacy('nexrad-level3', nexradLevel3Proxy);
+  registry.register(nexradLevel2Provider({ dispatcher }));
   registry.registerLegacy('life360-chasers', life360ChasersProxy);
   registry.registerLegacy('fire-perimeters', firePerimetersProxy);
   registry.registerLegacy('key-setup', keySetupEndpoint);

@@ -17,6 +17,8 @@
 
 import { parseChunkKey } from './level2Volume.js';
 
+/** Bucket name as S3 notifications name it. */
+export const LEVEL2_CHUNK_BUCKET_NAME = 'unidata-nexrad-level2-chunks';
 export const LEVEL2_CHUNK_BUCKET =
   'https://unidata-nexrad-level2-chunks.s3.amazonaws.com';
 export const LEVEL2_VOLUME_BUCKET =
@@ -138,13 +140,13 @@ export function createChunkListingFeed({
     };
     watches.set(site, state);
 
-    const deliver = (objects) => {
+    const deliver = (objects, extra = null) => {
       for (const object of objects) {
         const key = parseChunkKey(object.key);
         if (!key || key.volumeId !== state.volumeId) continue;
         state.lastKey = object.key;
         state.lastChunkAt = now();
-        emit(object);
+        emit(extra ? { ...object, ...extra } : object);
         if (key.chunkType === 'E') return true;
       }
       return false;
@@ -156,7 +158,10 @@ export function createChunkListingFeed({
         if (state.slot === null) {
           Object.assign(state, await locate(site, signal), { state: 'live' });
           state.lastChunkAt = now();
-          deliver(await list(site, state.slot, null, signal));
+          // Chunks written before the watch began: not a latency sample.
+          deliver(await list(site, state.slot, null, signal), {
+            backfill: true,
+          });
         } else {
           let objects = await list(site, state.slot, state.lastKey, signal);
           if (state.volumeId === null) {
@@ -206,5 +211,19 @@ export function createChunkListingFeed({
     };
   }
 
-  return { kind: 'listing', watch, status };
+  /**
+   * Announce the chunks already written for the volume being scanned now:
+   * notifications only cover objects written after a site is first watched.
+   */
+  async function backfill(site, emit, { signal } = {}) {
+    const { slot, volumeId } = await locate(site, signal);
+    const objects = await list(site, slot, null, signal);
+    for (const object of objects) {
+      if (signal?.aborted) return;
+      if (parseChunkKey(object.key)?.volumeId === volumeId)
+        emit({ ...object, backfill: true });
+    }
+  }
+
+  return { kind: 'listing', watch, status, backfill };
 }

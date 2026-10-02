@@ -26,6 +26,9 @@ const DOWN_STATES = new Set(['lapsed', 'down']);
  * @param {string} options.bucket - S3 bucket name the notifications name.
  * @param {(site: string, key: string) => boolean} options.match - early per-site filter.
  * @param {{watch: Function, status?: Function}} [options.fallback] - polling feed.
+ * @param {(site: string, emit: Function, options: {signal: AbortSignal}) => Promise<void>} [options.backfill]
+ *   Announces objects that already exist when a site is first watched over
+ *   notifications (polling fallbacks find those themselves).
  */
 export function createNotificationFeed({
   dispatcher,
@@ -33,6 +36,7 @@ export function createNotificationFeed({
   bucket,
   match,
   fallback = null,
+  backfill = null,
   checkMs = DEFAULT_CHECK_MS,
   now = () => Date.now(),
   setTimeout: schedule = globalThis.setTimeout,
@@ -83,7 +87,21 @@ export function createNotificationFeed({
     });
     watches.set(site, entry);
     loop(entry);
+    const controller = new AbortController();
+    if (backfill && entry.via === 'notifications') {
+      entry.backfill = 'running';
+      Promise.resolve()
+        .then(() => backfill(site, entry.emit, { signal: controller.signal }))
+        .then(
+          () => (entry.backfill = 'done'),
+          (error) => {
+            if (!controller.signal.aborted)
+              entry.backfill = `failed: ${error?.message || error}`;
+          },
+        );
+    }
     return () => {
+      controller.abort();
       if (entry.timer !== null) unschedule(entry.timer);
       entry.unwatchFallback?.();
       entry.unsubscribe();
@@ -117,6 +135,7 @@ export function createNotificationFeed({
       stream,
       lastObjectAt: entry.lastObjectAt,
       switches: entry.switches,
+      ...(entry.backfill ? { backfill: entry.backfill } : {}),
     };
   }
 
