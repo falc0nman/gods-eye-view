@@ -28,6 +28,14 @@ export const PROVIDER_STAGES = Object.freeze([
 const PROVIDER_ID_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const MIN_POLL_MS = 1_000;
 const DEFAULT_SEEN_LIMIT = 2_048;
+const LATENCY_SAMPLES = 100;
+
+function median(values) {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = sorted.length >> 1;
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
 
 const identity = (value) => value;
 const definitions = new WeakSet();
@@ -217,6 +225,8 @@ export function createProviderRuntime(
     lastError: null,
     published: 0,
   };
+  /** Availability → ingest samples, ms (records whose provenance has `availableAt`). */
+  const latency = [];
   let controller = null;
   let timer = null;
   let unsubscribe = null;
@@ -241,6 +251,12 @@ export function createProviderRuntime(
     if (records.length > retain) records.splice(0, records.length - retain);
     status.published += 1;
     status.lastIngestAt = record.ingestTime;
+    const availableAt = record.provenance.availableAt;
+    if (Number.isFinite(availableAt)) {
+      latency.push(record.ingestTime - availableAt);
+      if (latency.length > LATENCY_SAMPLES)
+        latency.splice(0, latency.length - LATENCY_SAMPLES);
+    }
     for (const listener of listeners) {
       try {
         listener(record);
@@ -379,6 +395,14 @@ export function createProviderRuntime(
     stop,
     latest: () => records.at(-1) ?? null,
     records: () => records.slice(),
-    status: () => ({ ...status }),
+    status: () => ({
+      ...status,
+      // Upstream object available → GEV decoded and published it.
+      availableToIngestMs: {
+        last: latency.at(-1) ?? null,
+        median: median(latency),
+        samples: latency.length,
+      },
+    }),
   });
 }

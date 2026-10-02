@@ -252,3 +252,47 @@ test('every local provider registers centrally', () => {
   assert.ok(ids.includes('nexrad-level3'));
   assert.equal(ids.at(-1), 'key-setup');
 });
+
+test('provenance availableAt yields availability-to-ingest latency', async () => {
+  const runtime = createProviderRuntime(
+    pullProvider({
+      normalize: (decoded, item) => ({
+        validTime: 1_000,
+        data: decoded,
+        provenance: { availableAt: item.key === 'a' ? 8_000 : 8_500 },
+      }),
+    }),
+    { now: () => 9_000 },
+  );
+  runtime.acquire();
+  await runtime.poll();
+  runtime.stop();
+  assert.deepEqual(runtime.status().availableToIngestMs, {
+    last: 500,
+    median: 750,
+    samples: 2,
+  });
+});
+
+test('the catalog reports registered streams and survives a failing one', () => {
+  const registry = createProviderRegistry();
+  registry.registerStream('notifications', () => ({ state: 'flowing' }));
+  registry.registerStream('broken', () => {
+    throw new Error('boom');
+  });
+  assert.throws(() => registry.registerStream('broken', () => ({})), /already/);
+  let handler;
+  registry.plugins()[0].configureServer({
+    middlewares: { use: (_path, fn) => (handler = fn) },
+  });
+  let body;
+  handler(
+    { method: 'GET', url: '/' },
+    { writeHead() {}, end: (text) => (body = JSON.parse(text)) },
+    () => assert.fail('catalog route should answer'),
+  );
+  assert.deepEqual(body.streams, {
+    notifications: { state: 'flowing' },
+    broken: { state: 'error', error: 'boom' },
+  });
+});

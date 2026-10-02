@@ -1,8 +1,9 @@
 # Data providers
 
-Status: interface defined (GW-80). Reference implementation pending: chunked
-NEXRAD Level II (GW-74). Existing per-layer proxies are registered as
-**legacy** entries and move over one at a time.
+Status: interface defined (GW-80), notification dispatch defined (GW-81).
+Reference implementation in progress: chunked NEXRAD Level II (GW-74).
+Existing per-layer proxies are registered as **legacy** entries and move over
+one at a time.
 
 Every GEV data provider implements one interface, so layers stop
 reimplementing fetch, parse and cache logic. The code is in
@@ -111,19 +112,98 @@ To port a legacy proxy, split its handler into the stages above, move its
 routes into `routes()`, and change its `registerLegacy` line to `register`.
 Keep its URLs stable so the browser layer does not change.
 
+## Notifications (GW-81)
+
+NOAA's public buckets publish an SNS message for every new object. Providers
+use those messages instead of polling, which gives lower latency at lower
+cost. The code is in
+[`server/providers/notifications/`](../server/providers/notifications/).
+
+```
+SNS topic → SQS queue → transport → dispatcher → feed.watch(site) → provider.subscribe(emit) → runtime
+                                                   ↘ polling fallback (stream lapsed or down)
+```
+
+### Transport contract (backend)
+
+The queue consumer is part of the backend, so GEV only defines the contract.
+`createMemoryTransport()` is the in-process test double and implements the
+same contract.
+
+```js
+transport.start(onMessage, onError?) → stop()
+// onMessage(message, { receivedAt? }) once per queue message.
+// message: an SQS body (string or { Body }) holding an SNS envelope whose
+// `Message` is an S3 event, or the S3 event itself.
+```
+
+`parseObjectNotification()` accepts all three forms. It URL-decodes keys,
+keeps only `ObjectCreated*` events, and returns `{ bucket, key, size,
+eventTime }` for each record. Messages it can't read are counted as
+`malformed` and otherwise ignored.
+
+### Dispatcher
+
+`createNotificationDispatcher({ transport, lapseMs })` routes objects to
+subscribers:
+
+```js
+dispatcher.subscribe({ product, bucket, match: (key) => boolean, emit }) → unsubscribe
+```
+
+- **Early filtering:** each object is checked against the bucket first, then
+  the subscriber's `match` (for example a `KTLX/` prefix for a chase-zone
+  site). Everything else is counted as `unmatched` and dropped.
+- **Lifecycle:** the transport starts with the first subscription and stops
+  after the last one ends.
+- **State:** `idle`, `starting`, `flowing`, `lapsed` (nothing within
+  `lapseMs`, default 2 min) or `down` (the transport failed to start).
+- **Latency:** `status().products[product].objectToNotifyMs` measures the
+  time from NOAA writing the object to GEV receiving the notification.
+
+### Feeds and polling fallback
+
+`createNotificationFeed({ dispatcher, product, bucket, match(site, key),
+fallback })` gives a provider a per-site feed:
+
+```js
+feed.watch(site, emit) → unwatch
+feed.status(site) → { state, via: 'notifications' | 'polling', stream, lastObjectAt, switches }
+```
+
+When the stream lapses or goes down, the feed runs `fallback.watch(site,
+emit)` (a polling feed with the same shape). Once messages flow again, it
+stops the fallback. Around a switch both paths can announce the same object;
+the runtime drops the duplicate by key. For Level II chunks the fallback is
+`createChunkListingFeed()` in
+[`nexrad/level2Feed.js`](../server/providers/nexrad/level2Feed.js), which
+finds the volume being scanned with a rotated binary search over the
+`1…999` volume directories (about ten listings), then follows it.
+
+### Latency per product
+
+| Measure               | Where                                     | Meaning                                                             |
+| --------------------- | ----------------------------------------- | ------------------------------------------------------------------- |
+| `objectToNotifyMs`    | dispatcher `status().products`            | NOAA wrote the object → GEV received the notification               |
+| `availableToIngestMs` | each provider in `GET /api/providers`     | object available (`provenance.availableAt`) → decoded and published |
+| `dataAgeMs`           | provider responses (e.g. Level II sweeps) | newest observation → the moment the client was answered             |
+
+Register the dispatcher with `registry.registerStream('notifications', () =>
+dispatcher.status())` so `GET /api/providers` reports it under `streams`.
+
 ## Reference implementation: chunked Level II (GW-74)
 
-GW-74 is the first provider written against this interface, and the interface
-was shaped to fit it:
+GW-74 is the first provider written against this interface, and the
+interface was shaped to fit it. Status: work in progress and not registered
+yet. The decoder, sweep assembly and provider are in
+[`server/providers/nexrad-level2.js`](../server/providers/nexrad-level2.js)
+and [`server/providers/nexrad/`](../server/providers/nexrad/).
 
-| Stage       | Level II chunks                                                                                                                   |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| mode        | `push` when fed by the bucket's new-object notifications, or `pull` with short `pollMs` listing the current volume's chunk prefix |
-| `discover`  | One item per chunk object (`<site>/<volume>/<timestamp>-<seq>-<S                                                                  | I   | E>`), keyed by object key, so redelivery is harmless |
-| `fetch`     | Download one chunk (byte-capped, `ctx.signal`)                                                                                    |
-| `decode`    | bzip2-decompress and parse Message 31 radials                                                                                     |
-| `normalize` | One record per chunk: `validTime` = first radial time, `provenance` = `{ object, volume, sequence, chunkType }`                   |
-| `publish`   | Consumers (the radar route) assemble partial sweeps from `records()` while a volume is in progress                                |
-
-When GW-74 lands, this section links to it, and its tests serve as the
-worked example of the interface.
+| Stage       | Level II chunks                                                                                                                     |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| mode        | `push`: a notification feed (GW-81) with the chunk-listing feed as its polling fallback                                             |
+| `discover`  | One item per chunk object (`<site>/<volume>/<timestamp>-<seq>-<S\|I\|E>`), keyed by object key, so redelivery is harmless           |
+| `fetch`     | Download one chunk (byte-capped, `ctx.signal`)                                                                                      |
+| `decode`    | bzip2-decompress and parse Message 31 radials                                                                                       |
+| `normalize` | One record per chunk: `validTime` = first radial time; `provenance` = `{ object, volumeId, sequence, chunkType, availableAt, via }` |
+| `publish`   | The radar route assembles partial sweeps while a volume is in progress                                                              |

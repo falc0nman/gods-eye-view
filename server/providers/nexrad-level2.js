@@ -166,6 +166,9 @@ export function createLevel2Ingest({
           sequence: key.sequence,
           chunkType: key.chunkType,
           lastModified: item.lastModified ?? null,
+          // When NOAA made the chunk available (notification or listing).
+          availableAt: item.lastModified ?? null,
+          via: item.via ?? 'listing',
         },
       };
     },

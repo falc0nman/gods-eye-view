@@ -19,6 +19,8 @@ import {
 export function createProviderRegistry({ runtimeOptions = {} } = {}) {
   /** @type {Map<string, {id: string, kind: 'provider'|'legacy', provider?: object, runtime?: object, createPlugin?: Function}>} */
   const entries = new Map();
+  /** name → () => status, e.g. the notification dispatcher (GW-81). */
+  const streams = new Map();
 
   function claim(id) {
     if (entries.has(id))
@@ -60,6 +62,7 @@ export function createProviderRegistry({ runtimeOptions = {} } = {}) {
       lastIngestAt,
       lastError,
       published,
+      availableToIngestMs,
     } = runtime.status();
     return {
       id: provider.id,
@@ -74,7 +77,32 @@ export function createProviderRegistry({ runtimeOptions = {} } = {}) {
       lastIngestAt,
       lastError,
       published,
+      availableToIngestMs,
     };
+  }
+
+  /** Report a shared ingest stream (such as notifications) in the catalog. */
+  function registerStream(name, status) {
+    if (typeof status !== 'function')
+      throw new TypeError(`[provider] stream ${name} needs a status function`);
+    if (streams.has(name))
+      throw new Error(`[provider] stream ${name} is already registered`);
+    streams.set(name, status);
+  }
+
+  function streamStatus() {
+    return Object.fromEntries(
+      [...streams].map(([name, status]) => {
+        try {
+          return [name, status()];
+        } catch (error) {
+          return [
+            name,
+            { state: 'error', error: String(error?.message || error) },
+          ];
+        }
+      }),
+    );
   }
 
   /** `GET /api/providers` — what is registered and how each provider is doing. */
@@ -91,7 +119,10 @@ export function createProviderRegistry({ runtimeOptions = {} } = {}) {
           'Cache-Control': 'no-store',
         });
         res.end(
-          JSON.stringify({ providers: [...entries.values()].map(describe) }),
+          JSON.stringify({
+            providers: [...entries.values()].map(describe),
+            streams: streamStatus(),
+          }),
         );
       });
     };
@@ -129,6 +160,7 @@ export function createProviderRegistry({ runtimeOptions = {} } = {}) {
   return Object.freeze({
     register,
     registerLegacy,
+    registerStream,
     get: (id) => entries.get(id)?.runtime ?? null,
     has: (id) => entries.has(id),
     list: () => [...entries.values()].map(describe),
