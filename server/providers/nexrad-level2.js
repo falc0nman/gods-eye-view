@@ -15,6 +15,7 @@ import {
   expectedRadials,
   parseChunkKey,
   parseVolumeKey,
+  supplementalCuts,
   sweepProduct,
 } from './nexrad/level2Volume.js';
 import { encodePng, renderLevel3 } from './nexrad/render.js';
@@ -371,21 +372,29 @@ export function createLevel2Ingest({
         location: volume.location,
       },
       sweeps: volume
-        ? [...volume.sweeps.values()]
-            .sort((a, b) => a.elevationNumber - b.elevationNumber)
-            .map((sweep) => ({
-              elevationNumber: sweep.elevationNumber,
-              elevationDeg: Math.round(sweep.elevationDeg * 100) / 100,
-              radials: sweep.radials.size,
-              expectedRadials: expectedRadials(sweep),
-              complete: sweep.complete,
-              firstRadialMs: sweep.firstRadialMs,
-              lastRadialMs: sweep.lastRadialMs,
-              // GW-25 data-age: how old the newest radial in the sweep is.
-              dataAgeMs: t - sweep.lastRadialMs,
-              revision: sweep.revision,
-              images: sweepImages(site, volume, sweep, motion),
-            }))
+        ? (() => {
+            const sails = supplementalCuts(volume.sweeps.values());
+            return [...volume.sweeps.values()]
+              .sort((a, b) => a.elevationNumber - b.elevationNumber)
+              .map((sweep) => ({
+                elevationNumber: sweep.elevationNumber,
+                elevationDeg: Math.round(sweep.elevationDeg * 100) / 100,
+                radials: sweep.radials.size,
+                expectedRadials: expectedRadials(sweep),
+                complete: sweep.complete,
+                firstRadialMs: sweep.firstRadialMs,
+                lastRadialMs: sweep.lastRadialMs,
+                // GW-25 data-age: how old the newest radial in the sweep is.
+                dataAgeMs: t - sweep.lastRadialMs,
+                // SAILS / MESO-SAILS: an extra low-level cut mid-volume.
+                supplemental: sails.has(sweep.elevationNumber),
+                ...(sails.has(sweep.elevationNumber)
+                  ? { sailsCut: sails.get(sweep.elevationNumber) }
+                  : {}),
+                revision: sweep.revision,
+                images: sweepImages(site, volume, sweep, motion),
+              }));
+          })()
         : [],
       nextVolume,
       latency: assembler.latency(site),

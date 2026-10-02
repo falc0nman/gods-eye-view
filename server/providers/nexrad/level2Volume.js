@@ -238,6 +238,40 @@ export function createVolumeAssembler({ now = () => Date.now() } = {}) {
   };
 }
 
+/**
+ * SAILS / MESO-SAILS supplemental low-level cuts: a sweep back at the
+ * volume's lowest angle after the radar has already climbed above it (split
+ * cuts at the bottom of the volume do not count). Returns elevation number →
+ * SAILS cut index (1, 2, …).
+ */
+export function supplementalCuts(sweeps) {
+  const ordered = [...sweeps].sort(
+    (a, b) => a.elevationNumber - b.elevationNumber,
+  );
+  if (!ordered.length) return new Map();
+  // A sweep's first radial can read well off its nominal angle; the median
+  // of its radials does not.
+  const angle = new Map(ordered.map((s) => [s, sweepAngle(s)]));
+  const lowest = Math.min(...angle.values());
+  const cuts = new Map();
+  let highest = -Infinity;
+  for (const sweep of ordered) {
+    if (angle.get(sweep) <= lowest + 0.3 && highest >= lowest + 0.75)
+      cuts.set(sweep.elevationNumber, cuts.size + 1);
+    highest = Math.max(highest, angle.get(sweep));
+  }
+  return cuts;
+}
+
+function sweepAngle(sweep) {
+  const angles = sweep.radials
+    ? [...sweep.radials.values()]
+        .map((r) => r.elevationDeg)
+        .sort((a, b) => a - b)
+    : [];
+  return angles.length ? angles[angles.length >> 1] : sweep.elevationDeg;
+}
+
 /** Radials one full sweep holds at its azimuth spacing. */
 export function expectedRadials(sweep) {
   return Math.round(360 / sweep.azimuthSpacingDeg);

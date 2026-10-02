@@ -129,6 +129,27 @@ Keep its URLs stable so the browser layer does not change.
   - `/scan`, `/image` and `/value` are unchanged. `/scan` still answers from
     the scan lookup directly, then publishes the scan through the runtime
     (duplicates are dropped by key).
+  - Image tilts: N0 (0.5°), NA (0.9°), N1 (1.3°), NB (1.8°), N2 and N3, for
+    REF, VEL (N0/NA/N1), CC, ZDR, KDP and HC. SAILS rescans aren't
+    published as separate Level III files (keys are per volume), so SAILS
+    cuts come from Level II, which labels them (`supplemental`, `sailsCut`
+    in `/api/radar/l2/live`).
+  - `GET /api/radar/l3/attributes?site=HGX&product=NST|NMD` returns storm
+    detections as features
+    ([`nexrad/level3Attributes.js`](../server/providers/nexrad/level3Attributes.js)):
+    - **NST, storm tracks:** each cell's position, past track, 15–60 minute
+      forecast positions, movement (degrees from / knots), forecast error,
+      and maximum reflectivity with its height.
+    - **NMD, mesocyclones:** each circulation's position, strength rank,
+      parent storm, low-level rotational and delta velocity, base and depth,
+      maximum rotational velocity, TVS flag, motion, MSI, and past and
+      forecast track.
+
+    Health is reported per radar and product (`HGX/NST`).
+
+  - Hail Index (NHI), TVS (NTV) and Storm Structure (NSS) haven't been
+    published to `unidata-nexrad-level3` since 2022. On 2026-10-02 none of
+    the 206 sites had any.
 
 ## Health and data age (GW-83)
 

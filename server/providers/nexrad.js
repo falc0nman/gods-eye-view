@@ -3,6 +3,7 @@ import Bunzip from 'seek-bzip';
 import { beamHeightFt, decodeLevel3, valueAt } from './nexrad/level3.js';
 import { encodePng, renderLevel3 } from './nexrad/render.js';
 import { defineProvider } from './common/provider.js';
+import { decodeLevel3Attributes } from './nexrad/level3Attributes.js';
 
 /**
  * NEXRAD Level III — decoded and rendered here, so browsers only ever receive
@@ -24,37 +25,53 @@ import { defineProvider } from './common/provider.js';
 const BUCKET = 'https://unidata-nexrad-level3.s3.amazonaws.com';
 export const LEVEL3_PRODUCTS = Object.freeze(
   new Set([
+    // Tilts: N0 0.5°, NA 0.9°, N1 1.3°, NB 1.8°, N2 2.4°, N3 3.1° (VCP-dependent).
     'N0B',
+    'NAB',
     'N1B',
+    'NBB',
     'N2B',
     'N3B',
     'N0G',
+    'NAG',
     'N1G',
     'N0S',
     'N0C',
+    'NAC',
     'N1C',
+    'NBC',
     'N2C',
     'N3C',
     'N0X',
+    'NAX',
     'N1X',
+    'NBX',
     'N2X',
     'N3X',
     'N0K',
+    'NAK',
     'N1K',
+    'NBK',
     'N2K',
     'N3K',
     'N0H',
+    'NAH',
     'N1H',
+    'NBH',
     'N2H',
     'N3H',
     'DVL',
     'EET',
   ]),
 );
+/** Detection products, served as features by /attributes (./nexrad/level3Attributes.js). */
+export { LEVEL3_ATTRIBUTE_PRODUCTS } from './nexrad/level3Attributes.js';
+const ATTRIBUTE_PRODUCTS = new Set(['NST', 'NMD']);
 export const LEVEL3_KEY_RE =
   /^[A-Z0-9]{3}_[A-Z0-9]{3}_\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2}$/;
 const LIST_TTL_MS = 30_000;
 const MAX_SCANS = 40;
+const MAX_ATTRIBUTE_SCANS = 40;
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 
 async function readBytesCapped(response, maxBytes) {
@@ -152,7 +169,33 @@ export function createLevel3Service({
     return work;
   }
 
-  return { latestKey, scan };
+  /** @type {Map<string, Promise<object>>} insertion-ordered LRU */
+  const detections = new Map();
+
+  /** Storm tracks (NST) or mesocyclones (NMD) for one scan key. */
+  function attributes(key) {
+    if (detections.has(key)) {
+      const hit = detections.get(key);
+      detections.delete(key);
+      detections.set(key, hit);
+      return hit;
+    }
+    const work = (async () => {
+      const res = await fetchImpl(`${BUCKET}/${key}`, {
+        signal: AbortSignal.timeout(20_000),
+      });
+      if (!res.ok) throw new Error(`NOAA file HTTP ${res.status}`);
+      const bytes = await readBytesCapped(res, MAX_FILE_BYTES);
+      return { key, ...decodeLevel3Attributes(bytes, key.slice(4, 7)) };
+    })();
+    work.catch(() => detections.delete(key));
+    detections.set(key, work);
+    while (detections.size > MAX_ATTRIBUTE_SCANS)
+      detections.delete(detections.keys().next().value);
+    return work;
+  }
+
+  return { latestKey, scan, attributes };
 }
 
 const SCAN_KEY_TIME_RE = /_(\d{4})_(\d{2})_(\d{2})_(\d{2})_(\d{2})_(\d{2})$/;
@@ -252,17 +295,26 @@ export function createLevel3Ingest({
       if (!items.length && failure) throw failure;
       return items;
     },
-    fetch: (item) => service.scan(item.key),
+    fetch: (item) =>
+      ATTRIBUTE_PRODUCTS.has(item.product)
+        ? service.attributes(item.key)
+        : service.scan(item.key),
     normalize: (scan, item) => {
-      const validTime = Number.isFinite(scan.meta.scanMs)
-        ? scan.meta.scanMs
+      const scanMs = scan.meta?.scanMs ?? scan.scanMs;
+      const validTime = Number.isFinite(scanMs)
+        ? scanMs
         : level3KeyTime(item.key);
       return {
         key: item.key,
         product: pairOf(item.site, item.product),
         validTime,
-        // Only the metadata: the image and radials stay in the scan cache.
-        data: scan.meta,
+        // Only a summary: images, radials and features stay in their caches.
+        data: scan.meta ?? {
+          key: item.key,
+          product: scan.product,
+          scanMs,
+          count: (scan.cells ?? scan.circulations).length,
+        },
         provenance: { object: item.key },
       };
     },
@@ -300,6 +352,31 @@ export function createLevel3Ingest({
         // data age see the scan the client was just given.
         await runtime?.ingest({ key, site, product });
         sendJson(res, 200, scan.meta);
+        return;
+      }
+      if (url.pathname === '/attributes') {
+        // Storm tracks (NST) and mesocyclones (NMD) as features.
+        const site = String(url.searchParams.get('site') || '').toUpperCase();
+        const product = String(
+          url.searchParams.get('product') || '',
+        ).toUpperCase();
+        if (!/^[A-Z0-9]{3}$/.test(site) || !ATTRIBUTE_PRODUCTS.has(product)) {
+          sendJson(res, 400, {
+            error: 'site must be a 3-letter radar id and product NST or NMD',
+          });
+          return;
+        }
+        const key = await service.latestKey(site, product);
+        if (!key) {
+          sendJson(res, 404, {
+            error: `${product} is not available from this radar right now`,
+          });
+          return;
+        }
+        const detections = await service.attributes(key);
+        touch(site, product);
+        await runtime?.ingest({ key, site, product });
+        sendJson(res, 200, detections);
         return;
       }
       if (url.pathname === '/value') {
