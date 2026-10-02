@@ -387,9 +387,13 @@ test('an isolated valid two-character fixture round-trips an l field beyond the 
     const params = new URLSearchParams([['v', '2']]);
     codec.encodeLayerStateParams(params, state);
     assert.ok(params.get('l').length > 64, 'fixture must cross the old cap');
+    // Every registered token, dot-separated.
     assert.equal(
       params.get('l').length,
-      67 + 2 * Object.keys(ADDED_LAYER_TOKENS).length,
+      expectedLayerIds.reduce(
+        (sum, id) => sum + codec.LAYER_STATE_TOKEN_RESERVATIONS[id].length,
+        expectedLayerIds.length - 1,
+      ),
     );
     const restored = codec.decodeLayerStateParams(params);
     assert.deepEqual(restored?.enabledLayerIds, expectedLayerIds);

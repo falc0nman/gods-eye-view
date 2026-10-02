@@ -419,25 +419,6 @@ export function transitFeedCredit(feed) {
   };
 }
 
-/** Registered when the Bhote Koshi event reconstruction activates. */
-export const BHOTE_KOSHI_CREDIT = {
-  key: 'bhote-koshi-2026',
-  html:
-    'Bhote Koshi 2026 event imagery and derived reconstruction: ' +
-    '<a href="https://vantor.com/company/open-data-program" target="_blank" rel="noopener">Vantor Open Data</a> ' +
-    'and <a href="https://github.com/geo-pera/bhotekoshi-2026-reconstruction" target="_blank" rel="noopener">GeoPera</a> ' +
-    '(CC BY-NC 4.0); terrain © Re:Earth / Mapterhorn (CC BY 4.0)',
-};
-
-/** Registered when the scene-friendly Nepal incident locator activates. */
-export const BHOTE_KOSHI_LOCATOR_CREDIT = {
-  key: 'bhote-koshi-locator',
-  html:
-    'Flood corridor derived from the ' +
-    '<a href="https://github.com/geo-pera/bhotekoshi-2026-reconstruction/blob/main/vectors/river_centerline.geojson" target="_blank" rel="noopener">GeoPera river centerline</a> ' +
-    '(CC BY-NC 4.0)',
-};
-
 /** @type {Set<string>} Keys of dynamic credits already registered this session. */
 const _dynamicCreditKeys = new Set();
 

@@ -30,8 +30,6 @@ import { createApplicationFirePerimeters } from './layers/perimeters.js';
 import { createApplicationCables } from './layers/submarineCables.js';
 import { createInfrastructureLayers } from '../data/infrastructure.js';
 import { localGeoJsonServices } from './localGeojsonServices.js';
-import { createBhoteKoshiEventLayer } from '../data/bhoteKoshiEvent.js';
-import { createBhoteKoshiLocatorLayer } from '../data/bhoteKoshiLocator.js';
 
 const SOURCE_METHODS = Object.freeze({
   flights: ['getSnapshot'],
@@ -88,7 +86,6 @@ export function createApplicationCatalog({
   metadata = APPLICATION_LAYER_METADATA,
   vesselOptions,
   resolveAsset,
-  nepalBoundaryResolver,
 }) {
   if (!signal?.addEventListener)
     throw new TypeError('An application lifetime signal is required');
@@ -137,10 +134,6 @@ export function createApplicationCatalog({
     });
     const catalog = createLayerCatalog(
       [
-        createBhoteKoshiEventLayer(),
-        createBhoteKoshiLocatorLayer({
-          boundaryResolver: nepalBoundaryResolver,
-        }),
         flights,
         military,
         createApplicationLocalAdsb({

@@ -50,15 +50,9 @@ and map preferences through a scene-pack registry. The `scenes` export provides
 `createScenePackRegistry({ recipes, adapters })`; pass the result as `scenePacks`
 in the SceneDirector constructor options. Trusted adapters can supply
 `minimumHoldSec(states)`, `resolveVisual(shot, visual, isMapStackAvailable)` and
-`cancelMotion(getLayerModule)`. Default composition registers the existing Nepal
-presentation rules. These are code-level composition hooks, not executable
+`cancelMotion(getLayerModule)`. Default composition registers no event packs
+(the Bhote Koshi / Nepal pack was removed in GW-53). These are code-level composition hooks, not executable
 modules imported from scene files. Existing media-owner waits remain bounded.
-
-All authored scenes, assets, IDs, source links, attribution and existing JSON
-projects are preserved. The Nepal sequence remains the contribution introduced
-by @manjunath22466 in #590. Its clips use source links/embeds; comparison images
-and river coordinates are bundled. See the
-[event pack provenance](../public/events/bhote-koshi-2026/README.md).
 
 ## Next changes, in order
 

@@ -563,16 +563,6 @@ export const LAYER_STATE_REGISTRY = Object.freeze([
     token: 'p',
     disposition: 'enabled-only',
   }),
-  Object.freeze({
-    id: 'bhote-koshi-2026',
-    token: 'h',
-    disposition: 'enabled-only',
-  }),
-  Object.freeze({
-    id: 'bhote-koshi-locator',
-    token: 'z',
-    disposition: 'enabled-only',
-  }),
   Object.freeze({ id: 'bikeshare', token: 'b', disposition: 'enabled-only' }),
   Object.freeze({
     id: 'cctv',
@@ -756,6 +746,16 @@ const REGISTRY_BY_ID = new Map(
 );
 const REGISTRY_BY_TOKEN = new Map(
   LAYER_STATE_REGISTRY.map((entry) => [entry.token, entry]),
+);
+/**
+ * Tokens of removed layers (GW-53): still reserved in the ledger, so never
+ * reused, but no longer registered. A share link that names one is not
+ * malformed; the removed layer is skipped and the rest of the link restores.
+ */
+const RETIRED_IDS_BY_TOKEN = new Map(
+  Object.entries(LAYER_STATE_TOKEN_RESERVATIONS)
+    .filter(([, token]) => !REGISTRY_BY_TOKEN.has(token))
+    .map(([id, token]) => [token, id]),
 );
 const OPTION_OWNER_IDS = Object.freeze([
   ...new Set(
@@ -974,15 +974,24 @@ export function decodeLayerStateParams(params) {
   // Fail closed on an oversized payload rather than decoding a truncated one.
   if (rawLayers.length > MAX_ENABLED_LAYERS_CHARS) return null;
   if (rawOptionsField.length > MAX_LAYER_OPTIONS_CHARS) return null;
-  const layerTokens = rawLayers ? rawLayers.split('.') : [];
+  const allTokens = rawLayers ? rawLayers.split('.') : [];
   // `l=` is the one valid explicit-empty representation. Reject repeated
   // fields, empty members, duplicate members, or unknown members; silently
   // removing one would turn a malformed share into a different state.
+  // Retired tokens are known, so they are skipped rather than rejected.
   if (
-    layerTokens.some((token) => !token || !REGISTRY_BY_TOKEN.has(token)) ||
-    new Set(layerTokens).size !== layerTokens.length
+    allTokens.some(
+      (token) =>
+        !token ||
+        (!REGISTRY_BY_TOKEN.has(token) && !RETIRED_IDS_BY_TOKEN.has(token)),
+    ) ||
+    new Set(allTokens).size !== allTokens.length
   )
     return null;
+  const layerTokens = allTokens.filter((token) => REGISTRY_BY_TOKEN.has(token));
+  const retiredLayerIds = allTokens
+    .filter((token) => RETIRED_IDS_BY_TOKEN.has(token))
+    .map((token) => RETIRED_IDS_BY_TOKEN.get(token));
   const enabledLayerIds = layerTokens.map(
     (token) => REGISTRY_BY_TOKEN.get(token).id,
   );
@@ -1017,7 +1026,8 @@ export function decodeLayerStateParams(params) {
       rawOptions[ownerId][spec.key] = absentTokenValue(spec);
     }
   }
-  return normalizeLayerState({ enabledLayerIds, options: rawOptions });
+  const state = normalizeLayerState({ enabledLayerIds, options: rawOptions });
+  return retiredLayerIds.length ? { ...state, retiredLayerIds } : state;
 }
 
 /** Options with share-link-only values reset to their defaults. */

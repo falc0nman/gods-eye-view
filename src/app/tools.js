@@ -35,9 +35,6 @@ export function createApplicationTools({
     isMapStackAvailable: (id) =>
       mapStackController?.isStackAvailable(id) === true,
   });
-  dataManager.layers
-    .get('bhote-koshi-2026')
-    ?.module.attachSceneController(sceneDirector);
   defer(() => sceneDirector.destroy());
   onSceneDirector?.(sceneDirector);
   const annotations = initAnnotations({

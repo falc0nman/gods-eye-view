@@ -199,8 +199,8 @@ function encode(state) {
 
 test('production registry is exact, canonical, and rejects incomplete contracts', async () => {
   assert.equal(validateLayerStateRegistry(), true);
-  assert.equal(REGISTERED_LAYER_IDS.length, 31);
-  assert.equal(new Set(REGISTERED_LAYER_IDS).size, 31);
+  assert.equal(REGISTERED_LAYER_IDS.length, 29);
+  assert.equal(new Set(REGISTERED_LAYER_IDS).size, 29);
   assert.ok(REGISTERED_LAYER_IDS.includes('transit'));
   assert.deepEqual(REGISTERED_LAYER_IDS, [...REGISTERED_LAYER_IDS].sort());
   assert.deepEqual(LEGACY_LAYER_STATE_TOKENS, {
@@ -246,14 +246,16 @@ test('production registry is exact, canonical, and rejects incomplete contracts'
   );
   assert.equal(nextLayerStateToken(), FREE[0]);
   assert.equal(
-    nextLayerStateToken({ ...LAYER_STATE_TOKEN_RESERVATIONS, alpha: FREE[0], bravo: FREE[1] }),
+    nextLayerStateToken({
+      ...LAYER_STATE_TOKEN_RESERVATIONS,
+      alpha: FREE[0],
+      bravo: FREE[1],
+    }),
     FREE[2],
   );
   const digitsExhausted = {
     ...LAYER_STATE_TOKEN_RESERVATIONS,
-    ...Object.fromEntries(
-      FREE.map((digit) => [`prior-${digit}`, digit]),
-    ),
+    ...Object.fromEntries(FREE.map((digit) => [`prior-${digit}`, digit])),
   };
   assert.equal(nextLayerStateToken(digitsExhausted), '00');
   assert.equal(
@@ -279,7 +281,9 @@ test('production registry is exact, canonical, and rejects incomplete contracts'
           [
             ...'0123456789',
             ...[...LAYER_STATE_TOKEN_ALPHABET].flatMap((first) =>
-              [...LAYER_STATE_TOKEN_ALPHABET].map((second) => `${first}${second}`),
+              [...LAYER_STATE_TOKEN_ALPHABET].map(
+                (second) => `${first}${second}`,
+              ),
             ),
           ].map((token, index) => [`occupied-${index}`, token]),
         ),
@@ -301,40 +305,48 @@ test('production registry is exact, canonical, and rejects incomplete contracts'
     true,
   );
   assert.equal(
-    validateLayerStateAllocations(
-      LAYER_STATE_TOKEN_RESERVATIONS,
-      { ...LAYER_STATE_TOKEN_RESERVATIONS, future: FREE[0], next: FREE[1] },
-    ),
+    validateLayerStateAllocations(LAYER_STATE_TOKEN_RESERVATIONS, {
+      ...LAYER_STATE_TOKEN_RESERVATIONS,
+      future: FREE[0],
+      next: FREE[1],
+    }),
     true,
   );
   assert.throws(
-    () => validateLayerStateAllocations(LAYER_STATE_TOKEN_RESERVATIONS, {
-      ...LAYER_STATE_TOKEN_RESERVATIONS,
-      future: '00',
-    }),
+    () =>
+      validateLayerStateAllocations(LAYER_STATE_TOKEN_RESERVATIONS, {
+        ...LAYER_STATE_TOKEN_RESERVATIONS,
+        future: '00',
+      }),
     new RegExp(`next free token ${FREE[0]}`),
   );
   const beforeLastDigit = { ...digitsExhausted };
   delete beforeLastDigit[`prior-${FREE.at(-1)}`];
   assert.equal(
-    validateLayerStateAllocations(
-      beforeLastDigit,
-      { ...beforeLastDigit, futurePair: '00', futureDigit: FREE.at(-1) },
-    ),
+    validateLayerStateAllocations(beforeLastDigit, {
+      ...beforeLastDigit,
+      futurePair: '00',
+      futureDigit: FREE.at(-1),
+    }),
     true,
   );
   assert.equal(
-    validateLayerStateAllocations(
-      digitsExhausted,
-      { ...digitsExhausted, pairB: '01', pairA: '00' },
-    ),
+    validateLayerStateAllocations(digitsExhausted, {
+      ...digitsExhausted,
+      pairB: '01',
+      pairA: '00',
+    }),
     true,
   );
   assert.throws(
     () =>
       validateLayerStateAllocations(
         { ...LAYER_STATE_TOKEN_RESERVATIONS, merged: FREE[0] },
-        { ...LAYER_STATE_TOKEN_RESERVATIONS, merged: FREE[0], competing: FREE[0] },
+        {
+          ...LAYER_STATE_TOKEN_RESERVATIONS,
+          merged: FREE[0],
+          competing: FREE[0],
+        },
       ),
     new RegExp('next free token ' + FREE[1]),
   );
@@ -512,13 +524,22 @@ test('malformed enabled-layer lists reject the entire payload', () => {
   }
 });
 
-test('Nepal event and locator have distinct enabled-only share tokens', () => {
-  const decoded = decodeLayerStateParams(new URLSearchParams('v=2&l=h.z'));
-  assert.deepEqual(decoded.enabledLayerIds, [
+test('removed layers keep their tokens reserved and old links skip them', () => {
+  // GW-53 removed the Bhote Koshi event (h) and locator (z). Their tokens
+  // stay in the ledger so no new layer can reuse them.
+  assert.equal(LAYER_STATE_TOKEN_RESERVATIONS['bhote-koshi-2026'], 'h');
+  assert.equal(LAYER_STATE_TOKEN_RESERVATIONS['bhote-koshi-locator'], 'z');
+  assert.equal(REGISTERED_LAYER_IDS.includes('bhote-koshi-2026'), false);
+  const decoded = decodeLayerStateParams(new URLSearchParams('v=2&l=h.c.z'));
+  assert.deepEqual(decoded.enabledLayerIds, ['cctv']);
+  assert.deepEqual(decoded.retiredLayerIds, [
     'bhote-koshi-2026',
     'bhote-koshi-locator',
   ]);
-  assert.ok(encode(decoded).includes('l=h.z'));
+  assert.ok(encode(decoded).includes('l=c'));
+  // A token that was never reserved is still malformed.
+  assert.equal(decodeLayerStateParams(new URLSearchParams('v=2&l=c.Q')), null);
+  assert.equal(decodeLayerStateParams(new URLSearchParams('v=2&l=h.h')), null);
 });
 
 test('unknown and forbidden option fields are ignored while missing options use codec defaults', () => {

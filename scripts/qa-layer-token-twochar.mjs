@@ -99,7 +99,7 @@ function injectCodec(source) {
 function injectCatalog(source) {
   const result = replaceOnce(
     source,
-    '        createBhoteKoshiEventLayer(),',
+    '        flights,\n        military,',
     `        {
           id: '${fixtureId}',
           name: 'Synthetic two-character token',
@@ -112,7 +112,8 @@ function injectCatalog(source) {
           async destroy() { return true; },
           getStats() { return { count: 0 }; },
         },
-        createBhoteKoshiEventLayer(),`,
+        flights,
+        military,`,
     'catalog',
   );
   injections.catalog += 1;
