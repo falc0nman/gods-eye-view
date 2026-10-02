@@ -864,5 +864,13 @@
   "src/layers/traffic/motion.test.mjs",
   "scripts/qa-journey-recorder.mjs",
   "scripts/qa-alpr-journey.mjs",
-  "scripts/qa-context-arrivals.mjs"
+  "scripts/qa-context-arrivals.mjs",
+  "compose.yaml",
+  "scripts/db-secrets.mjs",
+  "scripts/db-integration.mjs",
+  "scripts/qa-database.mjs",
+  "src/tooling/database.test.mjs",
+  "docs/DATABASE.md",
+  "scripts/container-entrypoint.mjs",
+  "scripts/db-health-check.mjs"
 ]

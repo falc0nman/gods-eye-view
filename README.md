@@ -28,6 +28,9 @@ _“pretty cool”_ — [Brendan Eich](https://x.com/BrendanEich/status/20945920
 
 </div>
 
+For the optional local PostgreSQL/PostGIS stack, migrations, backups, and recovery,
+see [Database setup](docs/DATABASE.md).
+
 ---
 
 <div align="center">

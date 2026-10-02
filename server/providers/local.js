@@ -27,6 +27,7 @@ import { cycloneProxy } from './cyclones.js';
 import { nexradLevel3Proxy } from './nexrad.js';
 import { life360ChasersProxy } from './life360.js';
 import { windProxy } from './wind.js';
+import { databasePlugin } from './database.js';
 
 /** Construct the local provider plugins in their established order. */
 function localProviderPlugins() {
@@ -59,6 +60,7 @@ function localProviderPlugins() {
     nexradLevel3Proxy(),
     life360ChasersProxy(),
     firePerimetersProxy(),
+    databasePlugin(),
     keySetupEndpoint(),
   ];
 }

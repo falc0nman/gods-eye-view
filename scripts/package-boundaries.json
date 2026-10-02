@@ -3097,5 +3097,14 @@
       "src/layers/perimeters/source.js"
     ],
     "external": []
+  },
+  "database-provider": {
+    "runtime": "node",
+    "exports": ["./server/providers/database"],
+    "modules": [
+      "server/providers/database.js",
+      "server/database/connection.js"
+    ],
+    "external": ["pg"]
   }
 }
