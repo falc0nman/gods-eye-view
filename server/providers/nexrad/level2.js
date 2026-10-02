@@ -116,6 +116,8 @@ function readRadial(view, at, wanted) {
     elevationDeg: view.getFloat32(at + 24),
     site: null,
     vcp: null,
+    nyquistMs: null,
+    unambiguousRangeKm: null,
     moments: {},
   };
   const blocks = Math.min(view.getUint16(at + 30), 10);
@@ -137,6 +139,10 @@ function readRadial(view, at, wanted) {
         heightFt: (view.getInt16(b + 16) + view.getUint16(b + 18)) * 3.28084,
       };
       radial.vcp = view.getUint16(b + 40);
+    } else if (kind === 'R' && name === 'RAD') {
+      // Unambiguous range (0.1 km) and Nyquist velocity (0.01 m/s).
+      radial.unambiguousRangeKm = view.getUint16(b + 6) / 10;
+      radial.nyquistMs = view.getUint16(b + 16) / 100;
     } else if (kind === 'D' && (!wanted || wanted.has(name))) {
       radial.moments[name] = readMoment(view, b, name);
     }

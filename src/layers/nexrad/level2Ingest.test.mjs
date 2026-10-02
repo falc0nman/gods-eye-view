@@ -290,7 +290,8 @@ test('notified chunks reach clients as partial sweeps with measured latency', as
     assert.equal(sweep.expectedRadials, 720);
     assert.equal(sweep.complete, false);
     assert.ok(sweep.dataAgeMs >= 0);
-    assert.deepEqual(Object.keys(sweep.images), ['REF', 'VEL']);
+    assert.deepEqual(Object.keys(sweep.images), ['REF', 'VEL', 'VDA']);
+    assert.equal(live.stormMotion, null);
     assert.equal(live.latency.objectToIngestMs.last, 800);
 
     const png = await call(sweep.images.VEL.replace('/api/radar/l2', ''));

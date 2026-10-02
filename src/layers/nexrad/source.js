@@ -84,7 +84,7 @@ export function validateScan(value) {
   if (
     typeof value?.key !== 'string' ||
     !/^[A-Z0-9]{3}_[A-Z0-9]{3}_\d{4}(?:_\d{2}){5}$/.test(value.key) ||
-    value.image !== `/api/radar/l3/image/${value.key}.png` ||
+    value.image !== `/api/radar/l3/image?key=${value.key}` ||
     !b ||
     !['west', 'south', 'east', 'north'].every((k) => Number.isFinite(b[k])) ||
     b.west >= b.east ||

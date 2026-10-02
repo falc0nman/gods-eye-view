@@ -2,6 +2,8 @@ import { createProviderRegistry } from './registry.js';
 import { createNotificationDispatcher } from './notifications/dispatcher.js';
 import { unconfiguredTransport } from './notifications/transport.js';
 import { nexradLevel2Provider } from './nexrad-level2.js';
+import { nexradLevel3Provider } from './nexrad.js';
+import { stormAttributesProvider } from './stormAttributes.js';
 import { createHealthRecorder } from './common/healthStore.js';
 
 /**
@@ -24,6 +26,8 @@ export function registerInterfaceProviders(
   });
   registry.registerStream('notifications', dispatcher.status);
   registry.register(nexradLevel2Provider({ dispatcher }));
+  registry.register(nexradLevel3Provider());
+  registry.register(stormAttributesProvider());
   return registry;
 }
 

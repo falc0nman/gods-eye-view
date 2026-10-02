@@ -47,15 +47,21 @@ No raw token or database credential is returned. Cookie values must have at leas
 43 URL-safe characters; GW-45 issues 32 random bytes. See
 [AUTHENTICATION.md](AUTHENTICATION.md) for OAuth, live provider checks, CSRF and admin APIs.
 
-| API                         | Required policy                    | Response                                                  |
-| --------------------------- | ---------------------------------- | --------------------------------------------------------- |
-| `GET /api/session`          | Valid session                      | Own user ID, display name, roles, permissions, and expiry |
-| `GET /api/database/health`  | Valid session and `system:read`    | Minimal database readiness                                |
-| `GET /api/providers`        | Valid session and `system:read`    | Data providers, their status and ingest streams           |
-| `GET /api/providers/health` | Valid session and `system:read`    | Provider health, data age and recent transitions (GW-83)  |
-| `GET /api/radar/l2/live`    | Valid session and `feed:read`      | Chunked Level II sweeps for one radar (GW-74)             |
-| `GET /api/radar/l2/image`   | Valid session and `feed:read`      | One sweep as a PNG, `Cache-Control: private`              |
-| Other `/api` routes         | Denied until explicitly registered | 401 or 403                                                |
+| API                               | Required policy                    | Response                                                  |
+| --------------------------------- | ---------------------------------- | --------------------------------------------------------- |
+| `GET /api/session`                | Valid session                      | Own user ID, display name, roles, permissions, and expiry |
+| `GET /api/database/health`        | Valid session and `system:read`    | Minimal database readiness                                |
+| `GET /api/providers`              | Valid session and `system:read`    | Data providers, their status and ingest streams           |
+| `GET /api/providers/health`       | Valid session and `system:read`    | Provider health, data age and recent transitions (GW-83)  |
+| `GET /api/radar/l2/live`          | Valid session and `feed:read`      | Chunked Level II sweeps for one radar (GW-74)             |
+| `GET /api/radar/l2/image`         | Valid session and `feed:read`      | One sweep as a PNG, `Cache-Control: private`              |
+| `GET /api/radar/l2/value`         | Valid session and `feed:read`      | Raw, dealiased and storm-relative velocity at a point     |
+| `GET /api/radar/l3/scan`          | Valid session and `feed:read`      | Newest Level III scan metadata for a radar and product    |
+| `GET /api/radar/l3/image`         | Valid session and `feed:read`      | One Level III scan as a PNG, `Cache-Control: private`     |
+| `GET /api/radar/l3/value`         | Valid session and `feed:read`      | Level III value and beam height at a point                |
+| `GET /api/radar/l3/attributes`    | Valid session and `feed:read`      | Storm tracks (NST) or mesocyclones (NMD) as features      |
+| `GET /api/radar/storm-attributes` | Valid session and `feed:read`      | Hail and TVS per storm cell (IEM storm attribute table)   |
+| Other `/api` routes               | Denied until explicitly registered | 401 or 403                                                |
 
 Declare future handlers through `createBackend({ pool, routes })`:
 
@@ -122,7 +128,7 @@ GW-53 is still in progress. After its removal work merges, migrate the surviving
 legacy provider handlers onto the provider interface, which serves them as
 backend routes with explicit permissions. Then update development proxying to
 this backend and retire Vite plugin routing. Providers already on the
-interface (Level II) are served by the backend now. `npm run dev` serves the
+interface (Level II, Level III, storm attributes) are served by the backend now. `npm run dev` serves the
 same handlers without sessions, for local development only. Until then, production `/api/weather`, provider settings, and other
 legacy proxy endpoints are deliberately unavailable. The static globe can load
 its bundled/keyless content; backend-provided live features require that follow-up

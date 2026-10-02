@@ -13,12 +13,21 @@ import {
 import {
   createVolumeAssembler,
   expectedRadials,
-  LEVEL2_RENDER_GROUPS,
   parseChunkKey,
   parseVolumeKey,
+  supplementalCuts,
   sweepProduct,
 } from './nexrad/level2Volume.js';
 import { encodePng, renderLevel3 } from './nexrad/render.js';
+import { parseStormMotion } from './nexrad/dealias.js';
+import { sweepValueAt, velocityProduct } from './nexrad/level2Velocity.js';
+import {
+  createStormMotionSource,
+  describeMotion,
+} from './nexrad/stormMotion.js';
+
+/** Image products: decoded moments plus the derived velocity products (GW-72). */
+const IMAGE_PRODUCTS = Object.freeze(['REF', 'VEL', 'VDA', 'SRV']);
 
 /**
  * NEXRAD Level II, ingested as real-time chunks (GW-74). It is the reference
@@ -38,10 +47,15 @@ import { encodePng, renderLevel3 } from './nexrad/render.js';
  *       Watches the site for the next few minutes; the response holds
  *       whatever has arrived so far. Only signed-in, authorized requests
  *       can start upstream ingest.
- *   GET /api/radar/l2/image?site&volume&elevation&product=REF|VEL&rev
+ *   GET /api/radar/l2/image?site&volume&elevation&product&rev[&motion]
+ *       product REF, VEL, VDA (dealiased) or SRV (storm-relative, needs
+ *       motion=DDD/SS; the vector applied is in X-Storm-Motion).
  *       A sweep as an equirectangular PNG over its coverage square (the
  *       same projection as Level III). In-progress sweeps render as the
  *       wedge scanned so far. Cached privately: images are authorized data.
+ *   GET /api/radar/l2/value?site&volume&elevation&lat&lon[&motion]
+ *       Raw, dealiased and storm-relative velocity and reflectivity at a
+ *       point (couplet interrogation, GW-8).
  */
 
 export const LEVEL2_MOMENTS_KEPT = Object.freeze(['REF', 'VEL']);
@@ -107,6 +121,7 @@ export function createLevel2Ingest({
   feed = level2Feed({ dispatcher, fetchImpl, chunkBucket, now }),
   setTimeout: schedule = globalThis.setTimeout,
   clearTimeout: unschedule = globalThis.clearTimeout,
+  stormMotion = createStormMotionSource({ fetchImpl, now }),
 } = {}) {
   const assembler = createVolumeAssembler({ now });
   /** site → {expiresAt, unwatch} */
@@ -243,6 +258,12 @@ export function createLevel2Ingest({
         permissions: ['feed:read'],
         handler: ({ query }) => imageRoute(query),
       },
+      {
+        method: 'GET',
+        path: '/api/radar/l2/value',
+        permissions: ['feed:read'],
+        handler: ({ query }) => valueRoute(query),
+      },
     ],
   });
 
@@ -308,7 +329,33 @@ export function createLevel2Ingest({
     return promise;
   }
 
-  async function snapshot(site) {
+  /** Product names a sweep can be drawn as (SRV only with a motion). */
+  function sweepImages(site, volume, sweep, motion) {
+    const has = (name) =>
+      [...sweep.radials.values()].some((r) => r.moments[name]);
+    const names = [];
+    if (has('REF')) names.push('REF');
+    if (has('VEL')) names.push('VEL', 'VDA', ...(motion ? ['SRV'] : []));
+    return Object.fromEntries(
+      names.map((name) => [
+        name,
+        `/api/radar/l2/image?${new URLSearchParams({
+          site,
+          volume: volume.id,
+          elevation: String(sweep.elevationNumber),
+          product: name,
+          rev: String(sweep.revision),
+          ...(name === 'SRV'
+            ? {
+                motion: `${Math.round(motion.fromDeg)}/${Math.round(motion.speedKt)}`,
+              }
+            : {}),
+        })}`,
+      ]),
+    );
+  }
+
+  async function snapshot(site, { motion: motionRequest = null } = {}) {
     const feedStatus = feed.status(site);
     // A volume that has only its start chunk has nothing to draw yet; keep
     // serving the previous one and name the next.
@@ -338,10 +385,18 @@ export function createLevel2Ingest({
         console.warn('[nexrad-l2] completed volume', error?.message || error);
       }
     }
+    const resolved = await stormMotion.resolve(
+      motionRequest,
+      volume?.location ?? null,
+    );
+    const motion = resolved.motion;
     const t = now();
     return {
       site,
       mode,
+      // Which storm motion SRV images use, and where it came from.
+      stormMotion: motion,
+      ...(resolved.error ? { stormMotionError: resolved.error } : {}),
       feed: { kind: feed.kind ?? 'custom', ...feedStatus },
       volume: volume && {
         id: volume.id,
@@ -353,36 +408,29 @@ export function createLevel2Ingest({
         location: volume.location,
       },
       sweeps: volume
-        ? [...volume.sweeps.values()]
-            .sort((a, b) => a.elevationNumber - b.elevationNumber)
-            .map((sweep) => ({
-              elevationNumber: sweep.elevationNumber,
-              elevationDeg: Math.round(sweep.elevationDeg * 100) / 100,
-              radials: sweep.radials.size,
-              expectedRadials: expectedRadials(sweep),
-              complete: sweep.complete,
-              firstRadialMs: sweep.firstRadialMs,
-              lastRadialMs: sweep.lastRadialMs,
-              // GW-25 data-age: how old the newest radial in the sweep is.
-              dataAgeMs: t - sweep.lastRadialMs,
-              revision: sweep.revision,
-              images: Object.fromEntries(
-                Object.keys(LEVEL2_RENDER_GROUPS)
-                  .filter((name) =>
-                    [...sweep.radials.values()].some((r) => r.moments[name]),
-                  )
-                  .map((name) => [
-                    name,
-                    `/api/radar/l2/image?${new URLSearchParams({
-                      site,
-                      volume: volume.id,
-                      elevation: String(sweep.elevationNumber),
-                      product: name,
-                      rev: String(sweep.revision),
-                    })}`,
-                  ]),
-              ),
-            }))
+        ? (() => {
+            const sails = supplementalCuts(volume.sweeps.values());
+            return [...volume.sweeps.values()]
+              .sort((a, b) => a.elevationNumber - b.elevationNumber)
+              .map((sweep) => ({
+                elevationNumber: sweep.elevationNumber,
+                elevationDeg: Math.round(sweep.elevationDeg * 100) / 100,
+                radials: sweep.radials.size,
+                expectedRadials: expectedRadials(sweep),
+                complete: sweep.complete,
+                firstRadialMs: sweep.firstRadialMs,
+                lastRadialMs: sweep.lastRadialMs,
+                // GW-25 data-age: how old the newest radial in the sweep is.
+                dataAgeMs: t - sweep.lastRadialMs,
+                // SAILS / MESO-SAILS: an extra low-level cut mid-volume.
+                supplemental: sails.has(sweep.elevationNumber),
+                ...(sails.has(sweep.elevationNumber)
+                  ? { sailsCut: sails.get(sweep.elevationNumber) }
+                  : {}),
+                revision: sweep.revision,
+                images: sweepImages(site, volume, sweep, motion),
+              }));
+          })()
         : [],
       nextVolume,
       latency: assembler.latency(site),
@@ -390,16 +438,37 @@ export function createLevel2Ingest({
     };
   }
 
-  function image(site, volumeId, elevationNumber, moment) {
-    const sweep = assembler.sweep(site, volumeId, elevationNumber);
-    if (!sweep) return null;
-    const location =
+  /** Dealiasing anchors each sweep to the same tilt of the volume before. */
+  const velocityOptions = (site) => ({
+    referenceOf: (sweep) =>
+      assembler.referenceSweep(site, sweep.volumeId, sweep.elevationNumber),
+  });
+
+  function sweepLocation(site, volumeId, sweep) {
+    return (
       assembler.volume(site, volumeId)?.location ??
       [...sweep.radials.values()].find((r) => r.site)?.site ??
-      null;
-    const cacheKey = `${site}/${volumeId}/${elevationNumber}/${moment}/${sweep.revision}`;
+      null
+    );
+  }
+
+  function image(site, volumeId, elevationNumber, moment, motion = null) {
+    const sweep = assembler.sweep(site, volumeId, elevationNumber);
+    if (!sweep) return null;
+    const location = sweepLocation(site, volumeId, sweep);
+    const motionKey = motion ? `${motion.fromDeg}/${motion.speedKt}` : '';
+    const cacheKey = `${site}/${volumeId}/${elevationNumber}/${moment}/${sweep.revision}/${motionKey}`;
     if (images.has(cacheKey)) return images.get(cacheKey);
-    const product = sweepProduct(sweep, moment, location);
+    const product =
+      moment === 'VDA' || moment === 'SRV'
+        ? velocityProduct(
+            sweep,
+            moment,
+            location,
+            motion,
+            velocityOptions(site),
+          )
+        : sweepProduct(sweep, moment, location);
     if (!product) return null;
     const png = encodePng(renderLevel3(product), {
       deflate: (data) => zlib.deflateSync(data, { level: 6 }),
@@ -425,7 +494,10 @@ export function createLevel2Ingest({
       };
     touch(site);
     try {
-      return { status: 200, body: await snapshot(site) };
+      return {
+        status: 200,
+        body: await snapshot(site, { motion: query.get('motion') }),
+      };
     } catch (err) {
       console.warn('[nexrad-l2]', err?.message || err);
       return { status: 502, body: { error: 'radar ingest failed' } };
@@ -443,15 +515,22 @@ export function createLevel2Ingest({
       !Number.isInteger(elevation) ||
       elevation < 1 ||
       elevation > 99 ||
-      !LEVEL2_RENDER_GROUPS[product]
+      !IMAGE_PRODUCTS.includes(product)
     )
       return {
         status: 400,
         body: {
-          error: 'expected site, volume, elevation and product REF or VEL',
+          error:
+            'expected site, volume, elevation and product REF, VEL, VDA or SRV',
         },
       };
-    const hit = image(site, volumeId, elevation, product);
+    // SRV images name their storm motion explicitly; `auto` is resolved by
+    // /live first, so an image URL always means one exact picture.
+    const motion =
+      product === 'SRV' ? parseStormMotion(query.get('motion')) : null;
+    if (product === 'SRV' && !motion)
+      return { status: 400, body: { error: 'SRV needs motion=DDD/SS' } };
+    const hit = image(site, volumeId, elevation, product, motion);
     if (!hit) return { status: 404, body: { error: 'sweep not available' } };
     return {
       status: 200,
@@ -463,6 +542,67 @@ export function createLevel2Ingest({
       cacheControl: hit.complete
         ? 'private, max-age=86400, immutable'
         : 'private, max-age=60',
+      ...(motion
+        ? { headers: { 'X-Storm-Motion': describeMotion(motion) } }
+        : {}),
+    };
+  }
+
+  /**
+   * Point values for interrogation (GW-8): raw, dealiased and storm-relative
+   * velocity, and reflectivity.
+   */
+  function valueRoute(query) {
+    const site = String(query.get('site') || '').toUpperCase();
+    const volumeId = String(query.get('volume') || '');
+    const elevation = Number(query.get('elevation'));
+    const lat = Number(query.get('lat'));
+    const lon = Number(query.get('lon'));
+    const motionText = query.get('motion');
+    const motion = motionText ? parseStormMotion(motionText) : null;
+    if (
+      !SITE_RE.test(site) ||
+      !VOLUME_ID_RE.test(volumeId) ||
+      !Number.isInteger(elevation) ||
+      !Number.isFinite(lat) ||
+      !Number.isFinite(lon) ||
+      Math.abs(lat) > 90 ||
+      Math.abs(lon) > 180 ||
+      (motionText && !motion)
+    )
+      return {
+        status: 400,
+        body: {
+          error:
+            'expected site, volume, elevation, lat, lon and optional motion=DDD/SS',
+        },
+      };
+    const sweep = assembler.sweep(site, volumeId, elevation);
+    const location = sweep && sweepLocation(site, volumeId, sweep);
+    if (!sweep || !location)
+      return { status: 404, body: { error: 'sweep not available' } };
+    const hit = sweepValueAt(
+      sweep,
+      location,
+      lat,
+      lon,
+      motion,
+      velocityOptions(site),
+    );
+    const round = (v) => (typeof v === 'number' ? Math.round(v * 10) / 10 : v);
+    return {
+      status: 200,
+      body: {
+        ...hit,
+        rangeKm: round(hit.rangeKm),
+        azimuthDeg: Math.round(hit.azimuthDeg),
+        ref: round(hit.ref),
+        vel: round(hit.vel),
+        velDealiased: round(hit.velDealiased),
+        srv: round(hit.srv),
+        units: 'm/s (velocity), dBZ (ref)',
+        stormMotion: motion && { ...motion, label: describeMotion(motion) },
+      },
     };
   }
 

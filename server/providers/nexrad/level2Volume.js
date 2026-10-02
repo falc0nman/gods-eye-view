@@ -107,6 +107,7 @@ export function createVolumeAssembler({ now = () => Date.now() } = {}) {
       let sweep = volume.sweeps.get(radial.elevationNumber);
       if (!sweep) {
         sweep = createSweep(radial);
+        sweep.volumeId = volume.id;
         volume.sweeps.set(radial.elevationNumber, sweep);
       }
       sweep.radials.set(radial.azimuthNumber, radial);
@@ -201,6 +202,21 @@ export function createVolumeAssembler({ now = () => Date.now() } = {}) {
     );
   }
 
+  /**
+   * The same tilt in the newest earlier volume, complete — the reference that
+   * keeps dealiasing anchored while this sweep is still arriving.
+   */
+  function referenceSweep(site, volumeId, elevationNumber) {
+    const earlier = [...(sites.get(site)?.volumes.values() ?? [])]
+      .filter((v) => v.id < volumeId)
+      .sort((a, b) => (a.id < b.id ? 1 : -1));
+    for (const v of earlier) {
+      const sweep = v.sweeps.get(elevationNumber);
+      if (sweep?.complete) return sweep;
+    }
+    return null;
+  }
+
   function volume(site, volumeId) {
     return sites.get(site)?.volumes.get(volumeId) ?? null;
   }
@@ -217,8 +233,43 @@ export function createVolumeAssembler({ now = () => Date.now() } = {}) {
     latency,
     sweep,
     volume,
+    referenceSweep,
     forget,
   };
+}
+
+/**
+ * SAILS / MESO-SAILS supplemental low-level cuts: a sweep back at the
+ * volume's lowest angle after the radar has already climbed above it (split
+ * cuts at the bottom of the volume do not count). Returns elevation number →
+ * SAILS cut index (1, 2, …).
+ */
+export function supplementalCuts(sweeps) {
+  const ordered = [...sweeps].sort(
+    (a, b) => a.elevationNumber - b.elevationNumber,
+  );
+  if (!ordered.length) return new Map();
+  // A sweep's first radial can read well off its nominal angle; the median
+  // of its radials does not.
+  const angle = new Map(ordered.map((s) => [s, sweepAngle(s)]));
+  const lowest = Math.min(...angle.values());
+  const cuts = new Map();
+  let highest = -Infinity;
+  for (const sweep of ordered) {
+    if (angle.get(sweep) <= lowest + 0.3 && highest >= lowest + 0.75)
+      cuts.set(sweep.elevationNumber, cuts.size + 1);
+    highest = Math.max(highest, angle.get(sweep));
+  }
+  return cuts;
+}
+
+function sweepAngle(sweep) {
+  const angles = sweep.radials
+    ? [...sweep.radials.values()]
+        .map((r) => r.elevationDeg)
+        .sort((a, b) => a - b)
+    : [];
+  return angles.length ? angles[angles.length >> 1] : sweep.elevationDeg;
 }
 
 /** Radials one full sweep holds at its azimuth spacing. */

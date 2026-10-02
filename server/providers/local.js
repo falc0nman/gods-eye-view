@@ -23,7 +23,6 @@ import { googlePlacesContextProxy } from './places.js';
 import { weatherProxy } from './weather.js';
 import { firePerimetersProxy } from './firePerimeters.js';
 import { cycloneProxy } from './cyclones.js';
-import { nexradLevel3Proxy } from './nexrad.js';
 import { life360ChasersProxy } from './life360.js';
 import { windProxy } from './wind.js';
 import { databasePlugin } from './database.js';
@@ -68,7 +67,6 @@ function localProviderRegistry({ notificationTransport } = {}) {
   registry.registerLegacy('wind', windProxy);
   registry.registerLegacy('weather', weatherProxy);
   registry.registerLegacy('cyclones', cycloneProxy);
-  registry.registerLegacy('nexrad-level3', nexradLevel3Proxy);
   registry.registerLegacy('life360-chasers', life360ChasersProxy);
   registry.registerLegacy('fire-perimeters', firePerimetersProxy);
   return registry;

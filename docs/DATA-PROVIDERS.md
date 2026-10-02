@@ -124,6 +124,57 @@ To port a legacy proxy, split its handler into the stages above, move its
 routes into `routes()`, and change its `registerLegacy` line to `register`.
 Keep its URLs stable so the browser layer does not change.
 
+### Ported so far
+
+- **`nexrad-level2`**: chunked Level II, written for the interface (GW-74).
+- **`nexrad-level3`**: NEXRAD Level III (GW-73), the first port of an
+  existing proxy, in [`server/providers/nexrad.js`](../server/providers/nexrad.js).
+  - It's a `pull` provider over the radar/product pairs clients are viewing.
+    A `/api/radar/l3/scan` request watches its pair for 6 minutes (three
+    missed layer refreshes), and while any pair is watched it polls for new
+    scans every minute.
+  - Records carry `product: 'TLX/N0B'` and `validTime` = scan time, so health
+    and data age are reported per radar and product. It is degraded after
+    10 minutes and stale after 20, which is when the layer itself marks a
+    scan stale.
+  - `/scan`, `/image` and `/value` are unchanged. `/scan` still answers from
+    the scan lookup directly, then publishes the scan through the runtime
+    (duplicates are dropped by key).
+  - Image tilts: N0 (0.5°), NA (0.9°), N1 (1.3°), NB (1.8°), N2 and N3, for
+    REF, VEL (N0/NA/N1), CC, ZDR, KDP and HC. SAILS rescans aren't
+    published as separate Level III files (keys are per volume), so SAILS
+    cuts come from Level II, which labels them (`supplemental`, `sailsCut`
+    in `/api/radar/l2/live`).
+  - `GET /api/radar/l3/attributes?site=HGX&product=NST|NMD` returns storm
+    detections as features
+    ([`nexrad/level3Attributes.js`](../server/providers/nexrad/level3Attributes.js)):
+    - **NST, storm tracks:** each cell's position, past track, 15–60 minute
+      forecast positions, movement (degrees from / knots), forecast error,
+      and maximum reflectivity with its height.
+    - **NMD, mesocyclones:** each circulation's position, strength rank,
+      parent storm, low-level rotational and delta velocity, base and depth,
+      maximum rotational velocity, TVS flag, motion, MSI, and past and
+      forecast track.
+
+    Health is reported per radar and product (`HGX/NST`).
+
+  - Hail Index (NHI), TVS (NTV) and Storm Structure (NSS) haven't been
+    published to `unidata-nexrad-level3` since 2022. On 2026-10-02 none of
+    the 206 sites had any. Hail and TVS come from the **`storm-attributes`**
+    provider instead
+    ([`server/providers/stormAttributes.js`](../server/providers/stormAttributes.js)):
+    - Source: the Iowa Environmental Mesonet's NEXRAD storm attribute
+      table, which is derived from the same NWS products.
+    - Route: `GET /api/radar/storm-attributes?site=HGX` returns `cells`,
+      plus `hail` and `tvs` subsets. Each cell has hail probabilities and
+      maximum size, TVS/ETVS, mesocyclone rank, VIL, maximum dBZ, top and
+      motion.
+    - Fetching: it uses the same watch-while-requested pull pattern as Level
+      III, cached for 30 s per radar, with health per radar.
+    - The field mapping follows IEM's published schema. It hasn't been
+      checked against the live feed yet, because the development sandbox
+      can't reach IEM.
+
 ## Health and data age (GW-83)
 
 [`server/providers/common/health.js`](../server/providers/common/health.js)
@@ -299,8 +350,8 @@ as the worked example. The decoder (`level2.js`), sweep assembly
 
 ### Level II routes
 
-- `GET /api/radar/l2/live?site=KTLX` watches the radar for the next three
-  minutes and returns what has arrived so far:
+- `GET /api/radar/l2/live?site=KTLX[&motion=DDD/SS|auto]` watches the radar
+  for the next three minutes and returns what has arrived so far:
   - `mode`: `chunks`, `volume` (completed-volume fallback) or `pending`
   - `feed`: `via` (`notifications` or `polling`), `state` and `backfill`
   - `volume`: id, number, VCP, `complete` and location
@@ -308,10 +359,53 @@ as the worked example. The decoder (`level2.js`), sweep assembly
     `dataAgeMs` and image URLs
   - `nextVolume`: a volume that has started but has no radials yet
   - `latency`: `radialToIngestMs` and `objectToIngestMs` (last and median)
-- `GET /api/radar/l2/image?site&volume&elevation&product=REF|VEL&rev`
+  - `stormMotion`: the vector SRV images use, with `source` (`user` or
+    `nws-warning`) and a `label`; or `stormMotionError` saying why there
+    is none
+- `GET /api/radar/l2/image?site&volume&elevation&product&rev[&motion]`
   returns one sweep as a PNG in the Level III projection. A sweep in progress
   renders as the wedge scanned so far. Complete sweeps are cached as
-  immutable.
+  immutable. Products:
+  - `REF` and `VEL` (raw)
+  - `VDA`: dealiased velocity
+  - `SRV`: storm-relative velocity. It needs `&motion=DDD/SS` and returns the
+    vector applied in the `X-Storm-Motion` header.
+- `GET /api/radar/l2/value?site&volume&elevation&lat&lon[&motion]` returns
+  `ref`, raw `vel`, `velDealiased` and `srv` at a point (m/s and dBZ), with
+  range, azimuth and Nyquist velocity. Couplet interrogation (GW-8) samples
+  this route.
+
+### Dealiasing and storm-relative velocity (GW-72)
+
+[`nexrad/dealias.js`](../server/providers/nexrad/dealias.js) unfolds
+velocity region by region, after Py-ART's region-based method:
+
+1. Gates are grouped into regions by folded-velocity bin. A single missing
+   gate is bridged, so speckle doesn't split an echo.
+2. Touching regions are merged, longest shared boundary first. Each merge
+   shifts the smaller region by whole Nyquist intervals.
+3. Each remaining echo is placed in the right interval against the same
+   tilt of the previous volume. With no previous volume, it's centred on
+   ±Vn.
+
+Without that reference, an echo whose true mean is beyond the Nyquist
+velocity stays one interval off. Examples: the first chunks of a sweep
+looking straight down a strong wind, or an isolated cell when no previous
+volume is held.
+
+Results are cached per sweep revision. Measured performance:
+
+- **Synthetic sweeps** (with tests): 100% of gates in the right interval
+  with 56% folded, and 99.99% with heavy noise and 35% speckle.
+- **Real data** (KTLX, 2026-09-30, Nyquist 23.84 m/s): neighbouring gates
+  differing by more than the Nyquist velocity dropped from 266 to 68 at 0.5°.
+  A full super-res sweep takes about 0.3–0.8 s.
+
+SRV subtracts the storm motion's component along each beam from the
+dealiased velocity. `motion=auto` uses the motion on the nearest active NWS
+Tornado, Severe Thunderstorm or Flash Flood Warning within 250 km
+(`eventMotionDescription`, cached for 2 minutes). Sharing the chosen motion
+with intercept tools (GW-23) waits for shared state (GW-28).
 
 ### Behaviour
 

@@ -62,6 +62,7 @@ test('provider routes go through the backend session and permission gate', async
   const providers = backendProviders();
   t.after(() => providers.close());
   const routes = providers.routes;
+  // Operational detail needs system:read; every radar data route feed:read.
   assert.deepEqual(
     routes.map((r) => [r.path, r.permissions]),
     [
@@ -69,6 +70,12 @@ test('provider routes go through the backend session and permission gate', async
       ['/api/providers/health', ['system:read']],
       ['/api/radar/l2/live', ['feed:read']],
       ['/api/radar/l2/image', ['feed:read']],
+      ['/api/radar/l2/value', ['feed:read']],
+      ['/api/radar/l3/scan', ['feed:read']],
+      ['/api/radar/l3/attributes', ['feed:read']],
+      ['/api/radar/l3/value', ['feed:read']],
+      ['/api/radar/l3/image', ['feed:read']],
+      ['/api/radar/storm-attributes', ['feed:read']],
     ],
   );
 
@@ -97,7 +104,11 @@ test('provider routes go through the backend session and permission gate', async
   const catalog = await (await forecaster('/api/providers')).json();
   assert.deepEqual(
     catalog.providers.map((p) => [p.id, p.kind]),
-    [['nexrad-level2', 'provider']],
+    [
+      ['nexrad-level2', 'provider'],
+      ['nexrad-level3', 'provider'],
+      ['storm-attributes', 'provider'],
+    ],
   );
   assert.equal(catalog.streams.notifications.state, 'idle');
   const health = await (await forecaster('/api/providers/health')).json();
