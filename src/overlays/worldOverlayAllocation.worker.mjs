@@ -32,12 +32,6 @@ import {
   createFrameSlot,
 } from '../data/cctvCards.js';
 import {
-  EARTHQUAKE_OVERLAY_COHORT_LIMIT,
-  EARTHQUAKE_OVERLAY_COLLISION_CAPACITY,
-  EARTHQUAKE_OVERLAY_SOURCE_ID,
-  createEarthquakeOverlayEntry,
-} from '../data/earthquakes.js';
-import {
   BIKESHARE_SELECTED_OVERLAY_SOURCE_ID,
   BIKESHARE_SELECTED_OVERLAY_SOURCE_OPTIONS,
   createBikeshareSelectedOverlayEntry,
@@ -711,7 +705,7 @@ function buildPhase4CctvWorkload(count) {
   return workload;
 }
 
-function buildPhase5EarthquakesWorkload(count) {
+function buildPhase5BikeshareWorkload(count) {
   const phase4Count =
     LOCAL_OVERLAY_COHORT_LIMIT * 2 +
     FIRMS_AMBIENT_COHORT_LIMIT +
@@ -719,58 +713,10 @@ function buildPhase5EarthquakesWorkload(count) {
     1 +
     CCTV_AMBIENT_CARD_MAX +
     1;
-  const expectedCount = phase4Count + EARTHQUAKE_OVERLAY_COHORT_LIMIT;
-  if (count !== expectedCount)
-    throw new Error(`phase5-earthquakes requires ${expectedCount} entries`);
-  const workload = buildPhase4CctvWorkload(phase4Count);
-  const earthquakes = [];
-  for (let index = 0; index < EARTHQUAKE_OVERLAY_COHORT_LIMIT; index++) {
-    const column = index % 12;
-    const row = Math.floor(index / 12);
-    const baseX = -0.82 + column * 0.15;
-    const baseY = -0.74 + row * 0.2;
-    const position = new Cesium.Cartesian3(baseX, baseY, 0);
-    workload.positions.push(position);
-    workload.drifts.push({
-      baseX,
-      baseY,
-      phase: index * 0.29,
-      rate: 0.31 + (index % 7) * 0.05,
-    });
-    const entry = createEarthquakeOverlayEntry({
-      id: `quake-${index}`,
-      position,
-      magnitude: 2.5 + (index % 45) / 10,
-      accent:
-        index % 3 === 0 ? '#ff0000' : index % 3 === 1 ? '#ffa500' : '#ffff00',
-    });
-    entry.horizonCull = false;
-    earthquakes.push(entry);
-  }
-  workload.registrations.push({
-    sourceId: EARTHQUAKE_OVERLAY_SOURCE_ID,
-    entries: earthquakes,
-    options: {
-      collisionCapacity: EARTHQUAKE_OVERLAY_COLLISION_CAPACITY,
-      cohortLimit: EARTHQUAKE_OVERLAY_COHORT_LIMIT,
-    },
-  });
-  return workload;
-}
-
-function buildPhase5BikeshareWorkload(count) {
-  const earthquakeCount =
-    LOCAL_OVERLAY_COHORT_LIMIT * 2 +
-    FIRMS_AMBIENT_COHORT_LIMIT +
-    vesselOverlayCohortLimit(VIEWPORT_WIDTH, VIEWPORT_HEIGHT) +
-    1 +
-    CCTV_AMBIENT_CARD_MAX +
-    1 +
-    EARTHQUAKE_OVERLAY_COHORT_LIMIT;
-  const expectedCount = earthquakeCount + 1;
+  const expectedCount = phase4Count + 1;
   if (count !== expectedCount)
     throw new Error(`phase5-bikeshare requires ${expectedCount} entries`);
-  const workload = buildPhase5EarthquakesWorkload(earthquakeCount);
+  const workload = buildPhase4CctvWorkload(phase4Count);
   const position = new Cesium.Cartesian3(0.12, -0.08, 0);
   workload.positions.push(position);
   workload.drifts.push({ baseX: 0.12, baseY: -0.08, phase: 0.7, rate: 0.41 });
@@ -802,7 +748,6 @@ function buildPhase5SatellitesWorkload(count) {
     1 +
     CCTV_AMBIENT_CARD_MAX +
     1 +
-    EARTHQUAKE_OVERLAY_COHORT_LIMIT +
     1;
   const expectedCount = bikeshareCount + 1;
   if (count !== expectedCount)
@@ -829,7 +774,6 @@ function buildPhase5CctvProjectionWorkload(count) {
     1 +
     CCTV_AMBIENT_CARD_MAX +
     1 +
-    EARTHQUAKE_OVERLAY_COHORT_LIMIT +
     2;
   const expectedCount = satelliteCount + 1;
   if (count !== expectedCount) {
@@ -946,7 +890,6 @@ function buildPhase5RocketMissionWorkload(count) {
     1 +
     CCTV_AMBIENT_CARD_MAX +
     1 +
-    EARTHQUAKE_OVERLAY_COHORT_LIMIT +
     3;
   const expectedCount =
     phase5Count + ROCKET_MISSION_AMBIENT_OVERLAY_COHORT_LIMIT;
@@ -967,7 +910,6 @@ function buildAllLiveRadioWorkload(count) {
     1 +
     CCTV_AMBIENT_CARD_MAX +
     1 +
-    EARTHQUAKE_OVERLAY_COHORT_LIMIT +
     3 +
     ROCKET_MISSION_AMBIENT_OVERLAY_COHORT_LIMIT;
   const expectedCount = phase5Count + RADIO_OVERLAY_COHORT_LIMIT + 1;
@@ -1111,25 +1053,23 @@ function main() {
               ? buildPhase3TrackedWorkload(ENTRY_COUNT)
               : PROFILE === 'phase4-cctv'
                 ? buildPhase4CctvWorkload(ENTRY_COUNT)
-                : PROFILE === 'phase5-earthquakes'
-                  ? buildPhase5EarthquakesWorkload(ENTRY_COUNT)
-                  : PROFILE === 'phase5-bikeshare'
-                    ? buildPhase5BikeshareWorkload(ENTRY_COUNT)
-                    : PROFILE === 'phase5-satellites'
-                      ? buildPhase5SatellitesWorkload(ENTRY_COUNT)
-                      : PROFILE === 'phase5-cctv-projection'
-                        ? buildPhase5CctvProjectionWorkload(ENTRY_COUNT)
-                        : PROFILE === 'phase5-civil'
-                          ? buildPhase5CivilWorkload(ENTRY_COUNT)
-                          : PROFILE === 'phase5-military'
-                            ? buildPhase5MilitaryWorkload(ENTRY_COUNT)
-                            : PROFILE === 'rocket-missions'
-                              ? buildRocketMissionAmbientWorkload(ENTRY_COUNT)
-                              : PROFILE === 'phase5-rockets'
-                                ? buildPhase5RocketMissionWorkload(ENTRY_COUNT)
-                                : PROFILE === 'all-live-radio'
-                                  ? buildAllLiveRadioWorkload(ENTRY_COUNT)
-                                  : buildWorkload(ENTRY_COUNT);
+                : PROFILE === 'phase5-bikeshare'
+                  ? buildPhase5BikeshareWorkload(ENTRY_COUNT)
+                  : PROFILE === 'phase5-satellites'
+                    ? buildPhase5SatellitesWorkload(ENTRY_COUNT)
+                    : PROFILE === 'phase5-cctv-projection'
+                      ? buildPhase5CctvProjectionWorkload(ENTRY_COUNT)
+                      : PROFILE === 'phase5-civil'
+                        ? buildPhase5CivilWorkload(ENTRY_COUNT)
+                        : PROFILE === 'phase5-military'
+                          ? buildPhase5MilitaryWorkload(ENTRY_COUNT)
+                          : PROFILE === 'rocket-missions'
+                            ? buildRocketMissionAmbientWorkload(ENTRY_COUNT)
+                            : PROFILE === 'phase5-rockets'
+                              ? buildPhase5RocketMissionWorkload(ENTRY_COUNT)
+                              : PROFILE === 'all-live-radio'
+                                ? buildAllLiveRadioWorkload(ENTRY_COUNT)
+                                : buildWorkload(ENTRY_COUNT);
   const { entries, positions, drifts } = workload;
   const solveIntervalMs = Number(process.env.GEV_ALLOC_SOLVE_MS) || 125;
   const detectionActive = !!workload.detectionLayer;

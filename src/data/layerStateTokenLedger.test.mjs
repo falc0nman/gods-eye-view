@@ -354,10 +354,11 @@ test('an isolated valid two-character fixture round-trips an l field beyond the 
       `qa-prior-digit-${digit}`,
       digit,
     ]);
-    const fixtureLayers = ['00', '01', '02', '03'].map((token) => ({
-      id: `qa-layer-${token}`,
-      token,
-    }));
+    // Enough two-character layers to cross the old cap however many
+    // single-character layers remain registered (GW-57 removes several).
+    const fixtureLayers = [...LAYER_STATE_TOKEN_ALPHABET.slice(0, 20)]
+      .map((second) => `${LAYER_STATE_TOKEN_ALPHABET[0]}${second}`)
+      .map((token) => ({ id: `qa-layer-${token}`, token }));
     const fixtureRows = [
       ...reservationRows,
       ...priorDigits,

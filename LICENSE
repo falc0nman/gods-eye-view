@@ -35,7 +35,7 @@ remain subject to their own licenses and terms. Notably:
   - NASA FIRMS active-fire snapshot: CC0 / U.S. public domain (citation
     requested).
 
-Live sources (Google Maps, OpenSky, adsb.lol, AISStream, CelesTrak, USGS,
+Live sources (Google Maps, OpenSky, adsb.lol, AISStream, CelesTrak,
 OSM Overpass, City of Austin, GBFS) are fetched at runtime under each
 provider's terms; some (e.g. Google Maps, OpenSky) restrict commercial use
 and require you to supply your own credentials.

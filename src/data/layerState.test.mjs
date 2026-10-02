@@ -199,8 +199,8 @@ function encode(state) {
 
 test('production registry is exact, canonical, and rejects incomplete contracts', async () => {
   assert.equal(validateLayerStateRegistry(), true);
-  assert.equal(REGISTERED_LAYER_IDS.length, 27);
-  assert.equal(new Set(REGISTERED_LAYER_IDS).size, 27);
+  assert.equal(REGISTERED_LAYER_IDS.length, 26);
+  assert.equal(new Set(REGISTERED_LAYER_IDS).size, 26);
   assert.ok(REGISTERED_LAYER_IDS.includes('transit'));
   assert.deepEqual(REGISTERED_LAYER_IDS, [...REGISTERED_LAYER_IDS].sort());
   assert.deepEqual(LEGACY_LAYER_STATE_TOKENS, {
@@ -392,26 +392,26 @@ test('production registry is exact, canonical, and rejects incomplete contracts'
   );
 
   const manager = new DataLayerManager({});
-  manager.register(fakeLayer('earthquakes'));
+  manager.register(fakeLayer('weather-cyclones'));
   assert.throws(
-    () => manager.register(fakeLayer('earthquakes')),
+    () => manager.register(fakeLayer('weather-cyclones')),
     /Duplicate data-layer id/,
   );
   await assert.rejects(
-    manager.restoreLayerState('earthquakes', { enabled: true }),
+    manager.restoreLayerState('weather-cyclones', { enabled: true }),
     /finalized/,
   );
   assert.throws(() => manager.finalizeRegistrations([]), /registry mismatch/);
   assert.throws(
     () =>
       manager.finalizeRegistrations([
-        { id: 'earthquakes', disposition: 'default' },
+        { id: 'weather-cyclones', disposition: 'default' },
       ]),
     /Invalid layer serialization disposition/,
   );
   assert.equal(
     manager.finalizeRegistrations([
-      { id: 'earthquakes', disposition: 'enabled-only' },
+      { id: 'weather-cyclones', disposition: 'enabled-only' },
     ]),
     true,
   );
@@ -421,9 +421,9 @@ test('production registry is exact, canonical, and rejects incomplete contracts'
     /not authorized/,
   );
   const qaManager = new DataLayerManager({}, { allowQaRegistration: true });
-  qaManager.register(fakeLayer('earthquakes'));
+  qaManager.register(fakeLayer('weather-cyclones'));
   qaManager.finalizeRegistrations([
-    { id: 'earthquakes', disposition: 'enabled-only' },
+    { id: 'weather-cyclones', disposition: 'enabled-only' },
   ]);
   qaManager.registerForQa(fakeLayer('radio'));
   assert.equal(qaManager.layers.has('radio'), true);
@@ -449,7 +449,7 @@ test('v2 codec distinguishes absent from empty and keeps canonical deterministic
   });
 
   const first = normalizeLayerState({
-    enabledLayerIds: ['traffic', 'cctv', 'earthquakes', 'cctv'],
+    enabledLayerIds: ['traffic', 'cctv', 'weather-cyclones', 'cctv'],
     options: {
       radio: { volume: 0.37, filter: 'news' },
       cctv: { autoHop: true, coverageMode: 'viewshed', showProjection: false },
@@ -458,7 +458,7 @@ test('v2 codec distinguishes absent from empty and keeps canonical deterministic
     },
   });
   const second = normalizeLayerState({
-    enabledLayerIds: ['earthquakes', 'cctv', 'traffic'],
+    enabledLayerIds: ['weather-cyclones', 'cctv', 'traffic'],
     options: {
       satellites: { catalog: 'dense' },
       flights: { models3d: true, models3dMode: 'all' },
@@ -512,8 +512,8 @@ test('malformed enabled-layer lists reject the entire payload', () => {
     );
   }
   assert.deepEqual(
-    decodeLayerStateParams(new URLSearchParams('v=2&l=c.e')).enabledLayerIds,
-    ['cctv', 'earthquakes'],
+    decodeLayerStateParams(new URLSearchParams('v=2&l=c.y')).enabledLayerIds,
+    ['cctv', 'weather-cyclones'],
   );
   for (const fields of ['l=f&l=f', 'l=f&l=unknown', 'l=&l=f']) {
     assert.equal(
@@ -552,6 +552,12 @@ test('removed layers keep their tokens reserved and old links skip them', () => 
     decodeLayerStateParams(new URLSearchParams('v=2&l=p.c')).retiredLayerIds,
     ['alpr-cameras'],
   );
+  // ...and earthquakes (e).
+  assert.equal(LAYER_STATE_TOKEN_RESERVATIONS.earthquakes, 'e');
+  assert.deepEqual(
+    decodeLayerStateParams(new URLSearchParams('v=2&l=e.c')).retiredLayerIds,
+    ['earthquakes'],
+  );
   // A token that was never reserved is still malformed.
   assert.equal(decodeLayerStateParams(new URLSearchParams('v=2&l=c.Q')), null);
   assert.equal(decodeLayerStateParams(new URLSearchParams('v=2&l=h.h')), null);
@@ -560,10 +566,10 @@ test('removed layers keep their tokens reserved and old links skip them', () => 
 test('unknown and forbidden option fields are ignored while missing options use codec defaults', () => {
   const decoded = decodeLayerStateParams(
     new URLSearchParams(
-      'v=2&l=c.e&lo=c.c.v_c.z.1_z.c.1_f.e.1_f.m.a_r.f.n_r.v.35',
+      'v=2&l=c.y&lo=c.c.v_c.z.1_z.c.1_f.e.1_f.m.a_r.f.n_r.v.35',
     ),
   );
-  assert.deepEqual(decoded.enabledLayerIds, ['cctv', 'earthquakes']);
+  assert.deepEqual(decoded.enabledLayerIds, ['cctv', 'weather-cyclones']);
   assert.deepEqual(decoded.options.cctv, {
     coverageMode: 'viewshed',
     showProjection: true,
@@ -1228,23 +1234,23 @@ test('share payload wins over local, passive restore writes nothing, and explici
   assert.deepEqual(storage.writes, []);
   assert.equal(share.provider().enabledLayerIds.length, 0);
 
-  await manager.setEnabled('earthquakes', true, { origin: 'user' });
+  await manager.setEnabled('weather-cyclones', true, { origin: 'user' });
   assert.deepEqual(coordinator.getDurableState().enabledLayerIds, [
-    'earthquakes',
+    'weather-cyclones',
   ]);
   assert.equal(storage.writes.length, 1);
 
   await manager.setEnabled('traffic', true, { origin: 'scene' });
   assert.equal(storage.writes.length, 1);
   assert.deepEqual(coordinator.getDurableState().enabledLayerIds, [
-    'earthquakes',
+    'weather-cyclones',
   ]);
 
   await manager.setEnabled('traffic', true, { origin: 'tool' });
   assert.equal(storage.writes.length, 2);
   assert.deepEqual(coordinator.getDurableState().enabledLayerIds, [
-    'earthquakes',
     'traffic',
+    'weather-cyclones',
   ]);
 
   manager.setLayerParams(
@@ -1278,7 +1284,7 @@ test('share payload wins over local, passive restore writes nothing, and explici
 
 test('absent share payload restores local state without rewriting it', async () => {
   const local = createDefaultLayerState();
-  local.enabledLayerIds = ['earthquakes', 'radio'];
+  local.enabledLayerIds = ['weather-cyclones', 'radio'];
   local.options.radio = { filter: 'talk', volume: 0.42 };
   const storage = memoryStorage(serializeStoredLayerState(local));
   const manager = productionManager();
@@ -1287,7 +1293,7 @@ test('absent share payload restores local state without rewriting it', async () 
   });
   const results = await coordinator.start();
   assert.equal(coordinator.source, 'local');
-  assert.equal(manager.isEnabled('earthquakes'), true);
+  assert.equal(manager.isEnabled('weather-cyclones'), true);
   assert.equal(manager.isEnabled('radio'), true);
   assert.deepEqual(manager.getLayerParams('radio'), {
     filter: 'talk',
@@ -1329,20 +1335,20 @@ test('one layer failure is isolated from sibling restoration', async () => {
     },
   });
   const state = createDefaultLayerState();
-  state.enabledLayerIds = ['cctv', 'earthquakes'];
+  state.enabledLayerIds = ['cctv', 'weather-cyclones'];
   const coordinator = new LayerStateCoordinator(manager, shareSink(), {
     storage: memoryStorage(),
   });
   const results = await coordinator.start({ shareLayerState: state });
   assert.equal(manager.isEnabled('cctv'), false);
-  assert.equal(manager.isEnabled('earthquakes'), true);
+  assert.equal(manager.isEnabled('weather-cyclones'), true);
   const failed = results.find((result) => result.layerId === 'cctv');
   assert.equal(failed.succeeded, false);
   assert.equal(failed.phase, 'init');
   assert.equal(failed.errorClass, 'Error');
   assert.equal(failed.error, 'missing key');
   assert.equal(
-    results.find((result) => result.layerId === 'earthquakes').succeeded,
+    results.find((result) => result.layerId === 'weather-cyclones').succeeded,
     true,
   );
   coordinator.destroy();
@@ -1353,7 +1359,7 @@ test('later explicit visibility during delayed restore wins for that layer only'
   const manager = productionManager();
   const storage = memoryStorage();
   const state = createDefaultLayerState();
-  state.enabledLayerIds = ['radio', 'earthquakes'];
+  state.enabledLayerIds = ['radio', 'weather-cyclones'];
   const coordinator = new LayerStateCoordinator(manager, shareSink(), {
     storage,
     restoreGate: gate.promise,
@@ -1363,7 +1369,7 @@ test('later explicit visibility during delayed restore wins for that layer only'
   gate.resolve();
   const results = await restore;
   assert.equal(manager.isEnabled('radio'), false);
-  assert.equal(manager.isEnabled('earthquakes'), true);
+  assert.equal(manager.isEnabled('weather-cyclones'), true);
   assert.equal(
     results.find((result) => result.layerId === 'radio').cancellationReason,
     'superseded',

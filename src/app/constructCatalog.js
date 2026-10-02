@@ -24,7 +24,6 @@ import { createApplicationLaunches } from './layers/rocketLaunches.js';
 import { createApplicationLocalAdsb } from './layers/localAdsb.js';
 import { createApplicationAwareness } from './layers/militaryAwareness.js';
 import { createApplicationFirms } from './layers/firms.js';
-import { createApplicationEarthquakes } from './layers/earthquakes.js';
 import { createApplicationFirePerimeters } from './layers/perimeters.js';
 import { createInfrastructureLayers } from '../data/infrastructure.js';
 import { localGeoJsonServices } from './localGeojsonServices.js';
@@ -53,7 +52,6 @@ const SOURCE_METHODS = Object.freeze({
   nexrad: ['getSites', 'getScan', 'getValue'],
   'nws-warnings': ['getSnapshot'],
   'team-chasers': ['getSnapshot', 'getRoster', 'saveSelection'],
-  earthquakes: ['getSnapshot'],
   'fire-perimeters': ['getSnapshot'],
 });
 
@@ -138,7 +136,6 @@ export function createApplicationCatalog({
           displayParams: () => flights.getParams(),
           ...(resolveAsset ? { resolveAsset } : {}),
         }),
-        createApplicationEarthquakes({ source: sources.earthquakes }),
         createApplicationFirePerimeters({
           source: sources['fire-perimeters'],
         }),

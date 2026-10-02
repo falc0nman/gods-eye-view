@@ -26,28 +26,6 @@ export const FIRST_RUN_STORAGE_KEY = 'gev:first-run-mission:v1';
 /** Per-session dismissal. Written by every close path; scoped to sessionStorage. */
 export const FIRST_RUN_SESSION_KEY = 'gev:first-run-mission-session:v1';
 
-/**
- * Owner-selectable name for the fires/quakes mission. Flip this ONE constant to
- * re-label the tile; the alternates are pre-written so the choice is a taste
- * call at review time, not an edit.
- * @type {'ENVIRONMENTAL'|'EARTH_WATCH'|'ACTIVE_EVENTS'}
- */
-export const ENVIRONMENTAL_LABEL_CHOICE = 'ENVIRONMENTAL';
-
-const ENVIRONMENTAL_LABELS = Object.freeze({
-  ENVIRONMENTAL: Object.freeze({ title: 'ENVIRONMENTAL' }),
-  EARTH_WATCH: Object.freeze({ title: 'EARTH WATCH' }),
-  ACTIVE_EVENTS: Object.freeze({ title: 'ACTIVE EVENTS' }),
-});
-
-/**
- * @param {string} [choice]
- * @returns {{title: string}} The label set the constant above selects.
- */
-export function environmentalLabel(choice = ENVIRONMENTAL_LABEL_CHOICE) {
-  return ENVIRONMENTAL_LABELS[choice] || ENVIRONMENTAL_LABELS.ENVIRONMENTAL;
-}
-
 /*
  * MISSION → APP STATE, AND WHAT IT IS ALLOWED TO PERSIST
  * ─────────────────────────────────────────────────────────────────────────────
@@ -59,7 +37,7 @@ export function environmentalLabel(choice = ENVIRONMENTAL_LABEL_CHOICE) {
  *
  *   TOUCHED, DURABLE      layer enables for the mission's OWN layers, at
  *                         `origin: 'user'` — identical to clicking those rows.
- *                         Choosing ENVIRONMENTAL *is* choosing those layers.
+ *                         Choosing STORM CHASE *is* choosing those layers.
  *   TOUCHED, DURABLE      the Context panel reveal, but only for the two
  *                         Context missions, exactly as the visible Contacts /
  *                         Space Missions tabs do it. The globe missions open no
@@ -114,24 +92,6 @@ export const FIRST_RUN_MISSIONS = Object.freeze({
     kind: 'context',
     contextMode: 'space-missions',
     busyText: 'Opening space missions…',
-  }),
-  environmental: Object.freeze({
-    kind: 'globe',
-    // Live USGS earthquakes AND NASA FIRMS active fires. The launcher optimizes
-    // for the FULLY CONFIGURED experience (owner ruling, 2026-08-23): the tile
-    // promises both, so it turns on both, and the subcopy in index.html says so.
-    //
-    // Keyless, FIRMS is honest where it counts — its own layer row reads
-    // "UNAVAILABLE · NASA FIRMS · LIVE · KEY REQUIRED", and the quakes half of
-    // the tile still delivers in full. What is NOT honest is the GLOBAL status
-    // chip, which has no key-required terminal state and folds that row into
-    // "LOAD FAILED". That aggregation is the defect, not this preset: fixing it
-    // means a KEY REQUIRED terminal state in src/loadingFeedback.js, a state
-    // machine shared by every layer and not a thing to refactor the night
-    // before a launch. LEDGERED post-launch. Until it lands, keyless visitors
-    // are judged on the layer row, which tells them the truth.
-    layerIds: Object.freeze(['earthquakes', 'local-firms']),
-    busyText: 'Scanning active events…',
   }),
   explore: Object.freeze({ kind: 'none' }),
 });
@@ -374,14 +334,6 @@ export function initFirstRunExperience({
     root.remove();
     return null;
   }
-
-  // The tile name is owner-switchable from one constant, so paint it from the
-  // module rather than trusting the markup to have been edited to match.
-  const environmentalTitle = root.querySelector(
-    '[data-first-run-environmental-title]',
-  );
-  if (environmentalTitle)
-    environmentalTitle.textContent = environmentalLabel().title;
 
   const status = root.querySelector('[data-first-run-status]');
   const suppressBox = root.querySelector('[data-first-run-suppress]');

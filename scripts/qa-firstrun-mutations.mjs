@@ -234,26 +234,8 @@ const MUTATIONS = [
   {
     defect: 'the removed INFRASTRUCTURE tile comes back as a one-click globe dump',
     file: 'module',
-    from: "  environmental: Object.freeze({",
-    to: "  infrastructure: Object.freeze({\n    kind: 'globe',\n    layerIds: Object.freeze(['local-datacenters', 'local-dams']),\n    busyText: 'Mapping global infrastructure…',\n  }),\n  environmental: Object.freeze({",
-  },
-  {
-    defect: 'ENVIRONMENTAL drops the keyless earthquakes that carry it without a key',
-    file: 'module',
-    from: "layerIds: Object.freeze(['earthquakes', 'local-firms']),",
-    to: "layerIds: Object.freeze(['local-firms']),",
-  },
-  {
-    defect: 'FIRMS is dropped again from the tile whose subcopy promises it',
-    file: 'module',
-    from: "layerIds: Object.freeze(['earthquakes', 'local-firms']),",
-    to: "layerIds: Object.freeze(['earthquakes']),",
-  },
-  {
-    defect: 'the tile stops promising the fires it actually turns on',
-    file: 'html',
-    from: '<small>Live earthquakes and active fires, from USGS and NASA</small>',
-    to: '<small>Live earthquakes worldwide, straight from USGS</small>',
+    from: "  explore: Object.freeze({ kind: 'none' }),",
+    to: "  infrastructure: Object.freeze({\n    kind: 'globe',\n    layerIds: Object.freeze(['local-datacenters', 'local-dams']),\n    busyText: 'Mapping global infrastructure…',\n  }),\n  explore: Object.freeze({ kind: 'none' }),",
   },
   {
     defect: "the owner-authored first-run line is quietly rewritten",
@@ -296,12 +278,6 @@ const MUTATIONS = [
     file: 'module',
     from: 'if (!mission) return { ok: false, choice };',
     to: 'if (!mission) return { ok: true, choice };',
-  },
-  {
-    defect: 'the fires/quakes tile name stops being switchable from one constant',
-    file: 'module',
-    from: 'return ENVIRONMENTAL_LABELS[choice] || ENVIRONMENTAL_LABELS.ENVIRONMENTAL;',
-    to: 'return ENVIRONMENTAL_LABELS.ENVIRONMENTAL;',
   },
 
   // ── Defaults interplay (the ruling this whole integration turns on) ────────
@@ -417,8 +393,8 @@ const MUTATIONS = [
   {
     defect: 'the menu order stops matching the owner\'s',
     file: 'html',
-    from: '<button type="button" data-first-run-choice="environmental">',
-    to: '<button type="button" data-first-run-choice="zzz-environmental">',
+    from: '<button type="button" data-first-run-choice="contacts">',
+    to: '<button type="button" data-first-run-choice="zzz-contacts">',
   },
   {
     defect: 'the "don\'t show again" checkbox is removed',
@@ -455,8 +431,8 @@ const MUTATIONS = [
   {
     defect: 'the voice TOOL SCHEMA is edited (a Realtime prompt-cache bust)',
     file: 'voiceTools',
-    from: "            'earthquakes',\n            'satellites',",
-    to: "            'earthquakes',\n            'infrastructure-mode',\n            'satellites',",
+    from: "            'military',\n            'satellites',",
+    to: "            'military',\n            'infrastructure-mode',\n            'satellites',",
   },
   {
     defect: 'the instruction mapping is dropped, so voice cannot reach the modes',

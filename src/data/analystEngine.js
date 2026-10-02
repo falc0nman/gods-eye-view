@@ -57,11 +57,6 @@ export const ANALYST_LAYERS = {
     text: ['confidence', 'satellite'],
     flags: [],
   },
-  earthquakes: {
-    numeric: ['magnitude', 'depthKm'],
-    text: ['place'],
-    flags: [],
-  },
   satellites: {
     numeric: ['altitudeM', 'speedMps'],
     text: ['name', 'noradId', 'satelliteClass', 'group'],

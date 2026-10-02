@@ -165,7 +165,6 @@ const CREDIT_EXPECTATIONS = {
   flights: /OpenSky/i,
   military: /adsb\.lol/i,
   satellites: /CelesTrak/i,
-  earthquakes: /Geological Survey|USGS/i,
   'rocket-launches': /Launch Library|LL2/i,
   traffic: /TomTom|OpenStreetMap/i,
   cctv: /Austin|Caltrans|Transport for London|TfL/i,
@@ -1064,7 +1063,6 @@ const BROWSER_CHECKS = [
   ['C3', 'Boot produces no uncaught page errors'],
   ['C4', 'Flights layer populates with live contacts'],
   ['C5', 'Satellites layer propagates the live catalog'],
-  ['C6', 'Earthquakes layer populates'],
   ['C7', 'CCTV layer populates and its frame loop is healthy'],
   ['C8', 'Vessels: live rows when keyed, honest UNAVAILABLE when not'],
   ['C9', 'Fires: live cells when keyed, honest KEY REQUIRED when not'],
@@ -1396,7 +1394,7 @@ async function runBrowserGroup(record) {
     await evalBounded(async () => {
       const dm = window.__godsEyeView.dataManager;
       const heavy = ['cctv', 'traffic', 'flights', 'satellites',
-        'local-datacenters', 'local-dams', 'military-installations', 'earthquakes'];
+        'local-datacenters', 'local-dams', 'military-installations'];
       for (const id of heavy) {
         if (!dm.layers.has(id)) continue;
         try {
@@ -1478,12 +1476,6 @@ async function runBrowserGroup(record) {
     const r = await settle('satellites', 40);
     const s = r.stats || {};
     return s.count > 0 ? pass(`${s.count} satellites, status=${s.status || 'nominal'}`) : fail(`0 satellites (status=${s.status} error=${s.error || ''})`);
-  });
-
-  await step('C6', async () => {
-    const r = await settle('earthquakes', 30);
-    const s = r.stats || {};
-    return s.count > 0 ? pass(`${s.count} events`) : fail(`0 events (error=${s.error || ''})`);
   });
 
   await step('C7', async () => {
@@ -1766,7 +1758,7 @@ async function runBrowserGroup(record) {
     // standalone (`--only C12`) nothing is on, and it would pass vacuously off
     // the static credit list — so self-arm a deterministic set first.
     const armed = (await evalBounded(() => [...(window.__godsEyeView.dataManager.getEnabledLayerIds?.() || [])], null, 20000)) || [];
-    const SELF_ARM = ['flights', 'satellites', 'earthquakes', 'local-datacenters'];
+    const SELF_ARM = ['flights', 'satellites', 'local-datacenters'];
     if (armed.length === 0) {
       for (const id of SELF_ARM) {
         // eslint-disable-next-line no-await-in-loop

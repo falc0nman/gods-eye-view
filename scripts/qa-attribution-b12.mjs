@@ -61,7 +61,6 @@ const REQUIRED_CREDIT_SUBSTRINGS = [
   'adsb.lol',                    // ODbL — military traces
   'NASA FIRMS',                  // fires
   'CelesTrak',                   // satellites
-  'U.S. Geological Survey',      // earthquakes
   'OpenSky Network',             // flights
   'AISStream',                   // vessels
   'City of Austin',              // CCTV

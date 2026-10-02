@@ -853,16 +853,6 @@
     ],
     "external": ["cesium"]
   },
-  "earthquakes": {
-    "exports": ["./layers/earthquakes"],
-    "modules": [
-      "src/layers/earthquakes/index.js",
-      "src/layers/earthquakes/model.js",
-      "src/layers/earthquakes/source.js",
-      "src/layers/earthquakes/records.js"
-    ],
-    "external": ["cesium"]
-  },
   "recent-imagery": {
     "exports": ["./layers/recent-imagery"],
     "modules": [
@@ -1265,7 +1255,6 @@
       "src/app/layers/aisLiveVessels.js",
       "src/app/layers/bikeshare.js",
       "src/app/layers/cctv.js",
-      "src/app/layers/earthquakes.js",
       "src/app/layers/firms.js",
       "src/app/layers/flights.js",
       "src/app/layers/militaryAwareness.js",
@@ -1339,7 +1328,6 @@
       "src/data/detectionPolicy.js",
       "src/data/detectionPresentation.js",
       "src/data/detectionRenderDemand.js",
-      "src/data/earthquakes.js",
       "src/data/fireAnchors.js",
       "src/data/firmsAdapt.js",
       "src/data/firmsHeatmap.js",
@@ -1473,9 +1461,6 @@
       "src/layers/cctv/source.js",
       "src/layers/cctv/state.js",
       "src/layers/cctv/testing.js",
-      "src/layers/earthquakes/index.js",
-      "src/layers/earthquakes/model.js",
-      "src/layers/earthquakes/source.js",
       "src/layers/firms/anchors.js",
       "src/layers/firms/cards.js",
       "src/layers/firms/index.js",
@@ -1788,7 +1773,6 @@
       "src/app/localGeojsonServices.js",
       "src/data/feedState.js",
       "src/data/layerSnapshot.js",
-      "src/layers/earthquakes/records.js",
       "src/app/layers/perimeters.js",
       "src/layers/perimeters/index.js",
       "src/layers/perimeters/source.js",
@@ -1979,7 +1963,6 @@
       "src/app/layers/aisLiveVessels.js",
       "src/app/layers/bikeshare.js",
       "src/app/layers/cctv.js",
-      "src/app/layers/earthquakes.js",
       "src/app/layers/firms.js",
       "src/app/layers/flights.js",
       "src/app/layers/militaryAwareness.js",
@@ -2119,9 +2102,6 @@
       "src/layers/cctv/source.js",
       "src/layers/cctv/state.js",
       "src/layers/cctv/testing.js",
-      "src/layers/earthquakes/index.js",
-      "src/layers/earthquakes/model.js",
-      "src/layers/earthquakes/source.js",
       "src/layers/firms/anchors.js",
       "src/layers/firms/cards.js",
       "src/layers/firms/index.js",
@@ -2300,7 +2280,6 @@
       "src/search/coordinateParser.js",
       "src/search/presetGeocoder.js",
       "src/app/localGeojsonServices.js",
-      "src/layers/earthquakes/records.js",
       "src/app/layers/perimeters.js",
       "src/layers/perimeters/index.js",
       "src/layers/perimeters/source.js",
@@ -2658,14 +2637,6 @@
     "modules": ["src/layers/cctv/source.js", "src/layers/cctv/sourcePolicy.js"],
     "external": []
   },
-  "earthquakes-source": {
-    "exports": ["./layers/earthquakes/source"],
-    "modules": [
-      "src/layers/earthquakes/records.js",
-      "src/layers/earthquakes/source.js"
-    ],
-    "external": []
-  },
   "firms-source": {
     "exports": ["./layers/firms/source"],
     "modules": ["src/layers/firms/source.js"],
@@ -2729,8 +2700,6 @@
     "exports": ["./sources/reference"],
     "modules": [
       "src/sources/reference.js",
-      "src/layers/earthquakes/source.js",
-      "src/layers/earthquakes/records.js",
       "src/sources/httpBody.js",
       "src/layers/perimeters/source.js",
       "src/layers/perimeters/records.js"

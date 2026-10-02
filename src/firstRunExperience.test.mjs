@@ -6,12 +6,10 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 import {
-  ENVIRONMENTAL_LABEL_CHOICE,
   EXCLUSIVE_SURFACE_CLASSES,
   FIRST_RUN_MISSIONS,
   FIRST_RUN_SESSION_KEY,
   FIRST_RUN_STORAGE_KEY,
-  environmentalLabel,
   exclusiveSurfaceActive,
   rememberFirstRunSessionDismissed,
   runFirstRunChoice,
@@ -401,7 +399,7 @@ function missionSpy({ contextOk = true, layerResult = () => true, globe = async 
   };
 }
 
-test('the menu is the five owner-ordered missions', () => {
+test('the menu is the four owner-ordered missions', () => {
   // INFRASTRUCTURE was removed after the owner playtested it: enabling all
   // three bundled layers at once put ~5,700 entities on a full-earth view and
   // tanked the frame rate. The layers stay reachable by hand and by voice; what
@@ -409,8 +407,10 @@ test('the menu is the five owner-ordered missions', () => {
   // globe-LOD declutter first.
   assert.deepEqual(Object.keys(FIRST_RUN_MISSIONS), [
     // STORM CHASE leads: this deployment is a storm-chasing team's console.
-    'storm-chase', 'contacts', 'space-missions', 'environmental', 'explore',
+    'storm-chase', 'contacts', 'space-missions', 'explore',
   ]);
+  // GW-58 removed ENVIRONMENTAL with the earthquake and fire layers it drove.
+  assert.equal(FIRST_RUN_MISSIONS.environmental, undefined);
   assert.equal(FIRST_RUN_MISSIONS.infrastructure, undefined,
     'the infrastructure mission must be gone, not dormant');
 });
@@ -427,58 +427,15 @@ test('Live Contacts and Space Missions go through the one setContextMode facade'
   }
 });
 
-test('Environmental enables BOTH its feeds and pulls out to the globe', async () => {
-  const spy = missionSpy();
-  const outcome = await runFirstRunChoice('environmental', spy.deps);
-  assert.equal(outcome.ok, true);
-  assert.deepEqual(spy.calls.layerIds, ['earthquakes', 'local-firms']);
-  assert.equal(spy.calls.globeFlights, 1);
-});
-
-test('the tile is the FULLY CONFIGURED experience: quakes and fires together', () => {
-  // Owner ruling, 2026-08-23: the launcher optimizes for the configured app, so
-  // ENVIRONMENTAL means live USGS earthquakes AND NASA FIRMS active fires.
-  const environmental = FIRST_RUN_MISSIONS.environmental;
-  assert.deepEqual(environmental.layerIds, ['earthquakes', 'local-firms']);
-
-  // Keyless, the honest surface is the LAYER ROW ("KEY REQUIRED"), which the
-  // FIRMS layer already reports. The misleading part is the GLOBAL chip folding
-  // that row into LOAD FAILED — a defect in the shared state machine, ledgered
-  // post-launch, and the note must stay where the next editor will read it
-  // rather than being re-discovered as a launcher bug.
-  const module = fs.readFileSync(new URL('./firstRunExperience.js', import.meta.url), 'utf8');
-  const table = module.slice(module.indexOf('  environmental: Object.freeze({'), module.indexOf('  explore:'));
-  assert.match(table, /KEY REQUIRED/);
-  assert.match(table, /src\/loadingFeedback\.js/);
-  assert.match(table, /LEDGERED post-launch/);
-});
-
-test('every visitor gets the same tile — there is no degraded keyless variant', async () => {
-  // The mission does not branch on configuration: it asks for both layers for
-  // everyone, and a keyless FIRMS reports its own state at its own row rather
-  // than changing what the tile does.
-  const spy = missionSpy({ layerResult: () => true });
-  const outcome = await runFirstRunChoice('environmental', spy.deps);
-  assert.equal(outcome.ok, true);
-  assert.deepEqual(outcome.failedLayerIds, []);
-  assert.deepEqual(spy.calls.layerIds, ['earthquakes', 'local-firms']);
-  const module = fs.readFileSync(new URL('./firstRunExperience.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(
-    module.slice(module.indexOf('export async function runFirstRunChoice')),
-    /FIRMS_MAP_KEY|hasKey|keyless\s*\?/,
-    'the mission must not fork on whether a key is configured',
-  );
-});
-
 test('a refused layer fails the mission by name, and a stalled flight never does', async () => {
-  const refused = missionSpy({ layerResult: (id) => id !== 'earthquakes' });
-  const outcome = await runFirstRunChoice('environmental', refused.deps);
+  const refused = missionSpy({ layerResult: (id) => id !== 'nws-warnings' });
+  const outcome = await runFirstRunChoice('storm-chase', refused.deps);
   assert.equal(outcome.ok, false);
-  assert.deepEqual(outcome.failedLayerIds, ['earthquakes']);
+  assert.deepEqual(outcome.failedLayerIds, ['nws-warnings']);
 
   // The globe flight is framing. A cancelled or throwing flight is not a failure.
   const flightDown = missionSpy({ globe: () => { throw new Error('cancelled'); } });
-  assert.equal((await runFirstRunChoice('environmental', flightDown.deps)).ok, true);
+  assert.equal((await runFirstRunChoice('storm-chase', flightDown.deps)).ok, true);
 });
 
 test('Explore manually touches nothing at all, and an unknown choice is inert', async () => {
@@ -495,16 +452,6 @@ test('a failed Context mission reports the layers the facade named', async () =>
   assert.equal(outcome.ok, false);
   assert.deepEqual(outcome.result.failedLayerIds, ['rocket-launches']);
 });
-
-test('the fires/quakes tile name is switchable from one constant', () => {
-  assert.equal(environmentalLabel('ENVIRONMENTAL').title, 'ENVIRONMENTAL');
-  assert.equal(environmentalLabel('EARTH_WATCH').title, 'EARTH WATCH');
-  assert.equal(environmentalLabel('ACTIVE_EVENTS').title, 'ACTIVE EVENTS');
-  assert.equal(environmentalLabel('nonsense').title, 'ENVIRONMENTAL');
-  assert.equal(environmentalLabel().title, environmentalLabel(ENVIRONMENTAL_LABEL_CHOICE).title);
-});
-
-// ── Defaults interplay: what a mission is allowed to persist ─────────────────
 
 test('no mission writes a preference the visitor did not choose by picking it', () => {
   const module = fs.readFileSync(new URL('./firstRunExperience.js', import.meta.url), 'utf8');
@@ -557,17 +504,10 @@ test('markup, startup ordering and accessibility remain pinned', () => {
   const css = readStylesheet(new URL('../style.css', import.meta.url));
 
   assert.match(html, /id="first-run-launcher" role="dialog"[^>]*aria-labelledby="first-run-title"[^>]*hidden/);
-  assert.equal((html.match(/data-first-run-choice=/g) || []).length, 5);
+  assert.equal((html.match(/data-first-run-choice=/g) || []).length, 4);
   assert.match(html, /data-first-run-status[^>]*role="status"[^>]*aria-live="polite"/);
   assert.match(html, /<input type="checkbox" data-first-run-suppress \/>/);
-  assert.match(html, /<strong data-first-run-environmental-title>/);
-  // Subcopy must name BOTH feeds the tile turns on — a tile that promised only
-  // half of what it does is the defect this replaced. Only the VISIBLE <small>
-  // text counts; the comment beside it naturally says the words too.
-  const envTile = html.slice(html.indexOf('data-first-run-choice="environmental"'));
-  const visible = envTile.slice(envTile.indexOf('<small>'), envTile.indexOf('</small>'));
-  assert.match(visible, /earthquakes/i);
-  assert.match(visible, /fires?/i, 'the tile must promise the fires it enables');
+  assert.doesNotMatch(html, /data-first-run-choice="environmental"/);
 
   // The card's one persuasive line is OWNER-AUTHORED and pinned verbatim,
   // unspaced em dash included. This is copy, not prose to be improved in a
@@ -580,7 +520,7 @@ test('markup, startup ordering and accessibility remain pinned', () => {
 
   // Menu order is the owner's, read straight off the markup.
   const order = [...html.matchAll(/data-first-run-choice="([a-z-]+)"/g)].map((match) => match[1]);
-  assert.deepEqual(order, ['storm-chase', 'contacts', 'space-missions', 'environmental', 'explore']);
+  assert.deepEqual(order, ['storm-chase', 'contacts', 'space-missions', 'explore']);
   assert.doesNotMatch(html, /data-first-run-choice="infrastructure"/,
     'the removed tile must leave no markup behind');
 
@@ -671,12 +611,12 @@ test('the voice TOOL SCHEMA matches the pinned release — the mission mapping i
   // Re-derived for the additive `local-adsb` set_layer_visibility value and
   // its common-name mapping; the missions still ride existing tools.
   // Re-derived again for the storm-chase layer ids and their mapping, and
-  // for GW-57 removing telegeography-submarine-cables and alpr-cameras from
-  // enums and mapping.
-  assert.equal(block.length, 27543, 'serialized tool schema length drifted');
+  // for GW-57 removing telegeography-submarine-cables, alpr-cameras and
+  // earthquakes from enums, mappings and analyst fields.
+  assert.equal(block.length, 27447, 'serialized tool schema length drifted');
   assert.equal(
     crypto.createHash('sha256').update(block).digest('hex'),
-    'bdc45d9f111cf10b834bcc0b1be69533f7e3d0a532b58d03bab8d02dc114d6d8',
+    '620e72e22e25e79bdc1074424ef80e586a538f3e17b9eb544030cb63d31b093a',
     'the first-run missions must ride EXISTING tools: no schema edit, no cache bust',
   );
   const instructions = fs.readFileSync(new URL('../server/providers/openai/instructions.js', import.meta.url), 'utf8');
@@ -693,7 +633,7 @@ test('the voice TOOL SCHEMA matches the pinned release — the mission mapping i
   const mapping = instructions.slice(instructions.indexOf('NAMED VIEWS are shorthand'));
   const paragraph = mapping.slice(0, mapping.indexOf("',\n"));
   for (const layerId of [
-    'local-datacenters', 'local-dams', 'local-firms', 'earthquakes',
+    'local-datacenters', 'local-dams',
   ]) {
     assert.ok(paragraph.includes(layerId), `mapping must name the existing ${layerId} enum value`);
   }
@@ -739,10 +679,10 @@ test('a failed basemap switch does not fail Storm Chase; other missions never to
     setMapStack: async () => { throw new Error('stack down'); },
   });
   assert.equal(outcome.ok, true);
-  await runFirstRunChoice('environmental', {
-    setContextMode: async () => ({ ok: false }),
+  await runFirstRunChoice('contacts', {
+    setContextMode: async () => ({ ok: true }),
     setLayerEnabled: async () => true,
-    flyToGlobe: async (frame) => assert.equal(frame, undefined),
-    setMapStack: async () => assert.fail('environmental must not switch the basemap'),
+    flyToGlobe: async () => {},
+    setMapStack: async () => assert.fail('contacts must not switch the basemap'),
   });
 });

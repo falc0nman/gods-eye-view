@@ -7,7 +7,6 @@ import { FIRMS_AMBIENT_COHORT_LIMIT } from '../data/firmsLabels.js';
 import { vesselOverlayCohortLimit } from '../data/vesselLabels.js';
 import { CCTV_AMBIENT_CARD_MAX } from '../data/cctvLod.js';
 import { AMBIENT_CARD_COLLISION_CAPACITY } from './worldOverlay.js';
-import { EARTHQUAKE_OVERLAY_COHORT_LIMIT } from '../data/earthquakes.js';
 import { ROCKET_MISSION_AMBIENT_OVERLAY_COHORT_LIMIT } from '../data/rocketLaunches.js';
 import { RADIO_OVERLAY_COHORT_LIMIT } from '../data/radio.js';
 import { isCalibratedAllocationRuntime } from '../../scripts/run-unit-tests.mjs';
@@ -87,9 +86,9 @@ import { isCalibratedAllocationRuntime } from '../../scripts/run-unit-tests.mjs'
  * cohort plus one protected selected-station label; Radio supplies painted
  * winners in the saturated ambient-label domain while the selected lane
  * remains protected. Since the 2026-08-18 recalibration the row also carries
- * the 160-winner submarine-cable cohort (864 candidates total); GW-57
- * removed the cables layer, so the row now runs 704 candidates against the
- * same 182,000 frame budget and 225 B/candidate ceiling until re-measured.
+ * the 160-winner submarine-cable cohort (864 candidates total). GW-57
+ * removed the cables layer and then the 96-entry earthquake cohort from every
+ * Phase 5 row; the budgets above are unchanged and still pass on Node 24.14.
  *
  * The Phase-6 row activates the production detection lane at Dense/100 over a
  * deterministic 5,000-observation, 2,500 km scene. All observations exercise
@@ -187,10 +186,10 @@ const WORKLOADS = [
     profile: 'phase5-military',
     entries: LOCAL_OVERLAY_COHORT_LIMIT * 2 + FIRMS_AMBIENT_COHORT_LIMIT
       + vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
-      + EARTHQUAKE_OVERLAY_COHORT_LIMIT + 3,
+      + 3,
     candidates: LOCAL_OVERLAY_COHORT_LIMIT * 2 + FIRMS_AMBIENT_COHORT_LIMIT
       + vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
-      + EARTHQUAKE_OVERLAY_COHORT_LIMIT + 3,
+      + 3,
     maxBytesPerFrame: 132_000,
     maxBytesPerCandidatePerFrame: 225,
     saturated: true,
@@ -201,11 +200,11 @@ const WORKLOADS = [
     profile: 'phase5-rockets',
     entries: LOCAL_OVERLAY_COHORT_LIMIT * 2 + FIRMS_AMBIENT_COHORT_LIMIT
       + vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
-      + EARTHQUAKE_OVERLAY_COHORT_LIMIT + 3
+      + 3
       + ROCKET_MISSION_AMBIENT_OVERLAY_COHORT_LIMIT,
     candidates: LOCAL_OVERLAY_COHORT_LIMIT * 2 + FIRMS_AMBIENT_COHORT_LIMIT
       + vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
-      + EARTHQUAKE_OVERLAY_COHORT_LIMIT + 3
+      + 3
       + ROCKET_MISSION_AMBIENT_OVERLAY_COHORT_LIMIT,
     // 142,000 deliberately carries ~6% headroom (vs the ~3.3% the previous
     // aggregate row ran at): a chosen margin correction, not drift.
@@ -223,11 +222,11 @@ const WORKLOADS = [
     profile: 'all-live-radio',
     entries: LOCAL_OVERLAY_COHORT_LIMIT * 2 + FIRMS_AMBIENT_COHORT_LIMIT
       + vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
-      + EARTHQUAKE_OVERLAY_COHORT_LIMIT + 3
+      + 3
       + ROCKET_MISSION_AMBIENT_OVERLAY_COHORT_LIMIT + RADIO_OVERLAY_COHORT_LIMIT + 1,
     candidates: LOCAL_OVERLAY_COHORT_LIMIT * 2 + FIRMS_AMBIENT_COHORT_LIMIT
       + vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
-      + EARTHQUAKE_OVERLAY_COHORT_LIMIT + 3
+      + 3
       + ROCKET_MISSION_AMBIENT_OVERLAY_COHORT_LIMIT + RADIO_OVERLAY_COHORT_LIMIT + 1,
     maxBytesPerFrame: 182_000,
     maxBytesPerCandidatePerFrame: 225,

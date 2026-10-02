@@ -191,8 +191,6 @@ const LAYER_ALIASES = new Map([
   ['aircraft', 'flights'],
   ['military', 'military'],
   ['military flights', 'military'],
-  ['earthquakes', 'earthquakes'],
-  ['quakes', 'earthquakes'],
   ['weather-radar', 'weather-radar'],
   ['radar', 'weather-radar'],
   ['weather radar', 'weather-radar'],

@@ -127,7 +127,6 @@ const schemas = [
           enum: [
             'flights',
             'military',
-            'earthquakes',
             'satellites',
             'rocket-launches',
             'traffic',
@@ -164,7 +163,6 @@ const schemas = [
           enum: [
             'flights',
             'military',
-            'earthquakes',
             'satellites',
             'traffic',
             'cctv',
@@ -789,7 +787,6 @@ const schemas = [
               'military',
               'ais-live-vessels',
               'local-firms',
-              'earthquakes',
               'satellites',
               'local-datacenters',
               'local-dams',

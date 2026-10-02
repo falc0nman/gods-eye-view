@@ -8,7 +8,8 @@ import * as Cesium from 'cesium';
  * needs at a glance. Parsing lives in ./source.js.
  *
  * Geometry is STATIC and rebuilt only when the warning set actually changes
- * (see the earthquake layer's header for what per-frame ground geometry costs).
+ * Ground-clamped geometry rebuilt every frame is expensive, so it is never
+ * rebuilt per frame.
  */
 
 export const NWS_WARNINGS_OVERLAY_SOURCE_ID = 'nws-warnings';

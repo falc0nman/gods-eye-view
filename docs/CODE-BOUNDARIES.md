@@ -68,10 +68,10 @@ check, not a JavaScript sandbox. Common voice controls cannot depend on a
 Realtime protocol implementation. Negative fixtures cover indirect helpers,
 self-package imports, symlinks and unreachable files.
 
-Source factories have dedicated exports for bikeshare, CCTV, earthquakes,
+Source factories have dedicated exports for bikeshare, CCTV,
 FIRMS, installations, launches, radio, satellites and traffic. They preserve the
-same factory implementations without loading layer rendering. Earthquake
-record normalization and CCTV source endpoint policy have plain owners separate
+same factory implementations without loading layer rendering. CCTV source
+endpoint policy has a plain owner separate
 from geometry/cards. Source exports do not start acquisition at import time.
 
 Other layer `ingestion.js` files may still coordinate Cesium resources; the
@@ -625,9 +625,8 @@ explicit operations. Both exports exclude Cesium, DOM and application assembly.
 The snapshot renderer applies record changes; rendering owns a weak map of
 geometry and billboard resources used by cards, picking and trails.
 
-`gods-eye-view/sources/reference` constructs fresh earthquake and fire-perimeter
-source instances independently of standalone setup. Individual sources remain
-available through `layers/earthquakes/source`.
+`gods-eye-view/sources/reference` constructs fresh fire-perimeter source
+instances independently of standalone setup.
 
 ## Geocoding and feature-query providers
 

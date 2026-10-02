@@ -207,7 +207,7 @@ function fail(detail) { return { status: FAIL, detail }; }
 // ── finding 4: attribution coverage fails closed ──────────────────────────
 test('every layer the matrix can enable has an attribution expectation', () => {
   // C11 enables military-installations, which the old check filtered out.
-  for (const id of ['flights', 'satellites', 'earthquakes', 'cctv', 'traffic',
+  for (const id of ['flights', 'satellites', 'cctv', 'traffic',
     'ais-live-vessels', 'military-installations', 'local-datacenters', 'local-dams',
     'local-firms']) {
     const expectation = requiredCreditFor(id);
