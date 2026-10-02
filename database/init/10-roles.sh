@@ -1,9 +1,10 @@
 #!/bin/sh
 set -eu
-# Secret values travel through process environment, never shell command arguments.
-export GEV_APP_SECRET="$(cat /run/secrets/db_app)"
-export GEV_MIGRATOR_SECRET="$(cat /run/secrets/db_migrator)"
-export GEV_BACKUP_SECRET="$(cat /run/secrets/db_backup)"
+# The root entrypoint loads secrets before PostgreSQL drops OS privileges.
+# Refuse to initialize passwordless roles if an operator bypasses that entrypoint.
+: "${GEV_APP_SECRET:?Missing app credential}"
+: "${GEV_MIGRATOR_SECRET:?Missing migration credential}"
+: "${GEV_BACKUP_SECRET:?Missing backup credential}"
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<'SQL'
 \getenv app_password GEV_APP_SECRET
 \getenv migrator_password GEV_MIGRATOR_SECRET

@@ -7,6 +7,7 @@ x-database-environment: &database-environment
 services:
   db:
     image: postgis/postgis:17-3.5
+    entrypoint: [/bin/sh, /opt/gev/entrypoint.sh]
     restart: unless-stopped
     environment:
       POSTGRES_DB: gev
@@ -17,6 +18,7 @@ services:
     volumes:
       - database:/var/lib/postgresql/data
       - ./database/init:/docker-entrypoint-initdb.d:ro
+      - ./database/entrypoint.sh:/opt/gev/entrypoint.sh:ro
     healthcheck:
       test: [CMD-SHELL, 'pg_isready -U postgres -d gev']
       interval: 5s
