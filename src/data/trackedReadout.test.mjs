@@ -123,9 +123,9 @@ test('tracked entry factory pins the production protected-lane policy', () => {
 
 test('selected camera readout carries tactical animation and fixed badge clearance', () => {
   const entry = createTrackedOverlayEntry({
-    id: 'alpr:42', gevDisplayPosition: () => ({ x: 1, y: 2, z: 3 }),
+    id: 'cctv:42', gevDisplayPosition: () => ({ x: 1, y: 2, z: 3 }),
     gevLabelModel: {
-      title: 'ALPR-0042', details: ['OSM MAPPED'], accent: '#ff6474',
+      title: 'CAM-0042', details: ['MAPPED'], accent: '#ff6474',
       cardStyle: 'tactical', selected: true, leaderStyle: 'elbow',
       leaderAnimationMs: 440, leaderAnimationStartedAt: 100, leaderDrawRatio: 0.68,
       anchorRadiusPx: 30, anchorRadiusScale: null,
@@ -191,7 +191,7 @@ test('tracked entity publishes a protected host entry backed by the frame cache'
   }
 });
 
-test('selection lifecycle leaves installations to their own entry and retains ALPR cards', () => {
+test('selection lifecycle leaves installations to their own entry and retains receiver cards', () => {
   const originalWindow = globalThis.window;
   const fakeWindow = new EventTarget();
   const changed = makeCesiumEvent();
@@ -218,17 +218,17 @@ test('selection lifecycle leaves installations to their own entry and retains AL
     assert.equal(getActiveTrackedReadoutId(), null);
     assert.equal(recorder.calls.filter(({ op }) => op === 'set').length, setsBefore, 'installation selection cannot create a second overlay');
 
-    // ALPR cameras are static context too: a click publishes the same card.
-    const camera = {
-      gevTrackedId: 'alpr:42',
+    // Local ADS-B aircraft are static context too: a click publishes the same card.
+    const aircraft = {
+      gevTrackedId: 'local-adsb:a1b2c3',
       gevDisplayPosition: () => ({ x: 4, y: 5, z: 6 }),
-      gevLabelModel: { title: 'FLOCK SAFETY ALPR', details: ['CITY PD'], accent: '#ff66c4' },
+      gevLabelModel: { title: 'N123AB', details: ['LOCAL RECEIVER'], accent: '#ff66c4' },
     };
     fakeWindow.dispatchEvent(new CustomEvent('gev:entity-selected', {
-      detail: { layerId: 'alpr-cameras', entity: camera },
+      detail: { layerId: 'local-adsb', entity: aircraft },
     }));
-    assert.equal(getActiveTrackedReadoutId(), 'alpr:42');
-    assert.equal(recorder.calls.filter(({ op }) => op === 'set').at(-1).entries[0].title, 'FLOCK SAFETY ALPR');
+    assert.equal(getActiveTrackedReadoutId(), 'local-adsb:a1b2c3');
+    assert.equal(recorder.calls.filter(({ op }) => op === 'set').at(-1).entries[0].title, 'N123AB');
 
     fakeWindow.dispatchEvent(new CustomEvent('gev:entity-selected', {
       detail: { layerId: 'ais-live-vessels', entity: installation },

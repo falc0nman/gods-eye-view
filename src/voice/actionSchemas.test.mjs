@@ -31,9 +31,9 @@ test('the complete Realtime tool payload pins the additive analyst, satellite, L
     // the Cyber HUD layout; the separate sonar tool is excluded above.
     // Re-derived again for the storm-chase layer ids (weather-radar, nexrad, nws-warnings,
     // team-chasers) and their common-name mapping.
-    // Re-derived for GW-57: telegeography-submarine-cables leaves the layer
-    // enums and the common-name mapping.
-    '343e4b09afd1d95f8af3146b02411c36b773d95d132d573078538c38ffeb3ef6',
+    // Re-derived for GW-57: telegeography-submarine-cables and alpr-cameras
+    // leave the layer enums and the common-name mapping.
+    'c82d2b6dcdfe70065f7351c734bc8c78301635c4350d4b2cede02c5bba20eb6e',
   );
 });
 
@@ -126,13 +126,14 @@ test('all legacy action arguments are byte-identical after removing the delibera
     }
   }
   // Independently derived by executing trusted c9f9896 actionSchemas in the restricted container.
-  // Re-derived for GW-57, which removes telegeography-submarine-cables from the
-  // layer enums: identical to main's schemas with only that value stripped.
+  // Re-derived for GW-57, which removes telegeography-submarine-cables and
+  // alpr-cameras from the layer enums: identical to main's schemas with only
+  // those values stripped.
   const hud = legacy.find((tool) => tool.name === 'set_hud').parameters
     .properties.layout;
   hud.enum = hud.enum.filter((layout) => layout !== 'cyber');
   assert.equal(
     createHash('sha256').update(JSON.stringify(legacy)).digest('hex'),
-    '06ea309f24d24332496b948b50905a3e07a092ebb0c15fd8d38008ffdc76e849',
+    'f3807773701daffb11b98acd8ac15ace00c7f2a13db9e5c4c1073c2561531302',
   );
 });

@@ -29,11 +29,6 @@
   contributors, ODbL 1.0 (https://www.openstreetmap.org/copyright).
   These modified data fixtures retain ODbL attribution and database share-alike;
   commercial use and redistribution are permitted under that license. Test-only.
-- `osm-alpr-austin-11-467-843.pbf` — one OSM camera feature (original geometry
-  and attribute dictionary) from the community-hosted hourly US extract,
-  `https://tiles.dontgetflocked.com/cameras-us-hourly/11/467/843.mvt`,
-  retrieved 2026-09-23. © OpenStreetMap contributors, ODbL 1.0; modified by
-  trimming to one feature, test-only. Same attribution/share-alike terms above.
 
 - `traffic-road-access.json` — representative transportation properties and two
   original vertices per feature near the Texas Capitol, Camp Mabry greenbelt,

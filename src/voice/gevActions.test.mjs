@@ -3141,30 +3141,6 @@ const testPlaceSearch = () => createStandalonePlaceSearch({ resolveApiKey: () =>
 function createGevActionRunner(options) { return createActionRunner({ placeSearch: testPlaceSearch(), ...options }); }
 function controlRadio(viewer, manager, args, options) { return runControlRadio(viewer, manager, args, { placeSearch: testPlaceSearch(), ...options }); }
 
-test('ALPR common names toggle only the registered camera layer through the normal voice action', async () => {
-  globalThis.window = globalThis.window || { clearTimeout, setTimeout, requestIdleCallback: null };
-  const viewer = { clock: { onTick: { addEventListener: () => () => {} } },
-    scene: { canvas: { addEventListener() {}, removeEventListener() {} } },
-    camera: { moveEnd: { addEventListener() {} } } };
-  const calls = [];
-  let enabled = false;
-  const dataManager = {
-    layers: new Map([['alpr-cameras', { module: {} }]]),
-    getAll: () => [{ id: 'alpr-cameras', name: 'ALPR Cameras' }],
-    isEnabled: () => enabled,
-    setEnabled: async (id, value) => { calls.push([id, value]); enabled = value; return true; },
-  };
-  const runner = createGevActionRunner({ viewer, styleManager: {}, dataManager });
-  for (const alias of ['alpr-cameras', 'alpr', 'alpr cameras', 'flock cameras', 'license plate readers', 'license plate cameras', 'plate readers']) {
-    for (const value of [true, false]) {
-      const result = await runner('set_layer_visibility', { layerId: alias, enabled: value });
-      assert.equal(result.ok, true);
-      assert.equal(result.layerId, 'alpr-cameras');
-      assert.deepEqual(calls.at(-1), ['alpr-cameras', value]);
-    }
-  }
-});
-
 test('Local ADS-B common names toggle only the receiver layer through the normal voice action', async () => {
   globalThis.window = globalThis.window || { clearTimeout, setTimeout, requestIdleCallback: null };
   const viewer = { clock: { onTick: { addEventListener: () => () => {} } },

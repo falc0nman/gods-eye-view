@@ -572,11 +572,6 @@
   content: '◉';
 }
 :root[data-ui-theme='cyber']
-  .data-toggle-row[data-layer-id='alpr-cameras']
-  .data-icon::before {
-  content: '⌗';
-}
-:root[data-ui-theme='cyber']
   .data-toggle-row[data-layer-id='military-installations']
   .data-icon::before {
   content: '⌖';

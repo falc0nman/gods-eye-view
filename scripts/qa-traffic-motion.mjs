@@ -351,10 +351,6 @@ try {
         5000,
       );
       await step('downtown-500m', [30.2672, -97.7431, 500, -35, 2.5, 20]);
-      await page.evaluate(() =>
-        window.__godsEyeView.dataManager.setEnabled('alpr-cameras', true),
-      );
-      await hold('enable-alpr', true, 6000);
       await step('pan-west-600m', [30.2672, -97.7494, 500, -35, 2, 20], 5000);
       await step('city-12km', [30.28, -97.75, 12000, -60, 3, 0], 8000, true);
       await fly(30.3125, -97.765, 1000, -45, 3, 0);

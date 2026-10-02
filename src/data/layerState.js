@@ -558,11 +558,6 @@ export const LAYER_STATE_REGISTRY = Object.freeze([
     token: 'a',
     disposition: 'enabled-only',
   }),
-  Object.freeze({
-    id: 'alpr-cameras',
-    token: 'p',
-    disposition: 'enabled-only',
-  }),
   Object.freeze({ id: 'bikeshare', token: 'b', disposition: 'enabled-only' }),
   Object.freeze({
     id: 'cctv',

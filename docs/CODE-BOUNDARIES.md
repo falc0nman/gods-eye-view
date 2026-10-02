@@ -68,9 +68,9 @@ check, not a JavaScript sandbox. Common voice controls cannot depend on a
 Realtime protocol implementation. Negative fixtures cover indirect helpers,
 self-package imports, symlinks and unreachable files.
 
-Source factories have dedicated exports for ALPR, bikeshare, CCTV, earthquakes,
+Source factories have dedicated exports for bikeshare, CCTV, earthquakes,
 FIRMS, installations, launches, radio, satellites and traffic. They preserve the
-same factory implementations without loading layer rendering. ALPR/earthquake
+same factory implementations without loading layer rendering. Earthquake
 record normalization and CCTV source endpoint policy have plain owners separate
 from geometry/cards. Source exports do not start acquisition at import time.
 
@@ -664,7 +664,7 @@ An empty search array is a definitive miss. HTTP failures, malformed results
 and oversized responses remain retryable. Attribution identifies OpenStreetMap /
 Nominatim.
 
-Vector tile sources supply traffic roads, ALPR records and keyless military
+Vector tile sources supply traffic roads and keyless military
 areas. Operator-configured Overpass supplies named installations and annotation geometry (administrative boundaries,
 neighborhoods, streets, building/grounds outlines and monument candidates).
 Nominatim forward/reverse lookup does not replace those queries. Layer source

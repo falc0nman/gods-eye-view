@@ -500,8 +500,8 @@ test('selected elbow leader reveals from the glyph before its card fades in', ()
   assert.equal(tacticalCardRevealAlpha(animation, 1100), 1);
   const ctx = mockContext();
   const entry = {
-    variant: 'selected', selected: true, cardStyle: 'tactical', title: 'ALPR-2516',
-    details: ['OSM MAPPED'], accent: '#ff6474', leaderStyle: 'elbow',
+    variant: 'selected', selected: true, cardStyle: 'tactical', title: 'CAM-2516',
+    details: ['MAPPED'], accent: '#ff6474', leaderStyle: 'elbow',
     leaderAnimationMs: 1, leaderAnimationStartedAt: 0,
   };
   entry._overlayLayout = measureOverlayEntry(ctx, entry, {});

@@ -67,8 +67,8 @@ test('inline OSM attribution persists until its last display owner leaves', asyn
     },
     scene: { requestRender() {} },
   };
-  assert.equal(showOsmCredit(viewer, 'alpr'), true);
-  assert.equal(showOsmCredit(viewer, 'alpr'), false);
+  assert.equal(showOsmCredit(viewer, 'installations'), true);
+  assert.equal(showOsmCredit(viewer, 'installations'), false);
   assert.equal(visible.size, 1);
   assert.match(
     [...visible][0].html,
@@ -80,7 +80,7 @@ test('inline OSM attribution persists until its last display owner leaves', asyn
   assert.equal(visible.size, 1);
   showOsmCredit(viewer, 'traffic', { openMapTiles: true });
   assert.equal(visible.size, 2);
-  hideOsmCredit(viewer, 'alpr');
+  hideOsmCredit(viewer, 'installations');
   assert.equal(visible.size, 2, 'traffic still owns both credits');
   showOsmCredit(viewer, 'datacenters');
   hideOsmCredit(viewer, 'traffic');
@@ -92,7 +92,7 @@ test('inline OSM attribution persists until its last display owner leaves', asyn
   hideOsmCredit(viewer, 'datacenters');
   assert.equal(visible.size, 0);
   assert.equal(hideOsmCredit(viewer, 'datacenters'), false);
-  showOsmCredit(viewer, 'alpr');
+  showOsmCredit(viewer, 'installations');
   assert.equal(visible.size, 1, 'reenabling restores the short credit');
 });
 

@@ -617,6 +617,6 @@ test('the credit line is never suppressed to make room', () => {
 
 
 test('OSM-derived layers never force the desktop credit row into a stack', () => {
-  assert.doesNotMatch(css, /body:has\([^)]*alpr-cameras[^}]*#cesium-credits/);
+  assert.doesNotMatch(css, /body:has\([^)]*data-layer-id[^}]*#cesium-credits/);
   assert.doesNotMatch(css, /#cesium-credits\s+\.cesium-credit-expand-link\s*\{[^}]*display:\s*block/);
 });
