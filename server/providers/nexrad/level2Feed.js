@@ -83,6 +83,7 @@ export function createChunkListingFeed({
   bucket = LEVEL2_CHUNK_BUCKET,
   intervalMs = 4_000,
   staleMs = 12 * 60_000,
+  maxBackoffMs = 2 * 60_000,
   now = () => Date.now(),
   setTimeout: schedule = globalThis.setTimeout,
   clearTimeout: unschedule = globalThis.clearTimeout,
@@ -136,6 +137,7 @@ export function createChunkListingFeed({
       lastKey: null,
       lastChunkAt: null,
       error: null,
+      failures: 0,
       timer: null,
     };
     watches.set(site, state);
@@ -181,14 +183,22 @@ export function createChunkListingFeed({
           if (state.state === 'stale') state.slot = null; // re-locate
         }
         state.error = null;
+        state.failures = 0;
       } catch (error) {
         if (signal.aborted) return;
         state.error = String(error?.message || error);
         state.state = 'unavailable';
         state.slot = null;
+        state.failures += 1;
       }
       if (signal.aborted) return;
-      state.timer = schedule(tick, intervalMs);
+      // Failing sites (an unknown id, an outage) back off to 2 minutes, so a
+      // watch cannot keep re-running the ~10-listing locate every few seconds.
+      const delay = Math.min(
+        maxBackoffMs,
+        intervalMs * 2 ** Math.min(state.failures, 10),
+      );
+      state.timer = schedule(tick, delay);
       state.timer?.unref?.();
     }
     tick();

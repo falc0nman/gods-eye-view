@@ -6,6 +6,22 @@ import {
 } from './auth.js';
 import { coreRoutes, databaseReady } from './routes.js';
 
+const BINARY_TYPES = new Set(['image/png']);
+
+/** Route-supplied extra headers: `X-` names only, no control characters. */
+function safeHeaders(headers = {}) {
+  return Object.fromEntries(
+    Object.entries(headers).filter(
+      ([name, value]) =>
+        /^X-[A-Za-z][A-Za-z0-9-]{0,62}$/.test(name) &&
+        !/^X-(Content-Type-Options|Frame-Options)$/i.test(name) &&
+        typeof value === 'string' &&
+        !/[\r\n\0]/.test(value) &&
+        value.length <= 256,
+    ),
+  );
+}
+
 function json(req, res, status, body) {
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
@@ -74,6 +90,30 @@ export function createBackend({
         'Referrer-Policy': 'no-referrer',
       });
       return res.end();
+    }
+    if (result.bytes) {
+      // Provider images (radar sweeps). The type comes from a fixed list and
+      // the cache policy may only be private: these are authorized data.
+      if (
+        !BINARY_TYPES.has(result.contentType) ||
+        !(result.bytes instanceof Uint8Array)
+      )
+        throw new Error('Invalid binary API response');
+      const cacheControl = /^private, max-age=\d{1,6}(, immutable)?$/.test(
+        result.cacheControl ?? '',
+      )
+        ? result.cacheControl
+        : 'no-store';
+      res.writeHead(result.status, {
+        ...safeHeaders(result.headers),
+        'Content-Type': result.contentType,
+        'Content-Length': result.bytes.byteLength,
+        'Cache-Control': cacheControl,
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'DENY',
+        'Referrer-Policy': 'same-origin',
+      });
+      return res.end(req.method === 'HEAD' ? undefined : result.bytes);
     }
     if (result.html) {
       res.writeHead(result.status, {

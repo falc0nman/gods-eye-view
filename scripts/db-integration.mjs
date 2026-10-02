@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
-import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -36,7 +36,9 @@ try {
     assert.equal(
       (await app.query('SELECT count(*)::int AS n FROM gev.schema_migrations'))
         .rows[0].n,
-      2,
+      (
+        await readdir(new URL('../database/migrations/', import.meta.url))
+      ).filter((name) => /^\d{4}_[a-z0-9_]+\.sql$/.test(name)).length,
     );
     const roles = await app.query(
       'SELECT rolsuper, rolcreatedb, rolcreaterole FROM pg_roles WHERE rolname = current_user',
@@ -63,15 +65,19 @@ try {
     try {
       const url = pathToFileURL(`${directory}/`);
       await assert.rejects(migrate(owner, url), /Applied migration is missing/);
-      await writeFile(
-        join(directory, '0002_authentication.sql'),
-        await readFile(
-          new URL(
-            '../database/migrations/0002_authentication.sql',
-            import.meta.url,
+      // Every real migration after the first, unchanged.
+      const migrations = (
+        await readdir(new URL('../database/migrations/', import.meta.url))
+      )
+        .filter((name) => /^\d{4}_[a-z0-9_]+\.sql$/.test(name))
+        .sort();
+      for (const name of migrations.slice(1))
+        await writeFile(
+          join(directory, name),
+          await readFile(
+            new URL(`../database/migrations/${name}`, import.meta.url),
           ),
-        ),
-      );
+        );
       await writeFile(join(directory, '0001_initial.sql'), 'SELECT 1;');
       await assert.rejects(
         migrate(owner, url),
@@ -84,7 +90,7 @@ try {
         ),
       );
       await writeFile(
-        join(directory, '0003_rollback_probe.sql'),
+        join(directory, '9999_rollback_probe.sql'),
         'CREATE TABLE gev.qa_atomic_rollback(id integer); SELECT gev.qa_missing_function();',
       );
       await assert.rejects(
@@ -105,7 +111,7 @@ try {
             'SELECT count(*)::int AS n FROM gev.schema_migrations',
           )
         ).rows[0].n,
-        2,
+        migrations.length,
       );
       console.log(
         'PASS: failed migration rolls back both schema changes and ledger',

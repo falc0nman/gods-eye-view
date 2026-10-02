@@ -63,6 +63,7 @@ function ageState(dataAgeMs, thresholds) {
   if (thresholds.staleAfterMs != null && dataAgeMs > thresholds.staleAfterMs)
     return {
       state: 'stale',
+      code: 'data_stale',
       reason: `no new data for ${Math.round(dataAgeMs / 1000)} s`,
     };
   if (
@@ -71,9 +72,10 @@ function ageState(dataAgeMs, thresholds) {
   )
     return {
       state: 'degraded',
+      code: 'data_late',
       reason: `data ${Math.round(dataAgeMs / 1000)} s old`,
     };
-  return { state: 'healthy', reason: null };
+  return { state: 'healthy', code: null, reason: null };
 }
 
 function runCheck(provider) {
@@ -87,6 +89,7 @@ function runCheck(provider) {
     return [
       {
         state: 'degraded',
+        code: 'check_failed',
         reason: `health check failed: ${error?.message || error}`,
       },
     ];
@@ -110,8 +113,12 @@ export function evaluateProviderHealth(
     const limits = resolveThresholds(provider, p.product, thresholds);
     const dataAgeMs = p.newestValidTime == null ? null : t - p.newestValidTime;
     let verdict = status.running
-      ? (ageState(dataAgeMs, limits) ?? { state: 'healthy', reason: null })
-      : { state: 'idle', reason: 'not in use' };
+      ? (ageState(dataAgeMs, limits) ?? {
+          state: 'healthy',
+          code: null,
+          reason: null,
+        })
+      : { state: 'idle', code: 'idle', reason: 'not in use' };
     if (status.running)
       for (const signal of signals)
         if (signal.product != null && String(signal.product) === p.product)
@@ -120,6 +127,7 @@ export function evaluateProviderHealth(
       product: p.product,
       state: verdict.state,
       reason: verdict.reason ?? null,
+      code: verdict.code ?? (verdict.state === 'healthy' ? null : 'check'),
       dataAgeMs,
       validTime: p.newestValidTime,
       lastIngestAt: p.lastIngestAt,
@@ -132,10 +140,11 @@ export function evaluateProviderHealth(
 
   let verdict;
   if (!status.running) {
-    verdict = { state: 'idle', reason: 'not in use' };
+    verdict = { state: 'idle', code: 'idle', reason: 'not in use' };
   } else {
     verdict = {
       state: 'healthy',
+      code: products.length ? null : 'awaiting_data',
       reason: products.length ? null : 'waiting for first record',
     };
     for (const p of products) verdict = worse(verdict, p);
@@ -143,11 +152,13 @@ export function evaluateProviderHealth(
     if (failures >= base.downAfterFailures)
       verdict = worse(verdict, {
         state: 'down',
+        code: 'repeated_failures',
         reason: `${failures} failures in a row: ${status.lastError?.message}`,
       });
     else if (failures > 0)
       verdict = worse(verdict, {
         state: 'degraded',
+        code: 'stage_failed',
         reason: `last ${status.lastError?.stage} failed: ${status.lastError?.message}`,
       });
     if (
@@ -158,6 +169,7 @@ export function evaluateProviderHealth(
     )
       verdict = worse(verdict, {
         state: 'down',
+        code: 'no_data',
         reason: 'no data since start',
       });
     for (const signal of signals)
@@ -167,6 +179,7 @@ export function evaluateProviderHealth(
     id: provider.id,
     state: verdict.state,
     reason: verdict.reason ?? null,
+    code: verdict.code ?? (verdict.state === 'healthy' ? null : 'check'),
     consecutiveFailures: status.consecutiveFailures,
     lastError: status.lastError,
     lastIngestAt: status.lastIngestAt,

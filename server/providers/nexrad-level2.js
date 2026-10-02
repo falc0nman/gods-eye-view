@@ -32,15 +32,16 @@ import { encodePng, renderLevel3 } from './nexrad/render.js';
  * unavailable for a site, the newest completed volume from
  * `unidata-nexrad-level2` is served instead.
  *
- * Routes:
+ * Routes (backend shape; both need `feed:read`, GW-45):
  *   GET /api/radar/l2/live?site=KTLX
  *       → {site, mode, feed, volume, sweeps[], latency, generatedAt}
  *       Watches the site for the next few minutes; the response holds
- *       whatever has arrived so far.
- *   GET /api/radar/l2/image/<SITE>/<volumeId>/<elevation>/<REF|VEL>.png
+ *       whatever has arrived so far. Only signed-in, authorized requests
+ *       can start upstream ingest.
+ *   GET /api/radar/l2/image?site&volume&elevation&product=REF|VEL&rev
  *       A sweep as an equirectangular PNG over its coverage square (the
  *       same projection as Level III). In-progress sweeps render as the
- *       wedge scanned so far.
+ *       wedge scanned so far. Cached privately: images are authorized data.
  */
 
 export const LEVEL2_MOMENTS_KEPT = Object.freeze(['REF', 'VEL']);
@@ -49,6 +50,8 @@ const VOLUME_ID_RE = /^\d{8}-\d{6}$/;
 const MAX_CHUNK_BYTES = 8 * 1024 * 1024;
 const MAX_VOLUME_BYTES = 64 * 1024 * 1024;
 const WATCH_TTL_MS = 3 * 60_000;
+// Radars watched at once (each costs a few upstream listings a minute).
+const MAX_WATCHED_SITES = 12;
 const VOLUME_FALLBACK_TTL_MS = 60_000;
 const MAX_IMAGES = 48;
 const MAX_CONCURRENT_FETCHES = 4;
@@ -167,6 +170,7 @@ export function createLevel2Ingest({
               {
                 product: site,
                 state: 'degraded',
+                code: 'chunk_feed_down',
                 reason: `chunk feed ${feedState.state}; serving completed volumes`,
               },
             ];
@@ -222,10 +226,24 @@ export function createLevel2Ingest({
         },
       };
     },
-    routes(server, providerRuntime) {
+    attach(providerRuntime) {
       runtime = providerRuntime;
-      server.middlewares.use('/api/radar/l2', handle);
     },
+    close: () => close(),
+    api: [
+      {
+        method: 'GET',
+        path: '/api/radar/l2/live',
+        permissions: ['feed:read'],
+        handler: ({ query }) => live(query),
+      },
+      {
+        method: 'GET',
+        path: '/api/radar/l2/image',
+        permissions: ['feed:read'],
+        handler: ({ query }) => imageRoute(query),
+      },
+    ],
   });
 
   function reap() {
@@ -355,7 +373,13 @@ export function createLevel2Ingest({
                   )
                   .map((name) => [
                     name,
-                    `/api/radar/l2/image/${site}/${volume.id}/${sweep.elevationNumber}/${name}.png?rev=${sweep.revision}`,
+                    `/api/radar/l2/image?${new URLSearchParams({
+                      site,
+                      volume: volume.id,
+                      elevation: String(sweep.elevationNumber),
+                      product: name,
+                      rev: String(sweep.revision),
+                    })}`,
                   ]),
               ),
             }))
@@ -387,54 +411,59 @@ export function createLevel2Ingest({
     return result;
   }
 
-  function sendJson(res, status, body) {
-    if (res.headersSent) return;
-    res.writeHead(status, {
-      'Content-Type': 'application/json',
-      'Cache-Control': 'no-store',
-    });
-    res.end(JSON.stringify(body));
-  }
-
-  async function handle(req, res) {
-    const url = new URL(req.url || '/', 'http://local');
+  async function live(query) {
+    const site = String(query.get('site') || '').toUpperCase();
+    if (!SITE_RE.test(site))
+      return {
+        status: 400,
+        body: { error: 'site must be a 4-letter radar id' },
+      };
+    if (!watched.has(site) && watched.size >= MAX_WATCHED_SITES)
+      return {
+        status: 429,
+        body: { error: 'too many radars are being watched; try again shortly' },
+      };
+    touch(site);
     try {
-      if (url.pathname === '/live') {
-        const site = String(url.searchParams.get('site') || '').toUpperCase();
-        if (!SITE_RE.test(site)) {
-          sendJson(res, 400, { error: 'site must be a 4-letter radar id' });
-          return;
-        }
-        touch(site);
-        sendJson(res, 200, await snapshot(site));
-        return;
-      }
-      const m =
-        /^\/image\/([A-Z0-9]{4})\/([0-9-]+)\/(\d{1,2})\/([A-Z]{3})\.png$/.exec(
-          url.pathname,
-        );
-      if (m && VOLUME_ID_RE.test(m[2]) && LEVEL2_RENDER_GROUPS[m[4]]) {
-        const hit = image(m[1], m[2], Number(m[3]), m[4]);
-        if (!hit) {
-          sendJson(res, 404, { error: 'sweep not available' });
-          return;
-        }
-        res.writeHead(200, {
-          'Content-Type': 'image/png',
-          // The URL carries the sweep revision, so even partial sweeps can
-          // be cached briefly; complete ones never change.
-          'Cache-Control': hit.complete
-            ? 'public, max-age=86400, immutable'
-            : 'public, max-age=60',
-        });
-        res.end(hit.png);
-        return;
-      }
-      sendJson(res, 404, { error: 'unknown radar route' });
+      return { status: 200, body: await snapshot(site) };
     } catch (err) {
       console.warn('[nexrad-l2]', err?.message || err);
-      sendJson(res, 502, { error: 'radar ingest failed' });
+      return { status: 502, body: { error: 'radar ingest failed' } };
     }
+  }
+
+  function imageRoute(query) {
+    const site = String(query.get('site') || '').toUpperCase();
+    const volumeId = String(query.get('volume') || '');
+    const elevation = Number(query.get('elevation'));
+    const product = String(query.get('product') || '').toUpperCase();
+    if (
+      !SITE_RE.test(site) ||
+      !VOLUME_ID_RE.test(volumeId) ||
+      !Number.isInteger(elevation) ||
+      elevation < 1 ||
+      elevation > 99 ||
+      !LEVEL2_RENDER_GROUPS[product]
+    )
+      return {
+        status: 400,
+        body: {
+          error: 'expected site, volume, elevation and product REF or VEL',
+        },
+      };
+    const hit = image(site, volumeId, elevation, product);
+    if (!hit) return { status: 404, body: { error: 'sweep not available' } };
+    return {
+      status: 200,
+      bytes: hit.png,
+      contentType: 'image/png',
+      // The URL carries the sweep revision, so even partial sweeps can be
+      // cached briefly; complete ones never change. Private: only the
+      // signed-in browser may keep authorized radar data.
+      cacheControl: hit.complete
+        ? 'private, max-age=86400, immutable'
+        : 'private, max-age=60',
+    };
   }
 
   function close() {
@@ -446,7 +475,7 @@ export function createLevel2Ingest({
     watched.clear();
   }
 
-  return { provider, assembler, snapshot, touch, close, handle };
+  return { provider, assembler, snapshot, touch, close };
 }
 
 /** The provider definition the registry installs. */

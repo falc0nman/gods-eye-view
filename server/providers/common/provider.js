@@ -94,7 +94,12 @@ function normalizeSource(source, where) {
  * @param {(item, ctx) => any} [spec.fetch] - defaults to identity (push payloads often arrive inline).
  * @param {(raw, item, ctx) => any} [spec.decode] - defaults to identity.
  * @param {(decoded, item, ctx) => object|object[]|null} spec.normalize - returns record input(s).
- * @param {(server, runtime) => void} [spec.routes] - mounts HTTP routes on the dev/preview server.
+ * @param {ProviderRoute[]} [spec.api] - HTTP routes, in the backend's shape
+ *   (backend/server.js): installed by the standalone backend behind its
+ *   session and permission gate, and by the Vite dev server for development.
+ * @param {(runtime) => void} [spec.attach] - receives the provider's runtime
+ *   when it is registered (route handlers acquire it to start ingest).
+ * @param {() => void} [spec.close] - releases timers and sockets on shutdown.
  * @param {object} [spec.health] - health defaults (GW-83, ./health.js):
  *   `staleAfterMs` / `degradedAfterMs` (data age), `downAfterFailures`, and
  *   `check()` → [{product?, state, reason}] for provider-specific signals.
@@ -126,7 +131,8 @@ export function defineProvider(spec) {
   }
   if (health.check !== undefined && typeof health.check !== 'function')
     throw invalid(`${id} health.check must be a function`);
-  for (const stage of ['fetch', 'decode', 'routes']) {
+  const api = validateApi(id, spec.api ?? []);
+  for (const stage of ['fetch', 'decode', 'attach', 'close']) {
     if (spec[stage] !== undefined && typeof spec[stage] !== 'function')
       throw invalid(`${id} ${stage} must be a function`);
   }
@@ -154,11 +160,47 @@ export function defineProvider(spec) {
     fetch: spec.fetch ?? identity,
     decode: spec.decode ?? identity,
     normalize: spec.normalize,
-    routes: spec.routes ?? null,
+    api,
+    attach: spec.attach ?? null,
+    close: spec.close ?? null,
     health: Object.freeze({ ...health }),
   });
   definitions.add(definition);
   return definition;
+}
+
+/**
+ * A provider HTTP route. `path` is exact (the backend matches method + path),
+ * so parameters travel in the query string. Every route states the
+ * permissions a session needs; `[]` still requires a signed-in session.
+ *
+ * @typedef {object} ProviderRoute
+ * @property {'GET'} method
+ * @property {string} path - `/api/...`
+ * @property {string[]} permissions
+ * @property {(ctx: {query: URLSearchParams, req: object, session: object|null}) =>
+ *   Promise<{status: number, body?: object, bytes?: Uint8Array, contentType?: string,
+ *   cacheControl?: string, headers?: Record<string, string>}>} handler
+ */
+const API_PATH_RE = /^\/api\/[A-Za-z0-9_/-]+$/;
+
+function validateApi(id, routes) {
+  if (!Array.isArray(routes)) throw invalid(`${id} api must be an array`);
+  return Object.freeze(
+    routes.map((route) => {
+      if (
+        route?.method !== 'GET' ||
+        !API_PATH_RE.test(route.path ?? '') ||
+        !Array.isArray(route.permissions) ||
+        route.permissions.some((p) => typeof p !== 'string' || !p) ||
+        typeof route.handler !== 'function'
+      )
+        throw invalid(
+          `${id} api routes need method GET, an exact /api path, permissions and a handler`,
+        );
+      return Object.freeze({ ...route, permissions: [...route.permissions] });
+    }),
+  );
 }
 
 function toMs(value, field, providerId) {

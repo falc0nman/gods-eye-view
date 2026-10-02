@@ -307,3 +307,27 @@ test('the polling fallback locates the live volume and follows it into the next 
   unwatch();
   assert.equal(feed.status('KTLX').state, 'idle');
 });
+
+test('a failing radar backs off instead of re-locating every few seconds', async () => {
+  const delays = [];
+  let requests = 0;
+  const feed = createChunkListingFeed({
+    fetchImpl: async () => {
+      requests += 1;
+      return new Response('busy', { status: 503 });
+    },
+    intervalMs: 4_000,
+    maxBackoffMs: 120_000,
+    setTimeout: (fn, ms) => {
+      delays.push(ms);
+      return delays.length;
+    },
+    clearTimeout() {},
+  });
+  const unwatch = feed.watch('KZZZ', () => {});
+  for (let i = 0; i < 20 && !delays.length; i += 1) await settle();
+  assert.equal(feed.status('KZZZ').state, 'unavailable');
+  assert.equal(delays[0], 8_000);
+  assert.equal(requests, 1, 'the first failed listing stops the locate');
+  unwatch();
+});

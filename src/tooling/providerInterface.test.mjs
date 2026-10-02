@@ -8,6 +8,7 @@ import {
 } from '../../server/providers/common/provider.js';
 import { createProviderRegistry } from '../../server/providers/registry.js';
 import { localProviderRegistry } from '../../server/providers/local.js';
+import { routeCaller } from './providerRouteHarness.mjs';
 
 const source = { name: 'Test Bucket', url: 'https://example.test' };
 
@@ -211,9 +212,10 @@ test('the registry keeps one entry per id and lists provider status', () => {
     /already registered/,
   );
   assert.equal(registry.get('test-pull'), runtime);
+  // Dev server: one plugin serving every interface route, then legacy proxies.
   assert.deepEqual(
     registry.plugins().map((plugin) => plugin.name),
-    ['gev-provider-catalog', 'legacy-one', 'gev-provider-test-pull'],
+    ['gev-provider-api', 'legacy-one'],
   );
   const [legacy, provider] = registry.list();
   assert.deepEqual(legacy, { id: 'legacy-one', kind: 'legacy' });
@@ -221,28 +223,90 @@ test('the registry keeps one entry per id and lists provider status', () => {
   assert.equal(provider.running, false);
 });
 
-test('GET /api/providers reports the registered providers', () => {
+test('GET /api/providers reports the registered providers, behind system:read', async () => {
   const registry = createProviderRegistry();
   registry.register(pullProvider());
-  let handler;
-  registry.plugins()[0].configureServer({
-    middlewares: {
-      use: (path, fn) => path === '/api/providers' && (handler = fn),
-    },
-  });
-  let status;
-  let body;
-  handler(
-    { method: 'GET', url: '/' },
-    {
-      writeHead: (code) => (status = code),
-      end: (text) => (body = JSON.parse(text)),
-    },
-    () => assert.fail('catalog route should answer'),
-  );
-  assert.equal(status, 200);
+  const res = await routeCaller(registry)('/api/providers');
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.permissions, ['system:read']);
+  const body = JSON.parse(res.body);
   assert.equal(body.providers[0].id, 'test-pull');
   assert.equal(body.providers[0].source.name, 'Test Bucket');
+  registry.health.stop();
+});
+
+test('provider api routes are declared in the backend shape', async () => {
+  const provider = pullProvider({
+    api: [
+      {
+        method: 'GET',
+        path: '/api/test/echo',
+        permissions: ['feed:read'],
+        handler: async ({ query, session }) => ({
+          status: 200,
+          body: { site: query.get('site'), user: session?.userId ?? null },
+        }),
+      },
+    ],
+  });
+  const registry = createProviderRegistry();
+  registry.register(provider);
+  const routes = registry.apiRoutes();
+  assert.deepEqual(
+    routes.map((r) => [r.method, r.path, r.permissions]),
+    [
+      ['GET', '/api/providers', ['system:read']],
+      ['GET', '/api/providers/health', ['system:read']],
+      ['GET', '/api/test/echo', ['feed:read']],
+    ],
+  );
+  const echo = routes.at(-1);
+  assert.deepEqual(
+    await echo.handler({
+      req: { url: '/api/test/echo?site=TLX' },
+      session: { userId: 'u1' },
+    }),
+    { status: 200, body: { site: 'TLX', user: 'u1' } },
+  );
+  // Routes must be exact /api paths with a permission policy.
+  for (const bad of [
+    { method: 'POST', path: '/api/x', permissions: [], handler() {} },
+    { method: 'GET', path: '/api/x/:id', permissions: [], handler() {} },
+    { method: 'GET', path: '/api/x', handler() {} },
+  ])
+    assert.throws(() => pullProvider({ api: [bad] }), /exact \/api path/);
+});
+
+test('the dev server serves the same routes by exact path', async () => {
+  const registry = createProviderRegistry();
+  registry.register(pullProvider());
+  let middleware;
+  let closed = null;
+  registry.plugins()[0].configureServer({
+    middlewares: { use: (fn) => (middleware = fn) },
+    httpServer: { once: (event, fn) => event === 'close' && (closed = fn) },
+  });
+  const request = (url) =>
+    new Promise((resolve) => {
+      const res = {
+        headersSent: false,
+        writeHead(status, headers) {
+          this.status = status;
+          this.headers = headers;
+        },
+        end(body) {
+          resolve({ status: this.status, headers: this.headers, body });
+        },
+      };
+      middleware({ url, method: 'GET' }, res, () => resolve('next'));
+    });
+  const res = await request('/api/providers');
+  assert.equal(res.status, 200);
+  assert.equal(res.headers['Cache-Control'], 'no-store');
+  assert.equal(JSON.parse(res.body).providers[0].id, 'test-pull');
+  assert.equal(await request('/api/providers/unknown'), 'next');
+  assert.equal(await request('/api/radar/l2/live'), 'next');
+  closed(); // stops runtimes and the health monitor
 });
 
 test('every local provider registers centrally', () => {
@@ -275,23 +339,14 @@ test('provenance availableAt yields availability-to-ingest latency', async () =>
   });
 });
 
-test('the catalog reports registered streams and survives a failing one', () => {
+test('the catalog reports registered streams and survives a failing one', async () => {
   const registry = createProviderRegistry();
   registry.registerStream('notifications', () => ({ state: 'flowing' }));
   registry.registerStream('broken', () => {
     throw new Error('boom');
   });
   assert.throws(() => registry.registerStream('broken', () => ({})), /already/);
-  let handler;
-  registry.plugins()[0].configureServer({
-    middlewares: { use: (_path, fn) => (handler = fn) },
-  });
-  let body;
-  handler(
-    { method: 'GET', url: '/' },
-    { writeHead() {}, end: (text) => (body = JSON.parse(text)) },
-    () => assert.fail('catalog route should answer'),
-  );
+  const body = JSON.parse((await routeCaller(registry)('/api/providers')).body);
   assert.deepEqual(body.streams, {
     notifications: { state: 'flowing' },
     broken: { state: 'error', error: 'boom' },

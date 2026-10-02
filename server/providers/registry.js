@@ -8,8 +8,13 @@ import { createHealthMonitor } from './common/health.js';
 /**
  * Central provider registry (GW-80). Providers register here once instead of
  * each layer wiring its own proxy into the server; the registry owns their
- * runtimes and turns them into the server plugins the standalone config
- * installs. See docs/DATA-PROVIDERS.md.
+ * runtimes and their HTTP routes. See docs/DATA-PROVIDERS.md.
+ *
+ * Routes are declared once, in the standalone backend's shape
+ * (backend/server.js, GW-86): `apiRoutes()` hands them to `createBackend`,
+ * which puts every one behind its session and permission gate (GW-45).
+ * `plugins()` serves the same handlers from the Vite dev server for
+ * `npm run dev`, which has no sessions.
  *
  * Two kinds of entry, kept in registration order:
  *   - `register(definition)` — a provider implementing the common interface.
@@ -55,6 +60,7 @@ export function createProviderRegistry({
       provider,
       runtime,
     });
+    provider.attach?.(runtime);
     return runtime;
   }
 
@@ -137,79 +143,142 @@ export function createProviderRegistry({
     };
   }
 
+  function catalog() {
+    const states = new Map(
+      health.evaluate().providers.map((p) => [p.id, p.state]),
+    );
+    return {
+      providers: [...entries.values()].map((entry) => ({
+        ...describe(entry),
+        health: states.get(entry.id) ?? 'unmonitored',
+      })),
+      streams: streamStatus(),
+    };
+  }
+
   /**
-   * `GET /api/providers` — what is registered and how each provider is doing.
-   * `GET /api/providers/health` — health, data age and recent transitions.
+   * Every provider route in the backend's shape, the registry's own first:
+   *   GET /api/providers         — what is registered and how it is doing
+   *   GET /api/providers/health  — health, data age and recent transitions
+   * Both are operational detail, so they need `system:read`.
    */
-  function catalogPlugin() {
+  function apiRoutes() {
+    const own = [
+      {
+        method: 'GET',
+        path: '/api/providers',
+        permissions: ['system:read'],
+        handler: async () => ({ status: 200, body: catalog() }),
+      },
+      {
+        method: 'GET',
+        path: '/api/providers/health',
+        permissions: ['system:read'],
+        handler: async () => ({ status: 200, body: healthReport() }),
+      },
+    ];
+    const provided = providerEntries().flatMap(({ provider }) =>
+      provider.api.map((route) => ({
+        method: route.method,
+        path: route.path,
+        permissions: route.permissions,
+        handler: ({ req, session }) =>
+          route.handler({
+            query: new URL(req.url || '/', 'http://local').searchParams,
+            req,
+            session,
+          }),
+      })),
+    );
+    return [...own, ...provided];
+  }
+
+  /** Write a route result to a Node/connect response (the dev server). */
+  function writeResult(res, result) {
+    const headers = {
+      'Cache-Control': result.cacheControl ?? 'no-store',
+      'X-Content-Type-Options': 'nosniff',
+      ...(result.headers ?? {}),
+    };
+    if (result.bytes) {
+      res.writeHead(result.status, {
+        ...headers,
+        'Content-Type': result.contentType,
+      });
+      res.end(result.bytes);
+      return;
+    }
+    res.writeHead(result.status, {
+      ...headers,
+      'Content-Type': 'application/json',
+    });
+    res.end(JSON.stringify(result.body ?? {}));
+  }
+
+  /**
+   * The dev server's view of `apiRoutes()`: exact method + path, like the
+   * backend. There are no sessions in `npm run dev`, so permissions are not
+   * checked here; production only ever serves these through the backend.
+   */
+  function devApiPlugin() {
     const install = (server) => {
-      server.middlewares.use('/api/providers', (req, res, next) => {
+      const routes = new Map(
+        apiRoutes().map((route) => [`${route.method} ${route.path}`, route]),
+      );
+      server.middlewares.use(async (req, res, next) => {
         const path = new URL(req.url || '/', 'http://local').pathname;
-        const route =
-          path === '/' || path === ''
-            ? 'catalog'
-            : path === '/health'
-              ? 'health'
-              : null;
-        if (req.method !== 'GET' || !route) {
+        const method = req.method === 'HEAD' ? 'GET' : req.method || 'GET';
+        const route = routes.get(`${method} ${path}`);
+        if (!route) {
           next();
           return;
         }
-        res.writeHead(200, {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-store',
-        });
-        if (route === 'health') {
-          res.end(JSON.stringify(healthReport()));
-          return;
+        try {
+          writeResult(res, await route.handler({ req, session: null }));
+        } catch (error) {
+          console.warn('[provider]', error?.message || error);
+          if (!res.headersSent)
+            writeResult(res, {
+              status: 502,
+              body: { error: 'provider_failed' },
+            });
         }
-        const states = new Map(
-          health.evaluate().providers.map((p) => [p.id, p.state]),
-        );
-        res.end(
-          JSON.stringify({
-            providers: [...entries.values()].map((entry) => ({
-              ...describe(entry),
-              health: states.get(entry.id) ?? 'unmonitored',
-            })),
-            streams: streamStatus(),
-          }),
-        );
       });
       // Evaluate in the background so a provider going stale is recorded in
       // the history even when nobody is asking.
       health.start(healthIntervalMs);
-      server.httpServer?.once?.('close', () => health.stop());
-    };
-    return {
-      name: 'gev-provider-catalog',
-      configureServer: install,
-      configurePreviewServer: install,
-    };
-  }
-
-  function providerPlugin({ provider, runtime }) {
-    const install = (server) => {
-      provider.routes?.(server, runtime);
       // Polling and subscriptions belong to the server process: never leave a
       // timer or socket behind when the server closes.
-      server.httpServer?.once?.('close', () => runtime.stop());
+      server.httpServer?.once?.('close', close);
     };
     return {
-      name: `gev-provider-${provider.id}`,
+      name: 'gev-provider-api',
       configureServer: install,
       configurePreviewServer: install,
     };
   }
 
-  /** Server plugins in registration order, catalog first. */
+  /** Dev server plugins: the provider API first, then legacy proxies in order. */
   function plugins() {
     return [
-      catalogPlugin(),
-      ...[...entries.values()].map((entry) =>
-        entry.kind === 'legacy' ? entry.createPlugin() : providerPlugin(entry),
-      ),
+      devApiPlugin(),
+      ...[...entries.values()]
+        .filter((entry) => entry.kind === 'legacy')
+        .map((entry) => entry.createPlugin()),
     ];
+  }
+
+  /** Stop every runtime, provider timer and the health monitor. */
+  function close() {
+    health.stop();
+    for (const { provider, runtime } of providerEntries()) {
+      runtime.stop();
+      try {
+        provider.close?.();
+      } catch (error) {
+        console.warn(`[provider] ${provider.id} close failed:`, error?.message);
+      }
+    }
   }
 
   return Object.freeze({
@@ -222,6 +291,8 @@ export function createProviderRegistry({
     /** The health monitor: evaluate(), report(), subscribe() for shared state (GW-28). */
     health,
     healthReport,
+    apiRoutes,
     plugins,
+    close,
   });
 }
