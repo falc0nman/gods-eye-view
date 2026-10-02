@@ -109,3 +109,37 @@ test('the PNG encoder writes a valid, decodable PNG', () => {
   assert.deepEqual([...raw], [0, ...rgba.subarray(0, 8), 0, ...rgba.subarray(8)]);
   assert.equal(view.getUint32(idatAt + 8 + idatLen), zlib.crc32(png.subarray(idatAt + 4, idatAt + 8 + idatLen)));
 });
+
+// ── Cursor readout lookup ───────────────────────────────────────────────────
+
+import { beamHeightFt, valueAt } from './level3.js';
+
+test('valueAt returns the decoded gate under a point, matching the radials exactly', () => {
+  const p = decode('N0S');
+  const rad = Math.PI / 180;
+  let checked = 0;
+  for (const radialIndex of [0, 45, 90, 200, 300]) {
+    const radial = p.radials[radialIndex];
+    const az = radial.start + radial.delta / 2;
+    for (const gate of [10, 60, 150]) {
+      const rangeKm = (gate + 0.5) * p.gateKm;
+      // Invert the same flat-earth geometry the renderer and lookup use.
+      const lat = p.site.lat + (rangeKm * Math.cos(az * rad)) / (6371 * rad);
+      const lon = p.site.lon + (rangeKm * Math.sin(az * rad)) / (6371 * rad * Math.cos(lat * rad));
+      const hit = valueAt(p, lat, lon);
+      assert.equal(hit.inRange, true);
+      assert.ok(Math.abs(hit.rangeKm - rangeKm) < 0.05);
+      assert.equal(hit.value, p.valueOf(radial.levels[gate]));
+      checked += 1;
+    }
+  }
+  assert.equal(checked, 15);
+  assert.equal(valueAt(p, p.site.lat + 5, p.site.lon).inRange, false, '555 km is beyond the 230 km product');
+});
+
+test('beam height follows the 4/3-earth model', () => {
+  // 0.5° at 100 km: ~0.87 km from the tilt plus ~0.59 km of earth curvature.
+  const ft = beamHeightFt(100, 0.5, 0);
+  assert.ok(ft > 4500 && ft < 5000, `${ft} ft`);
+  assert.equal(Math.round(beamHeightFt(0, 0.5, 1277)), 1277, 'at the radar it is the radar height');
+});

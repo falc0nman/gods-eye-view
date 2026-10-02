@@ -49,7 +49,7 @@ import cesium from 'vite-plugin-cesium';
 import { normalizeRadioCountryInput } from './src/data/radioCountry.js';
 import zlib from 'node:zlib';
 import Bunzip from 'seek-bzip';
-import { decodeLevel3 } from './src/data/level3.js';
+import { beamHeightFt, decodeLevel3, valueAt } from './src/data/level3.js';
 import { encodePng, renderLevel3 } from './src/data/level3Render.js';
 import {
   buildChaserPlacefile,
@@ -1502,6 +1502,8 @@ function life360Chasers() {
  *   GET /api/radar/l3/scan?site=TLX&product=N0G
  *       → {key, product, scanMs, elevationDeg, bounds, site, image}
  *   GET /api/radar/l3/image/<key>.png   (immutable per scan key)
+ *   GET /api/radar/l3/value?key=<key>&lat=&lon=
+ *       → {value, inRange, rangeKm, azimuthDeg, beamHeightFt} — cursor readout
  *
  * Each scan is fetched from NOAA once and rendered once; the newest-scan
  * lookup is cached 30 s, and the last 40 rendered scans are kept in memory.
@@ -1560,6 +1562,8 @@ function nexradLevel3() {
       const png = encodePng(image, { deflate: (data) => zlib.deflateSync(data, { level: 6 }), crc32: zlib.crc32 });
       return {
         png,
+        // Kept for the cursor readout (/value): the decoded radials, not just pixels.
+        product,
         meta: {
           key,
           product: key.slice(4, 7),
@@ -1599,6 +1603,28 @@ function nexradLevel3() {
             return;
           }
           sendJson(res, 200, (await scan(key)).meta);
+          return;
+        }
+        if (url.pathname === '/value') {
+          const key = String(url.searchParams.get('key') || '');
+          const lat = Number(url.searchParams.get('lat'));
+          const lon = Number(url.searchParams.get('lon'));
+          if (!KEY_RE.test(key) || !PRODUCTS.has(key.slice(4, 7))
+            || !Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+            sendJson(res, 400, { error: 'expected key, lat and lon' });
+            return;
+          }
+          const { product } = await scan(key);
+          const hit = valueAt(product, lat, lon);
+          sendJson(res, 200, {
+            value: hit.value,
+            inRange: hit.inRange,
+            rangeKm: Math.round(hit.rangeKm * 10) / 10,
+            azimuthDeg: Math.round(hit.azimuthDeg),
+            beamHeightFt: hit.inRange && Number.isFinite(product.elevationDeg)
+              ? Math.round(beamHeightFt(hit.rangeKm, product.elevationDeg, product.site.heightFt) / 100) * 100
+              : null,
+          });
           return;
         }
         const image = /^\/image\/([A-Z0-9_]+)\.png$/.exec(url.pathname);

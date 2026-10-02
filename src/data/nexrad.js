@@ -1,4 +1,6 @@
 import * as Cesium from 'cesium';
+import { createRadarLegend, radarLegendModel } from '../radarLegend.js';
+import { createRadarReadout } from '../radarReadout.js';
 
 /**
  * NEXRAD weather radar. Picked with the row's chips:
@@ -213,7 +215,10 @@ export function createNexradLayer({
   now = () => Date.now(),
   locate = viewCenter,
   makeProvider = defaultMakeProvider,
+  legend = createRadarLegend(),
+  createReadout = createRadarReadout,
 } = {}) {
+  let _readout = null;
   let _viewer = null;
   let _enabled = false;
   /** @type {{key: string, series: string, attachments: Array<{collection: any, layer: any}>}|null} */
@@ -376,10 +381,27 @@ export function createNexradLayer({
     await show({ series, key: scan.key, image: scan.image, bounds: scan.bounds }, seq);
   }
 
+  /** Show the legend only while radar is actually on screen. */
+  const syncLegend = () => {
+    const onScreen = _enabled && !_noRadar && _viewer?.scene?.globe?.show !== false;
+    if (!onScreen) legend.hide();
+    else legend.show(radarLegendModel(_product, { elevationDeg: _scan?.elevationDeg ?? null }));
+  };
+  const onMapStackChanged = () => syncLegend();
+
+  /** The scan under the cursor readout, or null when there are no values to read. */
+  const readoutTarget = () => {
+    if (!_enabled || _product === 'composite' || !_scan || !_site) return null;
+    if (_viewer?.scene?.globe?.show === false) return null;
+    if (_current?.key !== _scan.key) return null; // image not on screen yet
+    return { key: _scan.key, group: _product };
+  };
+
   const refresh = async (signal) => {
     const seq = ++_seq;
     if (_product === 'composite') await refreshComposite(signal, seq);
     else await refreshSite(signal, seq);
+    syncLegend();
     _rowListener?.();
   };
 
@@ -409,6 +431,10 @@ export function createNexradLayer({
     enable() {
       _enabled = true;
       _removeMoveEnd ??= _viewer?.camera?.moveEnd?.addEventListener?.(onMoveEnd) ?? null;
+      // Switching to/from the photoreal map hides/shows the globe the radar rides on.
+      globalThis.addEventListener?.('gev:map-stack-changed', onMapStackChanged);
+      if (_viewer?.scene?.canvas) _readout ??= createReadout({ viewer: _viewer, getTarget: readoutTarget, fetchImpl });
+      syncLegend();
     },
 
     disable() {
@@ -416,7 +442,10 @@ export function createNexradLayer({
       _seq += 1;
       _removeMoveEnd?.();
       _removeMoveEnd = null;
+      globalThis.removeEventListener?.('gev:map-stack-changed', onMapStackChanged);
       retireAll();
+      legend.hide();
+      _readout?.hide();
     },
 
     async update(viewer, { signal } = {}) {
@@ -427,7 +456,15 @@ export function createNexradLayer({
 
     destroy() {
       layer.disable();
+      legend.destroy();
+      _readout?.destroy();
+      _readout = null;
       _viewer = null;
+    },
+
+    /** @internal test seam: what the cursor readout would query right now. */
+    readoutTarget() {
+      return readoutTarget();
     },
 
     setRowControlsListener(listener) {

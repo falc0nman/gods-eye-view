@@ -46,6 +46,45 @@ export function nexradFloat16(bits) {
   return bits >> 15 ? -value : value;
 }
 
+const EARTH_RADIUS_KM = 6371;
+
+/**
+ * Height of the beam centre above the radar's ground, standard 4/3-earth
+ * refraction model — how high off the ground a signature at that range is.
+ * @returns {number} feet above MSL (radar height included).
+ */
+export function beamHeightFt(rangeKm, elevationDeg, siteHeightFt = 0) {
+  const ke = (4 / 3) * EARTH_RADIUS_KM;
+  const theta = (elevationDeg * Math.PI) / 180;
+  const hKm = Math.sqrt(rangeKm ** 2 + ke ** 2 + 2 * rangeKm * ke * Math.sin(theta)) - ke;
+  return hKm * 3280.84 + siteHeightFt;
+}
+
+/**
+ * The decoded value at a point (same flat-earth geometry the renderer uses).
+ * @returns {{value: number|string|null, rangeKm: number, azimuthDeg: number, inRange: boolean}}
+ */
+export function valueAt(product, lat, lon) {
+  const rad = Math.PI / 180;
+  const dy = (lat - product.site.lat) * rad * EARTH_RADIUS_KM;
+  const dx = (lon - product.site.lon) * rad * EARTH_RADIUS_KM * Math.cos(lat * rad);
+  const rangeKm = Math.sqrt(dx * dx + dy * dy);
+  let azimuthDeg = Math.atan2(dx, dy) / rad;
+  if (azimuthDeg < 0) azimuthDeg += 360;
+  const gate = Math.floor(rangeKm / product.gateKm) - product.firstBin;
+  const inRange = gate >= 0 && gate < product.bins;
+  let value = null;
+  if (inRange) {
+    const radial = product.radials.find((r) => {
+      const offset = (((azimuthDeg - r.start) % 360) + 360) % 360;
+      return offset < r.delta;
+    });
+    const level = radial?.levels[gate];
+    if (level !== undefined) value = product.valueOf(level);
+  }
+  return { value, rangeKm, azimuthDeg, inRange };
+}
+
 /** Locate the end of the WMO text header (two CR CR LF line endings). */
 function wmoHeaderLength(bytes) {
   let seen = 0;

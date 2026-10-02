@@ -257,3 +257,49 @@ test('no radar near the view is a calm guidance state, and bad params are refuse
   assert.equal(layer.setParams({ tilt: 7 }), false);
   layer.disable(viewer);
 });
+
+test('the legend follows the product and hides when no radar is on screen', async () => {
+  const calls = [];
+  const legend = { show: (m) => calls.push(['show', m.title, m.subtitle]), hide: () => calls.push(['hide']), destroy() {} };
+  const viewer = {
+    imageryLayers: { add() {}, contains: () => true, remove() {} },
+    scene: { globe: { show: true }, primitives: { length: 0 } },
+  };
+  let center = { lat: 35.5, lon: -97.5 };
+  const layer = createNexradLayer({
+    fetchImpl: async (url) => (url.includes('NEXRAD.geojson') ? fakeResponse(SITES_GEOJSON)
+      : url.includes('/api/radar/l3/') ? fakeResponse(scanPayload('N0C', { elevationDeg: 0.9 }))
+        : fakeResponse({ meta: { valid: VALID_ISO, radar_quorum: '143/147' } })),
+    now: () => VALID_MS,
+    locate: () => center,
+    makeProvider: async () => new Cesium.UrlTemplateImageryProvider({ url: 'x/{z}/{x}/{y}' }),
+    legend,
+  });
+  layer.init(viewer);
+  layer.enable(viewer);
+  layer.setParams({ product: 'cc' });
+  await layer.update(viewer);
+  assert.deepEqual(calls.at(-1), ['show', 'Correlation coefficient', '0.9° tilt']);
+  center = { lat: 30, lon: -40 };
+  await layer.update(viewer);
+  assert.deepEqual(calls.at(-1), ['hide'], 'no radar nearby → no legend');
+  center = { lat: 35.5, lon: -97.5 };
+  viewer.scene.globe.show = false;
+  await layer.update(viewer);
+  assert.deepEqual(calls.at(-1), ['hide'], 'photoreal map hides the radar, and its legend');
+  layer.disable(viewer);
+  assert.deepEqual(calls.at(-1), ['hide']);
+});
+
+test('the cursor readout only answers for a single-radar scan that is on screen', async () => {
+  const { layer, viewer } = siteLayer();
+  assert.equal(layer.readoutTarget(), null, 'composite has no values');
+  layer.setParams({ product: 'vel' });
+  await layer.update(viewer);
+  assert.deepEqual(layer.readoutTarget(), { key: 'TLX_N0G_2026_10_02_00_05_00', group: 'vel' });
+  viewer.scene.globe.show = false;
+  assert.equal(layer.readoutTarget(), null, 'radar hidden by the photoreal map');
+  viewer.scene.globe.show = true;
+  layer.disable(viewer);
+  assert.equal(layer.readoutTarget(), null);
+});
