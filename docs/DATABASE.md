@@ -42,8 +42,8 @@ volumes; a code checkout alone cannot recover lost operational records.
 preserves existing files. That directory is ignored by Git, excluded from the
 image, and denied by Vite's file server. Unix permissions are restrictive; on
 Windows protect secrets and backups using your account's directory ACLs.
-The container entrypoint reads its mounted identity's credential, drops to the
-`node` OS user, and passes the credential to the server process. This also works
+Container entrypoints read their mounted identities' credentials before dropping
+to the `node` or `postgres` OS user. This also works
 when Linux host secret files are owned by a different user and have mode 0600.
 Mount files from your GW-84 secret provider in deployments, or inject the
 server-only `GEV_DB_PASSWORD` and `GEV_DB_MIGRATOR_PASSWORD` environment values.
