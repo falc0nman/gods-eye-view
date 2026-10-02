@@ -14,8 +14,22 @@
 <ul>
   <li>🏢 <strong>Multi-User &amp; Shared State:</strong> Transitioned from a single-user local app to a full standalone Node.js backend backed by <strong>PostgreSQL + PostGIS</strong>. It supports Role-Based Access Control (RBAC), shared operational state (targets, annotations, team positions), and real-time synchronization.</li>
   <li>🌪️ <strong>Event-Driven Weather Data:</strong> Replaced polling with low-latency, event-driven ingest directly from NOAA open data AWS notifications (NEXRAD Level II/III, GOES, HRRR, MRMS).</li>
-  <li>🔒 <strong>Enterprise-Grade Security:</strong> Moved all API keys (OpenAI, Google Maps, TomTom, etc.) to server-side secrets. The browser never sees your keys.</li>
+  <li>🔒 <strong>Enterprise-Grade Security:</strong> The standalone backend owns OAuth secrets, encrypted provider tokens, revocable sessions, CSRF checks and role enforcement. Configure provider credentials through operator-managed environment files or secret storage.</li>
   <li>🎙️ <strong>Hands-Free Chase Controls:</strong> Adapted the OpenAI Realtime analyst engine for in-vehicle use. Replaced military/aircraft commands with weather-specific voice actions (e.g., <em>"Show me warnings near our target"</em>, <em>"Switch radar tilt"</em>).</li>
   <li>📻 <strong>Scanner &amp; NWR Integration:</strong> Modified the radio tuner to stream live Emergency Services scanners and NOAA Weather Radio feeds based on your spatial location.</li>
   <li>⚡ <strong>Field-Ready Reliability:</strong> Added shared caching, rate-limiting, request coalescing, and degraded-mode support to handle spotty cellular connections during live storm chases.</li>
 </ul>
+
+<h3>Team authentication</h3>
+
+<p>Discord OAuth and Google OIDC use server-enforced application roles. Google identities require explicit administrator approval. See <a href="docs/AUTHENTICATION.md">authentication setup</a> for callback URLs, guild role mappings and emergency administrator bootstrap.</p>
+
+<p>Provider Settings and the credential-writing setup endpoints are removed. Pinokio manages non-secret launcher controls only. Browser-exposed Google Maps and Cesium ion credentials require provider restrictions and a frontend rebuild when changed; see <a href="SECURITY.md">credential security</a>.</p>
+
+<h3>Globe tools and data sources</h3>
+
+DISPLAY ▸ **Draw** adds marks, areas and routes to the map with pointer controls.
+
+Nineteen layers and map sources. **Seventeen have a keyless path.** Provider provenance and courtesy attribution for open realtime transit vehicle data are documented in [DATA_SOURCES.md](DATA_SOURCES.md).
+
+**Sits on the real ground.** Entity heights are aligned to work with Google 3D tiles, so aircraft park on aprons and cameras stand on street corners instead of floating.

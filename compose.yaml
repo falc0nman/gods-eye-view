@@ -80,9 +80,9 @@ services:
       GEV_DB_PASSWORD_FILE: /run/secrets/db_app
       GEV_BACKEND_HOST: 0.0.0.0
       GEV_BACKEND_PORT: 3000
+      GEV_AUTH_KEY_FILE: /run/secrets/auth_key
       GEV_PUBLIC_ORIGIN: ${GEV_PUBLIC_ORIGIN:-http://localhost:4173}
-      GEV_SESSION_COOKIE: ${GEV_SESSION_COOKIE:-gev_session}
-    secrets: [db_app]
+    secrets: [db_app, auth_key]
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -175,6 +175,8 @@ secrets:
     file: ./.gev-secrets/migrator
   db_backup:
     file: ./.gev-secrets/backup
+  auth_key:
+    file: ./.gev-secrets/auth
 
 volumes:
   database:

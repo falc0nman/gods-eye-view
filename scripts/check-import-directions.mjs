@@ -24,11 +24,9 @@ const renderer = (file) =>
   /^src\/layers\/[^/]+\/(?:index|rendering|snapshotRenderer|overlay|presentation|cards|controls)\.js$/.test(
     file,
   );
-// Two compatibility composition entries intentionally select standalone defaults.
+// One compatibility composition entry intentionally select standalone defaults.
 const compatibilityEdge = (from, to) =>
-  (from === 'server/providers/local.js' &&
-    to === 'server/standalone/key-setup.js') ||
-  (from === 'src/ui.js' && to === 'src/standalone/catalog.js');
+  from === 'src/ui.js' && to === 'src/standalone/catalog.js';
 const portableExport = (key) =>
   key.startsWith('./sources/') ||
   /\/source$/.test(key) ||

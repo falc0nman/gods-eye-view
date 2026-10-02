@@ -1,5 +1,8 @@
 import { createDatabasePool } from '../server/database/connection.js';
 import { createBackend } from './server.js';
+import { identityConfig } from './identity/config.js';
+import { createIdentityService } from './identity/service.js';
+import { administrationRoutes } from './identity/administration.js';
 
 const port = Number(process.env.GEV_BACKEND_PORT || 3000);
 if (!Number.isInteger(port) || port < 1 || port > 65535)
@@ -9,11 +12,15 @@ pool.on('error', () =>
   console.error('[backend] Idle database connection failed'),
 );
 let stopping = false;
+const config = identityConfig();
+const identityService = createIdentityService({ pool, config });
 const server = createBackend({
   pool,
   cookieName: process.env.GEV_SESSION_COOKIE,
   publicOrigin: process.env.GEV_PUBLIC_ORIGIN,
   isStopping: () => stopping,
+  identityService,
+  routes: administrationRoutes(pool, config),
 });
 
 server.listen(port, process.env.GEV_BACKEND_HOST || '127.0.0.1', () => {

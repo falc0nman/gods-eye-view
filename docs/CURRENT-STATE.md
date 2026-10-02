@@ -1,5 +1,10 @@
 # God's Eye View Current State
 
+GW-45 adds production Discord OAuth, Google OIDC, linked identities, revocable
+sessions, RBAC, CSRF and security audits. GW-87 removes the browser credential
+editor, setup write endpoints and Pinokio credential plumbing; older notes below
+describe prior releases. See [AUTHENTICATION.md](AUTHENTICATION.md).
+
 ## Standalone backend — October 2, 2026
 
 GW-86 replaces the Compose app's Vite runtime with an unprivileged Nginx static

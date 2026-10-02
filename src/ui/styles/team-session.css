@@ -1,0 +1,16 @@
+#top-center-actions #team-session {
+  width: auto;
+  min-height: 36px;
+  padding: 0 10px;
+  color: var(--text-primary, #e4f4ff);
+  font: inherit;
+  font-size: 11px;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  background: var(--panel-bg, #132333);
+}
+#top-center-actions #team-session:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+body.recording-mode #team-session, body.ui-clean-view #team-session { display: none; }

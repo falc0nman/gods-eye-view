@@ -36,19 +36,17 @@ test('the fresh template keeps provider credentials out of native Configure', ()
 
   for (const field of PROVIDER_FIELDS) {
     assert.equal(field in configured, false, `${field} must not be an active assignment`);
-    assert.match(source, new RegExp(`^# ${field}=$`, 'm'));
+    assert.equal(source.includes(field), false);
   }
   assert.equal(configured.PINOKIO_SHARE_CLOUDFLARE, 'false');
   assert.equal(configured.PINOKIO_SHARE_LOCAL, 'false');
   assert.equal(configured.PINOKIO_SHARE_VAR, '__gev_sharing_disabled__');
   assert.equal(configured.GEV_RATELIMIT_OPENAI_PER_MIN, '30');
   assert.equal(configured.GEV_RATELIMIT_GOOGLE_PER_MIN, '120');
-  assert.match(source, /Do not enter credentials in Pinokio 8\.0\.40's native Configure panel/);
-  assert.match(source, /trusted local text editor/);
-  assert.match(source, /Stop and Start the app/);
+  assert.match(source, /process environment/);
 });
 
-test('raw app-file values override Pinokio-global values, including blanks', () => {
+test('launcher controls override global controls without changing provider credentials', () => {
   const root = mkdtempSync(path.join(tmpdir(), 'gev-pinokio-env-'));
   try {
     const filepath = path.join(root, 'ENVIRONMENT');
@@ -75,9 +73,9 @@ test('raw app-file values override Pinokio-global values, including blanks', () 
 
     applyPinokioEnvironment({ environment, filepath });
 
-    assert.equal(environment.GOOGLE_MAPS_API_KEY, 'app-configured');
-    assert.equal(environment.CESIUM_ION_TOKEN, '');
-    assert.equal(environment.OPENAI_API_KEY, '');
+    assert.equal(environment.GOOGLE_MAPS_API_KEY, 'global-google');
+    assert.equal(environment.CESIUM_ION_TOKEN, 'global-ion');
+    assert.equal(environment.OPENAI_API_KEY, 'global-openai');
     assert.equal(environment.GEV_RATELIMIT_OPENAI_PER_MIN, '45');
     assert.equal(environment.GEV_RATELIMIT_GOOGLE_PER_MIN, '');
     assert.equal(environment.PINOKIO_SHARE_CLOUDFLARE, 'false');
@@ -105,8 +103,8 @@ test('an existing Pinokio file gains the canonical non-secret sharing boundary',
 
     applyPinokioEnvironment({ environment, filepath });
 
-    assert.equal(environment.OPENAI_API_KEY, 'app-value');
-    assert.equal(environment.GOOGLE_MAPS_API_KEY, '');
+    assert.equal(environment.OPENAI_API_KEY, undefined);
+    assert.equal(environment.GOOGLE_MAPS_API_KEY, 'global-google');
     assert.equal(environment.GEV_RATELIMIT_OPENAI_PER_MIN, '30');
     assert.equal(environment.GEV_RATELIMIT_GOOGLE_PER_MIN, '120');
     assert.equal(environment.PINOKIO_SHARE_LOCAL, 'false');
@@ -194,7 +192,7 @@ for (const fixture of [
 
       applyPinokioEnvironment({ environment, filepath });
 
-      assert.equal(environment.OPENAI_API_KEY, 'provider-value');
+      assert.equal(environment.OPENAI_API_KEY, 'global-value');
       assert.equal(environment.PINOKIO_SHARE_CLOUDFLARE, 'false');
       assert.equal(environment.PINOKIO_SHARE_LOCAL, 'false');
       assert.equal(environment.PINOKIO_SHARE_VAR, '__gev_sharing_disabled__');
@@ -220,7 +218,7 @@ test('server Google key follows app values, blanks and absence instead of inheri
       writeFileSync(filepath, source);
       const environment = { GOOGLE_MAPS_SERVER_API_KEY: 'global-server' };
       applyPinokioEnvironment({ environment, filepath });
-      assert.equal(environment.GOOGLE_MAPS_SERVER_API_KEY, expected);
+      assert.equal(environment.GOOGLE_MAPS_SERVER_API_KEY, 'global-server');
     }
   } finally {
     rmSync(root, { recursive: true, force: true });

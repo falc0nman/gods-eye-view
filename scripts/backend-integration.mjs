@@ -55,9 +55,15 @@ if (process.argv.includes('--outage')) {
       'INSERT INTO gev.user_roles(user_id, role_id) VALUES ($1, $2)',
       [userId, roleId],
     );
+    const identityId = (
+      await pool.query(
+        "INSERT INTO gev.external_identities(provider,subject,user_id,approved) VALUES ('google',$1,$2,true) RETURNING id",
+        [randomUUID(), userId],
+      )
+    ).rows[0].id;
     await pool.query(
-      "INSERT INTO gev.sessions(token_hash, user_id, expires_at) VALUES ($1, $2, now() + interval '1 hour')",
-      [hash, userId],
+      "INSERT INTO gev.sessions(token_hash,user_id,identity_id,expires_at) VALUES ($1,$2,$3,now()+interval '1 hour')",
+      [hash, userId, identityId],
     );
     for (const base of bases) {
       assert.equal((await request(base, '/api/session')).status, 401);

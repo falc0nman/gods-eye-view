@@ -44,7 +44,8 @@ Each request checks expiry, revocation, disabled-user status and current
 `user_roles`/`role_permissions`; no identity or authorization is trusted from
 request headers, browser state, Discord role claims, or a stale permission cache.
 No raw token or database credential is returned. Cookie values must have at least
-43 URL-safe characters; GW-45 should issue at least 32 random bytes.
+43 URL-safe characters; GW-45 issues 32 random bytes. See
+[AUTHENTICATION.md](AUTHENTICATION.md) for OAuth, live provider checks, CSRF and admin APIs.
 
 | API                        | Required policy                    | Response                                                  |
 | -------------------------- | ---------------------------------- | --------------------------------------------------------- |
@@ -71,19 +72,19 @@ const routes = [
 An explicit empty permissions array still requires authentication. Global route
 permissions do not replace workspace membership or resource ownership checks.
 OAuth callbacks, login, session issuance/logout, Discord guild checks, role
-mapping, and audit policies remain GW-45 work; there is no development auth bypass
-or HTTP endpoint that manufactures a privileged session.
+mapping, and audit policies are implemented by the backend identity service;
+there is no HTTP endpoint that manufactures an unverified privileged session.
 
 For cookie-authenticated writes, the browser must send `Origin` equal to
-`GEV_PUBLIC_ORIGIN` and `X-GEV-CSRF: 1`. Cross-site fetch metadata is rejected and
+`GEV_PUBLIC_ORIGIN` and `X-GEV-CSRF` containing the token from the authenticated session. Cross-site fetch metadata is rejected and
 the backend does not allow cross-origin API access. Keep this check on new write
-routes; OAuth state/nonce checks belong to the forthcoming login implementation.
+routes; the identity service enforces OAuth state and nonce checks.
 
 The default session cookie is `__Host-gev_session`. The shared `sessionCookie`
 helper enforces HttpOnly, SameSite=Lax, Path=/ and Secure. The local HTTP Compose
-stack selects the unprefixed `gev_session` name; GW-45 may issue that cookie with
-`secure: false` for loopback development. HTTPS deployments should explicitly
-set `GEV_SESSION_COOKIE=__Host-gev_session` and use secure cookies. See the
+stack uses `gev_session` for loopback HTTP and `__Host-gev_session` for HTTPS,
+with Secure, HttpOnly, SameSite=Lax and an eight-hour lifetime.
+HTTPS selects the host-prefixed cookie automatically. See the
 [cookie prefix requirements](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Cookies#cookie_prefixes).
 
 ## Development and deferred proxy migration
@@ -100,7 +101,7 @@ checks, update development proxying to this backend, and retire Vite plugin
 routing. Until then, production `/api/weather`, provider settings, and other
 legacy proxy endpoints are deliberately unavailable. The static globe can load
 its bundled/keyless content; backend-provided live features require that follow-up
-and GW-45 login. This foundation does not claim that proxy migration is complete.
+and team login. This foundation does not claim that proxy migration is complete.
 
 ## Verification
 

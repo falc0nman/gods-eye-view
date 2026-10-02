@@ -29,15 +29,9 @@ async function start() {
   applyPinokioEnvironment();
   validatePinokioSharing();
   const port = launchPort(process.env.PORT);
-  // Provider Settings routes credential writes to pinokio/ENVIRONMENT (never
-  // .env) when the app runs under this launcher. The marker is set here — after
-  // applyPinokioEnvironment, before Vite snapshots process.env — so the
-  // dev-server endpoint knows which store this launch owns.
-  process.env.GEV_LAUNCHER = 'pinokio';
   console.log('[Pinokio] Local-only launch.');
 
-  // Import Vite only after app-scoped blank fields have replaced any merged
-  // Pinokio-global values. Vite snapshots process.env during configuration.
+  // Apply non-secret launcher controls before loading Vite configuration.
   const { createServer } = await loadViteFromCanonicalRoot();
   const server = await createServer({
     root: ROOT,

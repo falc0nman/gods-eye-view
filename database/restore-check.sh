@@ -16,6 +16,11 @@ BEGIN
   IF NOT EXISTS (SELECT FROM gev.schema_migrations WHERE name = '0001_initial.sql') THEN
     RAISE EXCEPTION 'Initial migration missing from restore';
   END IF;
+  IF NOT EXISTS (SELECT FROM gev.schema_migrations WHERE name = '0002_authentication.sql') OR
+    to_regclass('gev.external_identities') IS NULL OR to_regclass('gev.discord_role_mapping') IS NULL OR
+    NOT has_table_privilege('gev_app', 'gev.external_identities', 'UPDATE') THEN
+    RAISE EXCEPTION 'Restored authentication schema or grants are incomplete';
+  END IF;
   IF (SELECT count(*) FROM pg_tables WHERE schemaname = 'gev') < 19 THEN
     RAISE EXCEPTION 'Restored schema is incomplete';
   END IF;
