@@ -284,8 +284,8 @@ as the worked example. The decoder (`level2.js`), sweep assembly
 
 ### Level II routes
 
-- `GET /api/radar/l2/live?site=KTLX` watches the radar for the next three
-  minutes and returns what has arrived so far:
+- `GET /api/radar/l2/live?site=KTLX[&motion=DDD/SS|auto]` watches the radar
+  for the next three minutes and returns what has arrived so far:
   - `mode`: `chunks`, `volume` (completed-volume fallback) or `pending`
   - `feed`: `via` (`notifications` or `polling`), `state` and `backfill`
   - `volume`: id, number, VCP, `complete` and location
@@ -293,10 +293,53 @@ as the worked example. The decoder (`level2.js`), sweep assembly
     `dataAgeMs` and image URLs
   - `nextVolume`: a volume that has started but has no radials yet
   - `latency`: `radialToIngestMs` and `objectToIngestMs` (last and median)
-- `GET /api/radar/l2/image/<SITE>/<volumeId>/<elevation>/<REF|VEL>.png?rev=n`
+  - `stormMotion`: the vector SRV images use, with `source` (`user` or
+    `nws-warning`) and a `label`; or `stormMotionError` saying why there
+    is none
+- `GET /api/radar/l2/image/<SITE>/<volumeId>/<elevation>/<PRODUCT>.png?rev=n`
   returns one sweep as a PNG in the Level III projection. A sweep in progress
   renders as the wedge scanned so far. Complete sweeps are cached as
-  immutable.
+  immutable. Products:
+  - `REF` and `VEL` (raw)
+  - `VDA`: dealiased velocity
+  - `SRV`: storm-relative velocity. It needs `&motion=DDD/SS` and returns the
+    vector applied in the `X-Storm-Motion` header.
+- `GET /api/radar/l2/value?site&volume&elevation&lat&lon[&motion]` returns
+  `ref`, raw `vel`, `velDealiased` and `srv` at a point (m/s and dBZ), with
+  range, azimuth and Nyquist velocity. Couplet interrogation (GW-8) samples
+  this route.
+
+### Dealiasing and storm-relative velocity (GW-72)
+
+[`nexrad/dealias.js`](../server/providers/nexrad/dealias.js) unfolds
+velocity region by region, after Py-ART's region-based method:
+
+1. Gates are grouped into regions by folded-velocity bin. A single missing
+   gate is bridged, so speckle doesn't split an echo.
+2. Touching regions are merged, longest shared boundary first. Each merge
+   shifts the smaller region by whole Nyquist intervals.
+3. Each remaining echo is placed in the right interval against the same
+   tilt of the previous volume. With no previous volume, it's centred on
+   ±Vn.
+
+Without that reference, an echo whose true mean is beyond the Nyquist
+velocity stays one interval off. Examples: the first chunks of a sweep
+looking straight down a strong wind, or an isolated cell when no previous
+volume is held.
+
+Results are cached per sweep revision. Measured performance:
+
+- **Synthetic sweeps** (with tests): 100% of gates in the right interval
+  with 56% folded, and 99.99% with heavy noise and 35% speckle.
+- **Real data** (KTLX, 2026-09-30, Nyquist 23.84 m/s): neighbouring gates
+  differing by more than the Nyquist velocity dropped from 266 to 68 at 0.5°.
+  A full super-res sweep takes about 0.3–0.8 s.
+
+SRV subtracts the storm motion's component along each beam from the
+dealiased velocity. `motion=auto` uses the motion on the nearest active NWS
+Tornado, Severe Thunderstorm or Flash Flood Warning within 250 km
+(`eventMotionDescription`, cached for 2 minutes). Sharing the chosen motion
+with intercept tools (GW-23) waits for shared state (GW-28).
 
 ### Behaviour
 

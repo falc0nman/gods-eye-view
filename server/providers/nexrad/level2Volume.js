@@ -107,6 +107,7 @@ export function createVolumeAssembler({ now = () => Date.now() } = {}) {
       let sweep = volume.sweeps.get(radial.elevationNumber);
       if (!sweep) {
         sweep = createSweep(radial);
+        sweep.volumeId = volume.id;
         volume.sweeps.set(radial.elevationNumber, sweep);
       }
       sweep.radials.set(radial.azimuthNumber, radial);
@@ -201,6 +202,21 @@ export function createVolumeAssembler({ now = () => Date.now() } = {}) {
     );
   }
 
+  /**
+   * The same tilt in the newest earlier volume, complete — the reference that
+   * keeps dealiasing anchored while this sweep is still arriving.
+   */
+  function referenceSweep(site, volumeId, elevationNumber) {
+    const earlier = [...(sites.get(site)?.volumes.values() ?? [])]
+      .filter((v) => v.id < volumeId)
+      .sort((a, b) => (a.id < b.id ? 1 : -1));
+    for (const v of earlier) {
+      const sweep = v.sweeps.get(elevationNumber);
+      if (sweep?.complete) return sweep;
+    }
+    return null;
+  }
+
   function volume(site, volumeId) {
     return sites.get(site)?.volumes.get(volumeId) ?? null;
   }
@@ -217,6 +233,7 @@ export function createVolumeAssembler({ now = () => Date.now() } = {}) {
     latency,
     sweep,
     volume,
+    referenceSweep,
     forget,
   };
 }

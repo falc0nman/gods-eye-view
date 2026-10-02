@@ -13,12 +13,20 @@ import {
 import {
   createVolumeAssembler,
   expectedRadials,
-  LEVEL2_RENDER_GROUPS,
   parseChunkKey,
   parseVolumeKey,
   sweepProduct,
 } from './nexrad/level2Volume.js';
 import { encodePng, renderLevel3 } from './nexrad/render.js';
+import { parseStormMotion } from './nexrad/dealias.js';
+import { sweepValueAt, velocityProduct } from './nexrad/level2Velocity.js';
+import {
+  createStormMotionSource,
+  describeMotion,
+} from './nexrad/stormMotion.js';
+
+/** Image products: decoded moments plus the derived velocity products (GW-72). */
+const IMAGE_PRODUCTS = Object.freeze(['REF', 'VEL', 'VDA', 'SRV']);
 
 /**
  * NEXRAD Level II, ingested as real-time chunks (GW-74). It is the reference
@@ -104,6 +112,7 @@ export function createLevel2Ingest({
   feed = level2Feed({ dispatcher, fetchImpl, chunkBucket, now }),
   setTimeout: schedule = globalThis.setTimeout,
   clearTimeout: unschedule = globalThis.clearTimeout,
+  stormMotion = createStormMotionSource({ fetchImpl, now }),
 } = {}) {
   const assembler = createVolumeAssembler({ now });
   /** site → {expiresAt, unwatch} */
@@ -290,7 +299,26 @@ export function createLevel2Ingest({
     return promise;
   }
 
-  async function snapshot(site) {
+  /** Product names a sweep can be drawn as (SRV only with a motion). */
+  function sweepImages(site, volume, sweep, motion) {
+    const has = (name) =>
+      [...sweep.radials.values()].some((r) => r.moments[name]);
+    const names = [];
+    if (has('REF')) names.push('REF');
+    if (has('VEL')) names.push('VEL', 'VDA', ...(motion ? ['SRV'] : []));
+    const base = `/api/radar/l2/image/${site}/${volume.id}/${sweep.elevationNumber}`;
+    return Object.fromEntries(
+      names.map((name) => [
+        name,
+        `${base}/${name}.png?rev=${sweep.revision}` +
+          (name === 'SRV'
+            ? `&motion=${Math.round(motion.fromDeg)}/${Math.round(motion.speedKt)}`
+            : ''),
+      ]),
+    );
+  }
+
+  async function snapshot(site, { motion: motionRequest = null } = {}) {
     const feedStatus = feed.status(site);
     // A volume that has only its start chunk has nothing to draw yet; keep
     // serving the previous one and name the next.
@@ -320,10 +348,18 @@ export function createLevel2Ingest({
         console.warn('[nexrad-l2] completed volume', error?.message || error);
       }
     }
+    const resolved = await stormMotion.resolve(
+      motionRequest,
+      volume?.location ?? null,
+    );
+    const motion = resolved.motion;
     const t = now();
     return {
       site,
       mode,
+      // Which storm motion SRV images use, and where it came from.
+      stormMotion: motion,
+      ...(resolved.error ? { stormMotionError: resolved.error } : {}),
       feed: { kind: feed.kind ?? 'custom', ...feedStatus },
       volume: volume && {
         id: volume.id,
@@ -348,16 +384,7 @@ export function createLevel2Ingest({
               // GW-25 data-age: how old the newest radial in the sweep is.
               dataAgeMs: t - sweep.lastRadialMs,
               revision: sweep.revision,
-              images: Object.fromEntries(
-                Object.keys(LEVEL2_RENDER_GROUPS)
-                  .filter((name) =>
-                    [...sweep.radials.values()].some((r) => r.moments[name]),
-                  )
-                  .map((name) => [
-                    name,
-                    `/api/radar/l2/image/${site}/${volume.id}/${sweep.elevationNumber}/${name}.png?rev=${sweep.revision}`,
-                  ]),
-              ),
+              images: sweepImages(site, volume, sweep, motion),
             }))
         : [],
       nextVolume,
@@ -366,16 +393,37 @@ export function createLevel2Ingest({
     };
   }
 
-  function image(site, volumeId, elevationNumber, moment) {
-    const sweep = assembler.sweep(site, volumeId, elevationNumber);
-    if (!sweep) return null;
-    const location =
+  /** Dealiasing anchors each sweep to the same tilt of the volume before. */
+  const velocityOptions = (site) => ({
+    referenceOf: (sweep) =>
+      assembler.referenceSweep(site, sweep.volumeId, sweep.elevationNumber),
+  });
+
+  function sweepLocation(site, volumeId, sweep) {
+    return (
       assembler.volume(site, volumeId)?.location ??
       [...sweep.radials.values()].find((r) => r.site)?.site ??
-      null;
-    const cacheKey = `${site}/${volumeId}/${elevationNumber}/${moment}/${sweep.revision}`;
+      null
+    );
+  }
+
+  function image(site, volumeId, elevationNumber, moment, motion = null) {
+    const sweep = assembler.sweep(site, volumeId, elevationNumber);
+    if (!sweep) return null;
+    const location = sweepLocation(site, volumeId, sweep);
+    const motionKey = motion ? `${motion.fromDeg}/${motion.speedKt}` : '';
+    const cacheKey = `${site}/${volumeId}/${elevationNumber}/${moment}/${sweep.revision}/${motionKey}`;
     if (images.has(cacheKey)) return images.get(cacheKey);
-    const product = sweepProduct(sweep, moment, location);
+    const product =
+      moment === 'VDA' || moment === 'SRV'
+        ? velocityProduct(
+            sweep,
+            moment,
+            location,
+            motion,
+            velocityOptions(site),
+          )
+        : sweepProduct(sweep, moment, location);
     if (!product) return null;
     const png = encodePng(renderLevel3(product), {
       deflate: (data) => zlib.deflateSync(data, { level: 6 }),
@@ -406,15 +454,84 @@ export function createLevel2Ingest({
           return;
         }
         touch(site);
-        sendJson(res, 200, await snapshot(site));
+        sendJson(
+          res,
+          200,
+          await snapshot(site, { motion: url.searchParams.get('motion') }),
+        );
+        return;
+      }
+      if (url.pathname === '/value') {
+        // Point values for interrogation (GW-8): raw, dealiased and
+        // storm-relative velocity, and reflectivity.
+        const site = String(url.searchParams.get('site') || '').toUpperCase();
+        const volumeId = String(url.searchParams.get('volume') || '');
+        const elevation = Number(url.searchParams.get('elevation'));
+        const lat = Number(url.searchParams.get('lat'));
+        const lon = Number(url.searchParams.get('lon'));
+        const motionText = url.searchParams.get('motion');
+        const motion = motionText ? parseStormMotion(motionText) : null;
+        if (
+          !SITE_RE.test(site) ||
+          !VOLUME_ID_RE.test(volumeId) ||
+          !Number.isInteger(elevation) ||
+          !Number.isFinite(lat) ||
+          !Number.isFinite(lon) ||
+          Math.abs(lat) > 90 ||
+          Math.abs(lon) > 180 ||
+          (motionText && !motion)
+        ) {
+          sendJson(res, 400, {
+            error:
+              'expected site, volume, elevation, lat, lon and optional motion=DDD/SS',
+          });
+          return;
+        }
+        const sweep = assembler.sweep(site, volumeId, elevation);
+        const location = sweep && sweepLocation(site, volumeId, sweep);
+        if (!sweep || !location) {
+          sendJson(res, 404, { error: 'sweep not available' });
+          return;
+        }
+        const hit = sweepValueAt(
+          sweep,
+          location,
+          lat,
+          lon,
+          motion,
+          velocityOptions(site),
+        );
+        const round = (v) =>
+          typeof v === 'number' ? Math.round(v * 10) / 10 : v;
+        sendJson(res, 200, {
+          ...hit,
+          rangeKm: round(hit.rangeKm),
+          azimuthDeg: Math.round(hit.azimuthDeg),
+          ref: round(hit.ref),
+          vel: round(hit.vel),
+          velDealiased: round(hit.velDealiased),
+          srv: round(hit.srv),
+          units: 'm/s (velocity), dBZ (ref)',
+          stormMotion: motion && { ...motion, label: describeMotion(motion) },
+        });
         return;
       }
       const m =
         /^\/image\/([A-Z0-9]{4})\/([0-9-]+)\/(\d{1,2})\/([A-Z]{3})\.png$/.exec(
           url.pathname,
         );
-      if (m && VOLUME_ID_RE.test(m[2]) && LEVEL2_RENDER_GROUPS[m[4]]) {
-        const hit = image(m[1], m[2], Number(m[3]), m[4]);
+      if (m && VOLUME_ID_RE.test(m[2]) && IMAGE_PRODUCTS.includes(m[4])) {
+        // SRV images name their storm motion explicitly; `auto` is resolved
+        // by /live first so an image URL always means one exact picture.
+        const motion =
+          m[4] === 'SRV'
+            ? parseStormMotion(url.searchParams.get('motion'))
+            : null;
+        if (m[4] === 'SRV' && !motion) {
+          sendJson(res, 400, { error: 'SRV needs motion=DDD/SS' });
+          return;
+        }
+        const hit = image(m[1], m[2], Number(m[3]), m[4], motion);
         if (!hit) {
           sendJson(res, 404, { error: 'sweep not available' });
           return;
@@ -426,6 +543,7 @@ export function createLevel2Ingest({
           'Cache-Control': hit.complete
             ? 'public, max-age=86400, immutable'
             : 'public, max-age=60',
+          ...(motion ? { 'X-Storm-Motion': describeMotion(motion) } : {}),
         });
         res.end(hit.png);
         return;
