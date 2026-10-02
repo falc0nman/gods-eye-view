@@ -7,16 +7,6 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DEFAULT_ENVIRONMENT_FILE = path.join(ROOT, 'pinokio', 'ENVIRONMENT');
 
 export const PINOKIO_CONFIG_FIELDS = Object.freeze([
-  'GOOGLE_MAPS_API_KEY',
-  'GOOGLE_MAPS_SERVER_API_KEY',
-  'CESIUM_ION_TOKEN',
-  'OPENAI_API_KEY',
-  'AISSTREAM_API_KEY',
-  'FIRMS_MAP_KEY',
-  'TOMTOM_API_KEY',
-  'OPENSKY_CLIENT_ID',
-  'OPENSKY_CLIENT_SECRET',
-  'LL2_API_TOKEN',
   'GEV_RATELIMIT_OPENAI_PER_MIN',
   'GEV_RATELIMIT_GOOGLE_PER_MIN',
   'PINOKIO_SHARE_CLOUDFLARE',
@@ -121,9 +111,8 @@ export function readPinokioEnvironment(filepath = DEFAULT_ENVIRONMENT_FILE) {
 }
 
 /**
- * Make the app-scoped Pinokio file authoritative over Pinokio-global values.
- * Pinokio removes blank entries before merging environments, so each child
- * must restore the raw app value before diagnosis or Vite configuration.
+ * Apply only non-secret launcher controls. Provider credentials retain their
+ * process/environment-file provenance and never pass through this adapter.
  */
 export function applyPinokioEnvironment({
   environment = process.env,

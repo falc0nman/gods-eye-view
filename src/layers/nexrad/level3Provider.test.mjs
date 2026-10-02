@@ -6,6 +6,7 @@ import {
   createLevel3Service,
   level3KeyTime,
 } from '../../../server/providers/nexrad.js';
+import { routeCaller } from '../../tooling/providerRouteHarness.mjs';
 import { createProviderRegistry } from '../../../server/providers/registry.js';
 import { localProviderRegistry } from '../../../server/providers/local.js';
 
@@ -92,28 +93,8 @@ function setup({ objects = { [KEY]: N0S }, failPrefix } = {}) {
     },
   });
   const runtime = registry.register(ingest.provider);
-  let handler;
-  for (const plugin of registry.plugins())
-    plugin.configureServer({
-      middlewares: {
-        use: (path, fn) => path === '/api/radar/l3' && (handler = fn),
-      },
-    });
-  registry.health.stop();
-  const call = (url) =>
-    new Promise((resolve) => {
-      const res = {
-        headersSent: false,
-        writeHead(status, headers) {
-          this.status = status;
-          this.headers = headers;
-        },
-        end(body) {
-          resolve({ status: this.status, headers: this.headers, body });
-        },
-      };
-      handler({ url }, res);
-    });
+  // Called as the backend calls them: exact path, behind feed:read.
+  const call = routeCaller(registry, { prefix: '/api/radar/l3' });
   const health = () =>
     registry.health.evaluate().providers.find((p) => p.id === 'nexrad-level3');
   return { clock, bucket, ingest, registry, runtime, call, health, objects };
@@ -141,7 +122,7 @@ test('/scan answers exactly as before, and publishes the scan through the provid
     ]);
     assert.equal(meta.key, KEY);
     assert.equal(meta.scanMs, SCAN_MS);
-    assert.equal(meta.image, `/api/radar/l3/image/${KEY}.png`);
+    assert.equal(meta.image, `/api/radar/l3/image?key=${KEY}`);
 
     assert.deepEqual(ingest.watched(), ['TLX/N0S']);
     assert.equal(runtime.status().running, true);
@@ -159,7 +140,7 @@ test('/scan answers exactly as before, and publishes the scan through the provid
     );
 
     // Image and value routes are unchanged.
-    const png = await call(`/image/${KEY}.png`);
+    const png = await call(`/image?key=${KEY}`);
     assert.equal(png.status, 200);
     assert.equal(png.headers['Content-Type'], 'image/png');
     const value = JSON.parse(

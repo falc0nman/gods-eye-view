@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import { promises as fsp } from 'node:fs';
 import path from 'node:path';
-import { admitKeySetupRequest } from '../../src/keySetupCore.mjs';
+import { admitLocalRosterRequest } from '../../src/keySetupCore.mjs';
 import { readRequestBodyCapped } from './common/request.js';
 import {
   buildChaserPlacefile,
@@ -26,7 +26,7 @@ import {
  *   POST /api/chasers/selection → save {ids} (empty = everyone) or {reset: true}
  *
  * The picker routes answer ONLY the machine running the server (the same
- * admitKeySetupRequest gate as Provider Settings: loopback, local Host, exact
+ * admitLocalRosterRequest gate as Provider Settings: loopback, local Host, exact
  * Origin, JSON body), so with HOST=0.0.0.0 a LAN visitor can see the map but
  * cannot change who is on it. The selection is saved by member id to
  * .gev-cache/chaser-selection.json and applies to BOTH outputs.
@@ -114,7 +114,7 @@ export function life360ChasersProxy({
     send(res, status, 'application/json', JSON.stringify(obj));
 
   const handlePicker = async (req, res, pathname) => {
-    const admitted = admitKeySetupRequest({
+    const admitted = admitLocalRosterRequest({
       method: req.method,
       remoteAddress: req.socket?.remoteAddress,
       hostHeader: req.headers?.host,

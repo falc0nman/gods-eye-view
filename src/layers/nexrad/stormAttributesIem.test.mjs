@@ -5,6 +5,7 @@ import {
   IEM_STORM_ATTRIBUTES_URL,
   normalizeStormAttributes,
 } from '../../../server/providers/stormAttributes.js';
+import { routeCaller } from '../../tooling/providerRouteHarness.mjs';
 import { createProviderRegistry } from '../../../server/providers/registry.js';
 import { localProviderRegistry } from '../../../server/providers/local.js';
 
@@ -124,35 +125,18 @@ function mount({ status = 200, body = sample() } = {}) {
     runtimeOptions: { now, onError: () => {} },
   });
   const runtime = registry.register(ingest.provider);
-  let handler;
-  for (const plugin of registry.plugins())
-    plugin.configureServer({
-      middlewares: {
-        use: (path, fn) =>
-          path === '/api/radar/storm-attributes' && (handler = fn),
-      },
-    });
-  registry.health.stop();
-  const call = (url) =>
-    new Promise((resolve) => {
-      const res = {
-        headersSent: false,
-        writeHead(code) {
-          this.status = code;
-        },
-        end(text) {
-          resolve({ status: this.status, body: JSON.parse(text) });
-        },
-      };
-      handler({ url }, res);
-    });
+  const raw = routeCaller(registry, { prefix: '/api/radar/storm-attributes' });
+  const call = async (url) => {
+    const res = await raw(url);
+    return { ...res, body: JSON.parse(res.body) };
+  };
   return { ingest, registry, runtime, call, requests };
 }
 
 test("/api/radar/storm-attributes serves a radar's hail and TVS, with health", async () => {
   const { ingest, registry, runtime, call, requests } = mount();
   try {
-    const res = await call('/?site=hgx');
+    const res = await call('?site=hgx');
     assert.equal(res.status, 200);
     assert.equal(res.body.hail.length, 2);
     assert.equal(res.body.tvs.length, 2);
@@ -161,7 +145,7 @@ test("/api/radar/storm-attributes serves a radar's hail and TVS, with health", a
 
     // Within the 30 s cache, and with the same table time: no new upstream
     // request and nothing republished.
-    await call('/?site=HGX');
+    await call('?site=HGX');
     assert.equal(requests.length, 1);
     assert.equal(runtime.status().published, 1);
     assert.deepEqual(runtime.latest().data, {
@@ -187,7 +171,7 @@ test("/api/radar/storm-attributes serves a radar's hail and TVS, with health", a
 test('bad input and upstream failures answer clearly', async () => {
   const bad = mount();
   try {
-    assert.equal((await bad.call('/?site=KHGX')).status, 400);
+    assert.equal((await bad.call('?site=KHGX')).status, 400);
     assert.equal((await bad.call('/elsewhere?site=HGX')).status, 404);
     assert.equal(bad.requests.length, 0);
   } finally {
@@ -195,7 +179,7 @@ test('bad input and upstream failures answer clearly', async () => {
   }
   const down = mount({ status: 503, body: {} });
   try {
-    const res = await down.call('/?site=HGX');
+    const res = await down.call('?site=HGX');
     assert.equal(res.status, 502);
     assert.deepEqual(down.ingest.watched(), []);
   } finally {

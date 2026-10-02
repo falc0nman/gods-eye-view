@@ -12,6 +12,7 @@ import {
   createLevel3Service,
   LEVEL3_PRODUCTS,
 } from '../../../server/providers/nexrad.js';
+import { routeCaller } from '../../tooling/providerRouteHarness.mjs';
 import { createProviderRegistry } from '../../../server/providers/registry.js';
 
 const fixture = (name) =>
@@ -178,27 +179,8 @@ function mountAttributes() {
   });
   const registry = createProviderRegistry({ runtimeOptions: { now } });
   registry.register(ingest.provider);
-  let handler;
-  for (const plugin of registry.plugins())
-    plugin.configureServer({
-      middlewares: {
-        use: (path, fn) => path === '/api/radar/l3' && (handler = fn),
-      },
-    });
-  registry.health.stop();
-  const call = (url) =>
-    new Promise((resolve) => {
-      const res = {
-        headersSent: false,
-        writeHead(status) {
-          this.status = status;
-        },
-        end(body) {
-          resolve({ status: this.status, body });
-        },
-      };
-      handler({ url }, res);
-    });
+  // Called as the backend calls them: exact path, behind feed:read.
+  const call = routeCaller(registry, { prefix: '/api/radar/l3' });
   return { ingest, registry, call };
 }
 

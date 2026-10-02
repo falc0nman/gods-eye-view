@@ -7,6 +7,7 @@ import {
   resolveThresholds,
 } from '../../server/providers/common/health.js';
 import { createProviderRegistry } from '../../server/providers/registry.js';
+import { routeCaller } from './providerRouteHarness.mjs';
 
 const MIN = 60_000;
 const T0 = Date.parse('2026-10-02T21:00:00Z');
@@ -275,20 +276,10 @@ test('GET /api/providers/health reports every entry, legacy ones as unmonitored'
   runtime.acquire();
   emit({ key: 'a', site: 'KTLX', validTime: c.now() });
   await settle();
-  const routes = new Map();
-  registry.plugins()[0].configureServer({
-    middlewares: { use: (path, fn) => routes.set(path, fn) },
-  });
-  const get = (url) =>
-    new Promise((resolve, reject) =>
-      routes.get('/api/providers')(
-        { method: 'GET', url },
-        { writeHead() {}, end: (body) => resolve(JSON.parse(body)) },
-        () => reject(new Error('not handled')),
-      ),
-    );
+  const call = routeCaller(registry);
+  const get = async (url) => JSON.parse((await call(url)).body);
   try {
-    const health = await get('/health');
+    const health = await get('/api/providers/health');
     assert.deepEqual(
       health.providers.map((p) => [p.id, p.state]),
       [
@@ -298,7 +289,7 @@ test('GET /api/providers/health reports every entry, legacy ones as unmonitored'
     );
     assert.equal(health.providers[0].products[0].dataAgeMs, 0);
     assert.ok(Array.isArray(health.history));
-    const catalog = await get('/');
+    const catalog = await get('/api/providers');
     assert.deepEqual(
       catalog.providers.map((p) => [p.id, p.health]),
       [

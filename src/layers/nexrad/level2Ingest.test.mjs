@@ -22,6 +22,7 @@ import {
 } from '../../../server/providers/notifications/dispatcher.js';
 import { unconfiguredTransport } from '../../../server/providers/notifications/transport.js';
 import { createProviderRegistry } from '../../../server/providers/registry.js';
+import { routeCaller } from '../../tooling/providerRouteHarness.mjs';
 
 // KTLX volume 112 (VCP 212), 2026-09-30 18:29:08Z, from
 // unidata-nexrad-level2-chunks: the start chunk (metadata only) and chunk 33
@@ -229,29 +230,8 @@ function fakeNoaa({ chunks = {}, volumes = {}, listChunks = true } = {}) {
 function mount(ingest, runtimeOptions = {}) {
   const registry = createProviderRegistry();
   registry.register(ingest.provider, runtimeOptions);
-  let handler;
-  for (const plugin of registry.plugins())
-    plugin.configureServer({
-      middlewares: {
-        use: (path, fn) => {
-          if (path === '/api/radar/l2') handler = fn;
-        },
-      },
-    });
-  const call = (url) =>
-    new Promise((resolve) => {
-      const res = {
-        headersSent: false,
-        writeHead(status, headers) {
-          this.status = status;
-          this.headers = headers;
-        },
-        end(body) {
-          resolve({ status: this.status, headers: this.headers, body });
-        },
-      };
-      handler({ url }, res);
-    });
+  // Called as the backend calls them: exact path, behind feed:read.
+  const call = routeCaller(registry, { prefix: '/api/radar/l2' });
   return { registry, call };
 }
 
@@ -317,7 +297,7 @@ test('notified chunks reach clients as partial sweeps with measured latency', as
     const png = await call(sweep.images.VEL.replace('/api/radar/l2', ''));
     assert.equal(png.status, 200);
     assert.equal(png.headers['Content-Type'], 'image/png');
-    assert.equal(png.headers['Cache-Control'], 'public, max-age=60');
+    assert.equal(png.headers['Cache-Control'], 'private, max-age=60');
     assert.deepEqual([...png.body.subarray(1, 4)], [0x50, 0x4e, 0x47]);
 
     const status = registry.list()[0];
@@ -362,7 +342,7 @@ test('with no chunk feed the newest completed volume is served instead', async (
     );
     assert.equal(
       png.headers['Cache-Control'],
-      'public, max-age=86400, immutable',
+      'private, max-age=86400, immutable',
     );
   } finally {
     ingest.close();
@@ -375,9 +355,31 @@ test('bad requests are refused before any upstream work', async () => {
   const { call } = mount(ingest);
   try {
     assert.equal((await call('/live?site=../x')).status, 400);
-    assert.equal((await call(`/image/KTLX/${VOLUME}/6/ZDR.png`)).status, 404);
-    assert.equal((await call(`/image/KTLX/${VOLUME}/6/REF.png`)).status, 404);
+    const image = (product) =>
+      call(`/image?site=KTLX&volume=${VOLUME}&elevation=6&product=${product}`);
+    assert.equal((await image('ZDR')).status, 400);
+    assert.equal((await image('REF')).status, 404, 'no such sweep yet');
+    assert.equal((await call('/image?site=KTLX')).status, 400);
     assert.equal(requests.length, 0);
+  } finally {
+    ingest.close();
+  }
+});
+
+test('a bounded number of radars can be watched at once', async () => {
+  const { fetchImpl } = fakeNoaa();
+  const ingest = createLevel2Ingest({ fetchImpl });
+  const { call } = mount(ingest);
+  try {
+    const sites = Array.from(
+      { length: 12 },
+      (_, k) => `KT${String.fromCharCode(65 + k)}X`,
+    );
+    for (const site of sites)
+      assert.equal((await call(`/live?site=${site}`)).status, 200);
+    assert.equal((await call('/live?site=KZZZ')).status, 429);
+    // Radars already watched keep answering.
+    assert.equal((await call(`/live?site=${sites[0]}`)).status, 200);
   } finally {
     ingest.close();
   }

@@ -173,7 +173,6 @@
     .scene-btn,
     .context-mode-button,
     .map-stack-chip,
-    .key-setup-chip,
     .first-run-card
   ) {
   border-color: var(--glass-border);
@@ -1290,23 +1289,6 @@
   #command-dock
   :where(.panel-title, .location-toolbar-label, .gev-voice-kicker) {
   color: var(--cyber-red-bright);
-}
-
-:root[data-ui-theme='cyber'] #top-center-actions #key-setup-chip {
-  position: relative;
-  inset: auto;
-  flex: 0 0 36px;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-}
-
-:root[data-ui-theme='cyber'] #key-setup-chip[hidden] {
-  display: none;
-}
-
-:root[data-ui-theme='cyber'] #key-setup-chip [data-key-setup-chip-label] {
-  display: none;
 }
 
 :root[data-ui-theme='cyber'] #north-up-view .camera-compass-n {

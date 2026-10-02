@@ -14,7 +14,7 @@ import { decodeLevel3Attributes } from './nexrad/level3Attributes.js';
  * Routes:
  *   GET /api/radar/l3/scan?site=TLX&product=N0G
  *       → {key, product, scanMs, elevationDeg, bounds, site, image}
- *   GET /api/radar/l3/image/<key>.png   (immutable per scan key)
+ *   GET /api/radar/l3/image?key=<key>   (immutable per scan key)
  *   GET /api/radar/l3/value?key=<key>&lat=&lon=
  *       → {value, inRange, rangeKm, azimuthDeg, beamHeightFt} — cursor readout
  *
@@ -158,7 +158,7 @@ export function createLevel3Service({
           elevationDeg: product.elevationDeg,
           bounds: image.bounds,
           site: product.site,
-          image: `/api/radar/l3/image/${key}.png`,
+          image: `/api/radar/l3/image?key=${key}`,
         },
       };
     })();
@@ -208,15 +208,6 @@ export function level3KeyTime(key) {
   return m ? Date.UTC(m[1], m[2] - 1, m[3], m[4], m[5], m[6]) : NaN;
 }
 
-const sendJson = (res, status, obj) => {
-  if (res.headersSent) return;
-  res.writeHead(status, {
-    'Content-Type': 'application/json',
-    'Cache-Control': 'no-store',
-  });
-  res.end(JSON.stringify(obj));
-};
-
 /**
  * Level III on the common provider interface (GW-73, docs/DATA-PROVIDERS.md).
  *
@@ -265,6 +256,21 @@ export function createLevel3Ingest({
       reaper?.unref?.();
     }
   }
+
+  const badRequest = (error) => ({ status: 400, body: { error } });
+  const notAvailable = (product) => ({
+    status: 404,
+    body: { error: `${product} is not available from this radar right now` },
+  });
+  /** Upstream and decode failures answer 502 without details. */
+  const guarded = (fn) => async (ctx) => {
+    try {
+      return await fn(ctx.query);
+    } catch (err) {
+      console.warn('[nexrad-l3]', err?.message || err);
+      return { status: 502, body: { error: 'radar decode failed' } };
+    }
+  };
 
   const provider = defineProvider({
     id: 'nexrad-level3',
@@ -318,121 +324,106 @@ export function createLevel3Ingest({
         provenance: { object: item.key },
       };
     },
-    routes(server, providerRuntime) {
+    attach(providerRuntime) {
       runtime = providerRuntime;
-      server.middlewares.use('/api/radar/l3', handle);
     },
+    close: () => close(),
+    // Radar data is served to signed-in users with feed:read (GW-45).
+    api: [
+      ['/api/radar/l3/scan', scanRoute],
+      ['/api/radar/l3/attributes', attributesRoute],
+      ['/api/radar/l3/value', valueRoute],
+      ['/api/radar/l3/image', imageRoute],
+    ].map(([path, fn]) => ({
+      method: 'GET',
+      path,
+      permissions: ['feed:read'],
+      handler: guarded(fn),
+    })),
   });
 
-  async function handle(req, res) {
-    const url = new URL(req.url || '/', 'http://local');
-    try {
-      if (url.pathname === '/scan') {
-        const site = String(url.searchParams.get('site') || '').toUpperCase();
-        const product = String(
-          url.searchParams.get('product') || '',
-        ).toUpperCase();
-        if (!/^[A-Z0-9]{3}$/.test(site) || !LEVEL3_PRODUCTS.has(product)) {
-          sendJson(res, 400, {
-            error:
-              'site must be a 3-letter radar id and product a supported Level III code',
-          });
-          return;
-        }
-        const key = await service.latestKey(site, product);
-        if (!key) {
-          sendJson(res, 404, {
-            error: `${product} is not available from this radar right now`,
-          });
-          return;
-        }
-        const scan = await service.scan(key);
-        touch(site, product);
-        // Publish through the provider (deduplicated by key) so health and
-        // data age see the scan the client was just given.
-        await runtime?.ingest({ key, site, product });
-        sendJson(res, 200, scan.meta);
-        return;
-      }
-      if (url.pathname === '/attributes') {
-        // Storm tracks (NST) and mesocyclones (NMD) as features.
-        const site = String(url.searchParams.get('site') || '').toUpperCase();
-        const product = String(
-          url.searchParams.get('product') || '',
-        ).toUpperCase();
-        if (!/^[A-Z0-9]{3}$/.test(site) || !ATTRIBUTE_PRODUCTS.has(product)) {
-          sendJson(res, 400, {
-            error: 'site must be a 3-letter radar id and product NST or NMD',
-          });
-          return;
-        }
-        const key = await service.latestKey(site, product);
-        if (!key) {
-          sendJson(res, 404, {
-            error: `${product} is not available from this radar right now`,
-          });
-          return;
-        }
-        const detections = await service.attributes(key);
-        touch(site, product);
-        await runtime?.ingest({ key, site, product });
-        sendJson(res, 200, detections);
-        return;
-      }
-      if (url.pathname === '/value') {
-        const key = String(url.searchParams.get('key') || '');
-        const lat = Number(url.searchParams.get('lat'));
-        const lon = Number(url.searchParams.get('lon'));
-        if (
-          !LEVEL3_KEY_RE.test(key) ||
-          !LEVEL3_PRODUCTS.has(key.slice(4, 7)) ||
-          !Number.isFinite(lat) ||
-          !Number.isFinite(lon) ||
-          Math.abs(lat) > 90 ||
-          Math.abs(lon) > 180
-        ) {
-          sendJson(res, 400, { error: 'expected key, lat and lon' });
-          return;
-        }
-        const { product } = await service.scan(key);
-        const hit = valueAt(product, lat, lon);
-        sendJson(res, 200, {
-          value: hit.value,
-          inRange: hit.inRange,
-          rangeKm: Math.round(hit.rangeKm * 10) / 10,
-          azimuthDeg: Math.round(hit.azimuthDeg),
-          beamHeightFt:
-            hit.inRange && Number.isFinite(product.elevationDeg)
-              ? Math.round(
-                  beamHeightFt(
-                    hit.rangeKm,
-                    product.elevationDeg,
-                    product.site.heightFt,
-                  ) / 100,
-                ) * 100
-              : null,
-        });
-        return;
-      }
-      const image = /^\/image\/([A-Z0-9_]+)\.png$/.exec(url.pathname);
-      if (
-        image &&
-        LEVEL3_KEY_RE.test(image[1]) &&
-        LEVEL3_PRODUCTS.has(image[1].slice(4, 7))
-      ) {
-        const { png } = await service.scan(image[1]);
-        res.writeHead(200, {
-          'Content-Type': 'image/png',
-          'Cache-Control': 'public, max-age=86400, immutable',
-        });
-        res.end(png);
-        return;
-      }
-      sendJson(res, 404, { error: 'unknown radar route' });
-    } catch (err) {
-      console.warn('[nexrad-l3]', err?.message || err);
-      sendJson(res, 502, { error: 'radar decode failed' });
-    }
+  async function scanRoute(query) {
+    const site = String(query.get('site') || '').toUpperCase();
+    const product = String(query.get('product') || '').toUpperCase();
+    if (!/^[A-Z0-9]{3}$/.test(site) || !LEVEL3_PRODUCTS.has(product))
+      return badRequest(
+        'site must be a 3-letter radar id and product a supported Level III code',
+      );
+    const key = await service.latestKey(site, product);
+    if (!key) return notAvailable(product);
+    const scan = await service.scan(key);
+    touch(site, product);
+    // Publish through the provider (deduplicated by key) so health and data
+    // age see the scan the client was just given.
+    await runtime?.ingest({ key, site, product });
+    return { status: 200, body: scan.meta };
+  }
+
+  /** Storm tracks (NST) and mesocyclones (NMD) as features. */
+  async function attributesRoute(query) {
+    const site = String(query.get('site') || '').toUpperCase();
+    const product = String(query.get('product') || '').toUpperCase();
+    if (!/^[A-Z0-9]{3}$/.test(site) || !ATTRIBUTE_PRODUCTS.has(product))
+      return badRequest(
+        'site must be a 3-letter radar id and product NST or NMD',
+      );
+    const key = await service.latestKey(site, product);
+    if (!key) return notAvailable(product);
+    const detections = await service.attributes(key);
+    touch(site, product);
+    await runtime?.ingest({ key, site, product });
+    return { status: 200, body: detections };
+  }
+
+  async function valueRoute(query) {
+    const key = String(query.get('key') || '');
+    const lat = Number(query.get('lat'));
+    const lon = Number(query.get('lon'));
+    if (
+      !LEVEL3_KEY_RE.test(key) ||
+      !LEVEL3_PRODUCTS.has(key.slice(4, 7)) ||
+      !Number.isFinite(lat) ||
+      !Number.isFinite(lon) ||
+      Math.abs(lat) > 90 ||
+      Math.abs(lon) > 180
+    )
+      return badRequest('expected key, lat and lon');
+    const { product } = await service.scan(key);
+    const hit = valueAt(product, lat, lon);
+    return {
+      status: 200,
+      body: {
+        value: hit.value,
+        inRange: hit.inRange,
+        rangeKm: Math.round(hit.rangeKm * 10) / 10,
+        azimuthDeg: Math.round(hit.azimuthDeg),
+        beamHeightFt:
+          hit.inRange && Number.isFinite(product.elevationDeg)
+            ? Math.round(
+                beamHeightFt(
+                  hit.rangeKm,
+                  product.elevationDeg,
+                  product.site.heightFt,
+                ) / 100,
+              ) * 100
+            : null,
+      },
+    };
+  }
+
+  async function imageRoute(query) {
+    const key = String(query.get('key') || '');
+    if (!LEVEL3_KEY_RE.test(key) || !LEVEL3_PRODUCTS.has(key.slice(4, 7)))
+      return badRequest('expected a Level III scan key');
+    const { png } = await service.scan(key);
+    return {
+      status: 200,
+      bytes: png,
+      contentType: 'image/png',
+      // One key is one scan, so it never changes; private because radar
+      // data is served to signed-in users only.
+      cacheControl: 'private, max-age=86400, immutable',
+    };
   }
 
   function close() {
@@ -448,7 +439,6 @@ export function createLevel3Ingest({
     service,
     touch,
     close,
-    handle,
     watched: () => [...watched.keys()],
   };
 }

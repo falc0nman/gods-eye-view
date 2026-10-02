@@ -287,18 +287,6 @@
     ],
     "external": []
   },
-  "standalone-key-setup": {
-    "runtime": "node",
-    "exports": ["./server/standalone/key-setup"],
-    "modules": [
-      "scripts/pinokio-environment.mjs",
-      "server/providers/common/source-root.js",
-      "server/standalone/key-setup.js",
-      "src/keySetupCore.mjs",
-      "server/standalone/key-setup-hardening.mjs"
-    ],
-    "external": []
-  },
   "place-search": {
     "exports": ["./search"],
     "modules": [
@@ -650,7 +638,6 @@
       "src/ui/styles/command-dock-sliding.css",
       "src/ui/styles/voice-cost.css",
       "src/ui/styles/first-run.css",
-      "src/ui/styles/provider-settings.css",
       "src/ui/styles/weather.css",
       "src/ui/styles/storm-chase.css",
       "src/ui/styles/recent-imagery.css"
@@ -1303,7 +1290,6 @@
       "./application/errors",
       "./ui/composition",
       "./ui/hud",
-      "./standalone/settings",
       "./voice/actions",
       "./annotations",
       "./context",
@@ -1494,7 +1480,6 @@
       "src/hud.js",
       "src/hudLocality.js",
       "src/hudSummaryResponse.js",
-      "src/keySetup.js",
       "src/keySetupCore.mjs",
       "src/keylessGeocoder.js",
       "src/layers/aircraft/classification.js",
@@ -3097,5 +3082,35 @@
       "src/layers/perimeters/source.js"
     ],
     "external": []
+  },
+  "database-provider": {
+    "runtime": "node",
+    "exports": ["./server/providers/database"],
+    "modules": [
+      "server/providers/database.js",
+      "server/database/connection.js"
+    ],
+    "external": ["pg"]
+  },
+  "backend": {
+    "runtime": "node",
+    "exports": ["./backend"],
+    "modules": ["backend/server.js", "backend/auth.js", "backend/routes.js"],
+    "external": []
+  },
+  "backend-identity": {
+    "runtime": "node",
+    "exports": ["./backend/identity"],
+    "modules": [
+      "backend/identity/index.js",
+      "backend/identity/config.js",
+      "backend/identity/service.js",
+      "backend/identity/providers.js",
+      "backend/identity/administration.js",
+      "backend/identity/security.js",
+      "backend/auth.js",
+      "server/database/connection.js"
+    ],
+    "external": ["pg", "jose"]
   }
 }

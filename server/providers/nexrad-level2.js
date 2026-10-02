@@ -41,15 +41,21 @@ const IMAGE_PRODUCTS = Object.freeze(['REF', 'VEL', 'VDA', 'SRV']);
  * unavailable for a site, the newest completed volume from
  * `unidata-nexrad-level2` is served instead.
  *
- * Routes:
+ * Routes (backend shape; both need `feed:read`, GW-45):
  *   GET /api/radar/l2/live?site=KTLX
  *       → {site, mode, feed, volume, sweeps[], latency, generatedAt}
  *       Watches the site for the next few minutes; the response holds
- *       whatever has arrived so far.
- *   GET /api/radar/l2/image/<SITE>/<volumeId>/<elevation>/<REF|VEL>.png
+ *       whatever has arrived so far. Only signed-in, authorized requests
+ *       can start upstream ingest.
+ *   GET /api/radar/l2/image?site&volume&elevation&product&rev[&motion]
+ *       product REF, VEL, VDA (dealiased) or SRV (storm-relative, needs
+ *       motion=DDD/SS; the vector applied is in X-Storm-Motion).
  *       A sweep as an equirectangular PNG over its coverage square (the
  *       same projection as Level III). In-progress sweeps render as the
- *       wedge scanned so far.
+ *       wedge scanned so far. Cached privately: images are authorized data.
+ *   GET /api/radar/l2/value?site&volume&elevation&lat&lon[&motion]
+ *       Raw, dealiased and storm-relative velocity and reflectivity at a
+ *       point (couplet interrogation, GW-8).
  */
 
 export const LEVEL2_MOMENTS_KEPT = Object.freeze(['REF', 'VEL']);
@@ -58,6 +64,8 @@ const VOLUME_ID_RE = /^\d{8}-\d{6}$/;
 const MAX_CHUNK_BYTES = 8 * 1024 * 1024;
 const MAX_VOLUME_BYTES = 64 * 1024 * 1024;
 const WATCH_TTL_MS = 3 * 60_000;
+// Radars watched at once (each costs a few upstream listings a minute).
+const MAX_WATCHED_SITES = 12;
 const VOLUME_FALLBACK_TTL_MS = 60_000;
 const MAX_IMAGES = 48;
 const MAX_CONCURRENT_FETCHES = 4;
@@ -177,6 +185,7 @@ export function createLevel2Ingest({
               {
                 product: site,
                 state: 'degraded',
+                code: 'chunk_feed_down',
                 reason: `chunk feed ${feedState.state}; serving completed volumes`,
               },
             ];
@@ -232,10 +241,30 @@ export function createLevel2Ingest({
         },
       };
     },
-    routes(server, providerRuntime) {
+    attach(providerRuntime) {
       runtime = providerRuntime;
-      server.middlewares.use('/api/radar/l2', handle);
     },
+    close: () => close(),
+    api: [
+      {
+        method: 'GET',
+        path: '/api/radar/l2/live',
+        permissions: ['feed:read'],
+        handler: ({ query }) => live(query),
+      },
+      {
+        method: 'GET',
+        path: '/api/radar/l2/image',
+        permissions: ['feed:read'],
+        handler: ({ query }) => imageRoute(query),
+      },
+      {
+        method: 'GET',
+        path: '/api/radar/l2/value',
+        permissions: ['feed:read'],
+        handler: ({ query }) => valueRoute(query),
+      },
+    ],
   });
 
   function reap() {
@@ -307,14 +336,21 @@ export function createLevel2Ingest({
     const names = [];
     if (has('REF')) names.push('REF');
     if (has('VEL')) names.push('VEL', 'VDA', ...(motion ? ['SRV'] : []));
-    const base = `/api/radar/l2/image/${site}/${volume.id}/${sweep.elevationNumber}`;
     return Object.fromEntries(
       names.map((name) => [
         name,
-        `${base}/${name}.png?rev=${sweep.revision}` +
-          (name === 'SRV'
-            ? `&motion=${Math.round(motion.fromDeg)}/${Math.round(motion.speedKt)}`
-            : ''),
+        `/api/radar/l2/image?${new URLSearchParams({
+          site,
+          volume: volume.id,
+          elevation: String(sweep.elevationNumber),
+          product: name,
+          rev: String(sweep.revision),
+          ...(name === 'SRV'
+            ? {
+                motion: `${Math.round(motion.fromDeg)}/${Math.round(motion.speedKt)}`,
+              }
+            : {}),
+        })}`,
       ]),
     );
   }
@@ -444,124 +480,130 @@ export function createLevel2Ingest({
     return result;
   }
 
-  function sendJson(res, status, body) {
-    if (res.headersSent) return;
-    res.writeHead(status, {
-      'Content-Type': 'application/json',
-      'Cache-Control': 'no-store',
-    });
-    res.end(JSON.stringify(body));
-  }
-
-  async function handle(req, res) {
-    const url = new URL(req.url || '/', 'http://local');
+  async function live(query) {
+    const site = String(query.get('site') || '').toUpperCase();
+    if (!SITE_RE.test(site))
+      return {
+        status: 400,
+        body: { error: 'site must be a 4-letter radar id' },
+      };
+    if (!watched.has(site) && watched.size >= MAX_WATCHED_SITES)
+      return {
+        status: 429,
+        body: { error: 'too many radars are being watched; try again shortly' },
+      };
+    touch(site);
     try {
-      if (url.pathname === '/live') {
-        const site = String(url.searchParams.get('site') || '').toUpperCase();
-        if (!SITE_RE.test(site)) {
-          sendJson(res, 400, { error: 'site must be a 4-letter radar id' });
-          return;
-        }
-        touch(site);
-        sendJson(
-          res,
-          200,
-          await snapshot(site, { motion: url.searchParams.get('motion') }),
-        );
-        return;
-      }
-      if (url.pathname === '/value') {
-        // Point values for interrogation (GW-8): raw, dealiased and
-        // storm-relative velocity, and reflectivity.
-        const site = String(url.searchParams.get('site') || '').toUpperCase();
-        const volumeId = String(url.searchParams.get('volume') || '');
-        const elevation = Number(url.searchParams.get('elevation'));
-        const lat = Number(url.searchParams.get('lat'));
-        const lon = Number(url.searchParams.get('lon'));
-        const motionText = url.searchParams.get('motion');
-        const motion = motionText ? parseStormMotion(motionText) : null;
-        if (
-          !SITE_RE.test(site) ||
-          !VOLUME_ID_RE.test(volumeId) ||
-          !Number.isInteger(elevation) ||
-          !Number.isFinite(lat) ||
-          !Number.isFinite(lon) ||
-          Math.abs(lat) > 90 ||
-          Math.abs(lon) > 180 ||
-          (motionText && !motion)
-        ) {
-          sendJson(res, 400, {
-            error:
-              'expected site, volume, elevation, lat, lon and optional motion=DDD/SS',
-          });
-          return;
-        }
-        const sweep = assembler.sweep(site, volumeId, elevation);
-        const location = sweep && sweepLocation(site, volumeId, sweep);
-        if (!sweep || !location) {
-          sendJson(res, 404, { error: 'sweep not available' });
-          return;
-        }
-        const hit = sweepValueAt(
-          sweep,
-          location,
-          lat,
-          lon,
-          motion,
-          velocityOptions(site),
-        );
-        const round = (v) =>
-          typeof v === 'number' ? Math.round(v * 10) / 10 : v;
-        sendJson(res, 200, {
-          ...hit,
-          rangeKm: round(hit.rangeKm),
-          azimuthDeg: Math.round(hit.azimuthDeg),
-          ref: round(hit.ref),
-          vel: round(hit.vel),
-          velDealiased: round(hit.velDealiased),
-          srv: round(hit.srv),
-          units: 'm/s (velocity), dBZ (ref)',
-          stormMotion: motion && { ...motion, label: describeMotion(motion) },
-        });
-        return;
-      }
-      const m =
-        /^\/image\/([A-Z0-9]{4})\/([0-9-]+)\/(\d{1,2})\/([A-Z]{3})\.png$/.exec(
-          url.pathname,
-        );
-      if (m && VOLUME_ID_RE.test(m[2]) && IMAGE_PRODUCTS.includes(m[4])) {
-        // SRV images name their storm motion explicitly; `auto` is resolved
-        // by /live first so an image URL always means one exact picture.
-        const motion =
-          m[4] === 'SRV'
-            ? parseStormMotion(url.searchParams.get('motion'))
-            : null;
-        if (m[4] === 'SRV' && !motion) {
-          sendJson(res, 400, { error: 'SRV needs motion=DDD/SS' });
-          return;
-        }
-        const hit = image(m[1], m[2], Number(m[3]), m[4], motion);
-        if (!hit) {
-          sendJson(res, 404, { error: 'sweep not available' });
-          return;
-        }
-        res.writeHead(200, {
-          'Content-Type': 'image/png',
-          // The URL carries the sweep revision, so even partial sweeps can
-          // be cached briefly; complete ones never change.
-          'Cache-Control': hit.complete
-            ? 'public, max-age=86400, immutable'
-            : 'public, max-age=60',
-          ...(motion ? { 'X-Storm-Motion': describeMotion(motion) } : {}),
-        });
-        res.end(hit.png);
-        return;
-      }
-      sendJson(res, 404, { error: 'unknown radar route' });
+      return {
+        status: 200,
+        body: await snapshot(site, { motion: query.get('motion') }),
+      };
     } catch (err) {
       console.warn('[nexrad-l2]', err?.message || err);
-      sendJson(res, 502, { error: 'radar ingest failed' });
+      return { status: 502, body: { error: 'radar ingest failed' } };
     }
+  }
+
+  function imageRoute(query) {
+    const site = String(query.get('site') || '').toUpperCase();
+    const volumeId = String(query.get('volume') || '');
+    const elevation = Number(query.get('elevation'));
+    const product = String(query.get('product') || '').toUpperCase();
+    if (
+      !SITE_RE.test(site) ||
+      !VOLUME_ID_RE.test(volumeId) ||
+      !Number.isInteger(elevation) ||
+      elevation < 1 ||
+      elevation > 99 ||
+      !IMAGE_PRODUCTS.includes(product)
+    )
+      return {
+        status: 400,
+        body: {
+          error:
+            'expected site, volume, elevation and product REF, VEL, VDA or SRV',
+        },
+      };
+    // SRV images name their storm motion explicitly; `auto` is resolved by
+    // /live first, so an image URL always means one exact picture.
+    const motion =
+      product === 'SRV' ? parseStormMotion(query.get('motion')) : null;
+    if (product === 'SRV' && !motion)
+      return { status: 400, body: { error: 'SRV needs motion=DDD/SS' } };
+    const hit = image(site, volumeId, elevation, product, motion);
+    if (!hit) return { status: 404, body: { error: 'sweep not available' } };
+    return {
+      status: 200,
+      bytes: hit.png,
+      contentType: 'image/png',
+      // The URL carries the sweep revision, so even partial sweeps can be
+      // cached briefly; complete ones never change. Private: only the
+      // signed-in browser may keep authorized radar data.
+      cacheControl: hit.complete
+        ? 'private, max-age=86400, immutable'
+        : 'private, max-age=60',
+      ...(motion
+        ? { headers: { 'X-Storm-Motion': describeMotion(motion) } }
+        : {}),
+    };
+  }
+
+  /**
+   * Point values for interrogation (GW-8): raw, dealiased and storm-relative
+   * velocity, and reflectivity.
+   */
+  function valueRoute(query) {
+    const site = String(query.get('site') || '').toUpperCase();
+    const volumeId = String(query.get('volume') || '');
+    const elevation = Number(query.get('elevation'));
+    const lat = Number(query.get('lat'));
+    const lon = Number(query.get('lon'));
+    const motionText = query.get('motion');
+    const motion = motionText ? parseStormMotion(motionText) : null;
+    if (
+      !SITE_RE.test(site) ||
+      !VOLUME_ID_RE.test(volumeId) ||
+      !Number.isInteger(elevation) ||
+      !Number.isFinite(lat) ||
+      !Number.isFinite(lon) ||
+      Math.abs(lat) > 90 ||
+      Math.abs(lon) > 180 ||
+      (motionText && !motion)
+    )
+      return {
+        status: 400,
+        body: {
+          error:
+            'expected site, volume, elevation, lat, lon and optional motion=DDD/SS',
+        },
+      };
+    const sweep = assembler.sweep(site, volumeId, elevation);
+    const location = sweep && sweepLocation(site, volumeId, sweep);
+    if (!sweep || !location)
+      return { status: 404, body: { error: 'sweep not available' } };
+    const hit = sweepValueAt(
+      sweep,
+      location,
+      lat,
+      lon,
+      motion,
+      velocityOptions(site),
+    );
+    const round = (v) => (typeof v === 'number' ? Math.round(v * 10) / 10 : v);
+    return {
+      status: 200,
+      body: {
+        ...hit,
+        rangeKm: round(hit.rangeKm),
+        azimuthDeg: Math.round(hit.azimuthDeg),
+        ref: round(hit.ref),
+        vel: round(hit.vel),
+        velDealiased: round(hit.velDealiased),
+        srv: round(hit.srv),
+        units: 'm/s (velocity), dBZ (ref)',
+        stormMotion: motion && { ...motion, label: describeMotion(motion) },
+      },
+    };
   }
 
   function close() {
@@ -573,7 +615,7 @@ export function createLevel2Ingest({
     watched.clear();
   }
 
-  return { provider, assembler, snapshot, touch, close, handle };
+  return { provider, assembler, snapshot, touch, close };
 }
 
 /** The provider definition the registry installs. */

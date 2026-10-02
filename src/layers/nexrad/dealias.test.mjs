@@ -13,6 +13,7 @@ import {
 } from '../../../server/providers/nexrad/stormMotion.js';
 import { dealiasedSweep } from '../../../server/providers/nexrad/level2Velocity.js';
 import { createLevel2Ingest } from '../../../server/providers/nexrad-level2.js';
+import { routeCaller } from '../../tooling/providerRouteHarness.mjs';
 import { createProviderRegistry } from '../../../server/providers/registry.js';
 
 const VN = 23.84; // KTLX VCP 212 low tilts
@@ -381,27 +382,8 @@ async function mountWithChunk() {
     runtimeOptions: { now: () => now },
   });
   const runtime = registry.register(ingest.provider);
-  let handler;
-  for (const plugin of registry.plugins())
-    plugin.configureServer({
-      middlewares: {
-        use: (path, fn) => path === '/api/radar/l2' && (handler = fn),
-      },
-    });
-  const call = (url) =>
-    new Promise((resolve) => {
-      const res = {
-        headersSent: false,
-        writeHead(status, headers) {
-          this.status = status;
-          this.headers = headers;
-        },
-        end(body) {
-          resolve({ status: this.status, headers: this.headers, body });
-        },
-      };
-      handler({ url }, res);
-    });
+  // Called as the backend calls them: exact path, behind feed:read.
+  const call = routeCaller(registry, { prefix: '/api/radar/l2' });
   await call('/live?site=KTLX'); // watch, so the runtime runs
   await runtime.ingest({ key: I_KEY, lastModified: now - 500 });
   registry.health.stop();
@@ -415,7 +397,7 @@ test('/live labels the storm motion and offers dealiased and storm-relative imag
     assert.equal(live.stormMotion.label, '240° / 30 kt (user)');
     const [sweep] = live.sweeps;
     assert.deepEqual(Object.keys(sweep.images), ['REF', 'VEL', 'VDA', 'SRV']);
-    assert.match(sweep.images.SRV, /SRV\.png\?rev=\d+&motion=240\/30$/);
+    assert.match(sweep.images.SRV, /product=SRV&rev=\d+&motion=240%2F30$/);
 
     const srv = await call(sweep.images.SRV.replace('/api/radar/l2', ''));
     assert.equal(srv.status, 200);
@@ -423,7 +405,8 @@ test('/live labels the storm motion and offers dealiased and storm-relative imag
     const vda = await call(sweep.images.VDA.replace('/api/radar/l2', ''));
     assert.equal(vda.status, 200);
     assert.equal(
-      (await call(`/image/KTLX/${VOLUME}/6/SRV.png`)).status,
+      (await call(`/image?site=KTLX&volume=${VOLUME}&elevation=6&product=SRV`))
+        .status,
       400,
       'SRV without an explicit motion is refused',
     );

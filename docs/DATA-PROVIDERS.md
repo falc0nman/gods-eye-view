@@ -104,10 +104,21 @@ plugins in registration order. The first is the catalog route:
   running state, consumer count, `lastRunAt`, `lastIngestAt`, `lastError` and
   `published` count. Legacy entries are listed as `{ id, kind: 'legacy' }`.
 
-A provider's own HTTP routes go in `routes(server, runtime)`, which is
-installed on both dev and preview servers. Routes read from `runtime.latest()`
-or `runtime.records()`, or acquire the runtime for as long as a client stays
-connected (for example a server-sent events stream).
+A provider's HTTP routes go in `api`, in the standalone backend's route shape
+(GW-86): `{ method: 'GET', path: '/api/...', permissions: [...], handler }`.
+
+- Paths are exact, so parameters go in the query string.
+- `handler({ query, req, session })` returns `{ status, body }` for JSON, or
+  `{ status, bytes, contentType, cacheControl }` for images.
+- `registry.apiRoutes()` hands the routes to `createBackend`, which applies
+  the session and permission gate (GW-45). Data routes use `feed:read`; the
+  registry's `/api/providers` and `/api/providers/health` use `system:read`.
+- `npm run dev` serves the same handlers without sessions.
+- `attach(runtime)` gives the provider its runtime at registration, and
+  `close()` releases timers on shutdown.
+
+`server/providers/interface.js` registers the interface providers for both
+servers; legacy proxies stay dev-only until GW-53.
 
 To port a legacy proxy, split its handler into the stages above, move its
 routes into `routes()`, and change its `registerLegacy` line to `register`.
@@ -226,6 +237,10 @@ createProviderRegistry({
   - `streams`
   - `history`: state transitions from the last hour (at most 500)
 - `GET /api/providers` now includes each entry's `health` state.
+- The backend records health in `gev.feed_health` (GW-85). Each provider and
+  product is a shared `gev.feeds` row. `down` is stored as `unavailable`,
+  and `idle` isn't stored. Reason codes such as `data_stale`, `no_data` and
+  `repeated_failures` go in `reason_code`.
 - `registry.health.subscribe((snapshot, changes) => …)` runs after every
   evaluation. This is where shared operational state (GW-28) attaches.
   Evaluation runs every 15 s while the server is up, so a provider going
@@ -347,7 +362,7 @@ as the worked example. The decoder (`level2.js`), sweep assembly
   - `stormMotion`: the vector SRV images use, with `source` (`user` or
     `nws-warning`) and a `label`; or `stormMotionError` saying why there
     is none
-- `GET /api/radar/l2/image/<SITE>/<volumeId>/<elevation>/<PRODUCT>.png?rev=n`
+- `GET /api/radar/l2/image?site&volume&elevation&product&rev[&motion]`
   returns one sweep as a PNG in the Level III projection. A sweep in progress
   renders as the wedge scanned so far. Complete sweeps are cached as
   immutable. Products:

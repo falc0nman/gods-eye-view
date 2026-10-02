@@ -231,41 +231,36 @@ export function createStormAttributesIngest({
       },
       provenance: { object: `${url}?radar=${item.site}` },
     }),
-    routes(server, providerRuntime) {
+    attach(providerRuntime) {
       runtime = providerRuntime;
-      server.middlewares.use('/api/radar/storm-attributes', handle);
     },
+    close: () => close(),
+    api: [
+      {
+        method: 'GET',
+        path: '/api/radar/storm-attributes',
+        permissions: ['feed:read'],
+        handler: ({ query }) => attributesRoute(query),
+      },
+    ],
   });
 
-  function sendJson(res, status, body) {
-    if (res.headersSent) return;
-    res.writeHead(status, {
-      'Content-Type': 'application/json',
-      'Cache-Control': 'no-store',
-    });
-    res.end(JSON.stringify(body));
-  }
-
-  async function handle(req, res) {
-    const u = new URL(req.url || '/', 'http://local');
-    if (u.pathname !== '/' && u.pathname !== '') {
-      sendJson(res, 404, { error: 'unknown storm attributes route' });
-      return;
-    }
-    const site = String(u.searchParams.get('site') || '').toUpperCase();
-    if (!SITE_RE.test(site)) {
-      sendJson(res, 400, { error: 'site must be a 3-letter radar id' });
-      return;
-    }
+  async function attributesRoute(query) {
+    const site = String(query.get('site') || '').toUpperCase();
+    if (!SITE_RE.test(site))
+      return {
+        status: 400,
+        body: { error: 'site must be a 3-letter radar id' },
+      };
     try {
       const attributes = await load(site);
       touch(site);
       if (attributes.validTime !== null)
         await runtime?.ingest(itemFor(site, attributes));
-      sendJson(res, 200, attributes);
+      return { status: 200, body: attributes };
     } catch (error) {
       console.warn('[storm-attributes]', error?.message || error);
-      sendJson(res, 502, { error: 'storm attributes unavailable' });
+      return { status: 502, body: { error: 'storm attributes unavailable' } };
     }
   }
 
@@ -277,7 +272,7 @@ export function createStormAttributesIngest({
     watched.clear();
   }
 
-  return { provider, touch, close, handle, watched: () => [...watched.keys()] };
+  return { provider, touch, close, watched: () => [...watched.keys()] };
 }
 
 /** The provider definition the registry installs. */

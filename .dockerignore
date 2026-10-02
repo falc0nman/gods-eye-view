@@ -1,0 +1,14 @@
+node_modules
+dist
+.git
+.worktrees
+.env
+.env.*
+.gev-secrets
+.gev-backups
+.gev-cache
+.gev-logs
+.gev-logs-*.txt
+qa-shots
+screenshots
+.claude
