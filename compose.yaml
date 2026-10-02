@@ -29,8 +29,10 @@ services:
     stop_grace_period: 30s
 
   migrate:
-    image: gev-app:local
-    pull_policy: never
+    image: gev-tools:local
+    build:
+      context: .
+      target: tooling
     command: [node, server/database/migrate.js]
     environment:
       <<: *database-environment
@@ -43,8 +45,29 @@ services:
     mem_limit: 256m
 
   app:
-    image: gev-app:local
-    build: .
+    image: gev-frontend:local
+    build:
+      context: .
+      target: frontend
+    restart: unless-stopped
+    ports: ['127.0.0.1:${GEV_HTTP_PORT:-4173}:8080']
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, wget, -q, -O-, 'http://127.0.0.1:8080/readyz']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    cpus: 0.5
+    mem_limit: 256m
+
+  backend:
+    image: gev-backend:local
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     restart: unless-stopped
     env_file:
       - path: .env
@@ -52,10 +75,11 @@ services:
     environment:
       <<: *database-environment
       GEV_DB_PASSWORD_FILE: /run/secrets/db_app
-      HOST: 0.0.0.0
-      PORT: 4173
+      GEV_BACKEND_HOST: 0.0.0.0
+      GEV_BACKEND_PORT: 3000
+      GEV_PUBLIC_ORIGIN: ${GEV_PUBLIC_ORIGIN:-http://localhost:4173}
+      GEV_SESSION_COOKIE: ${GEV_SESSION_COOKIE:-gev_session}
     secrets: [db_app]
-    ports: ['127.0.0.1:4173:4173']
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -65,17 +89,17 @@ services:
           CMD,
           node,
           -e,
-          "fetch('http://127.0.0.1:4173/api/database/health').then(r => { if (!r.ok) process.exit(1); }).catch(() => process.exit(1))",
+          "fetch('http://127.0.0.1:3000/readyz').then(r => { if (!r.ok) process.exit(1); }).catch(() => process.exit(1))",
         ]
       interval: 15s
       timeout: 10s
       retries: 5
       start_period: 30s
-    cpus: 2.0
-    mem_limit: 2g
+    cpus: 1.0
+    mem_limit: 512m
 
   maintenance:
-    image: gev-app:local
+    image: gev-tools:local
     pull_policy: never
     restart: unless-stopped
     command: [node, server/database/maintenance.js]
@@ -111,12 +135,15 @@ services:
 
   qa:
     profiles: [tools]
-    image: gev-app:local
+    image: gev-tools:local
     command: [node, scripts/db-integration.mjs]
     environment:
       <<: *database-environment
       GEV_DB_PASSWORD_FILE: /run/secrets/db_app
       GEV_DB_MIGRATOR_PASSWORD_FILE: /run/secrets/db_migrator
+      GEV_TEST_BASE_URL: http://app:8080
+      GEV_TEST_BACKEND_URL: http://backend:3000
+      GEV_SESSION_COOKIE: ${GEV_SESSION_COOKIE:-gev_session}
     secrets: [db_app, db_migrator]
     depends_on:
       migrate:

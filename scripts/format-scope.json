@@ -872,5 +872,10 @@
   "src/tooling/database.test.mjs",
   "docs/DATABASE.md",
   "scripts/container-entrypoint.mjs",
-  "scripts/db-health-check.mjs"
+  "scripts/db-health-check.mjs",
+  "backend/package.json",
+  "src/tooling/backend.test.mjs",
+  "scripts/backend-integration.mjs",
+  "scripts/qa-backend.mjs",
+  "docs/BACKEND.md"
 ]

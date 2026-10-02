@@ -3106,5 +3106,11 @@
       "server/database/connection.js"
     ],
     "external": ["pg"]
+  },
+  "backend": {
+    "runtime": "node",
+    "exports": ["./backend"],
+    "modules": ["backend/server.js", "backend/auth.js", "backend/routes.js"],
+    "external": []
   }
 }

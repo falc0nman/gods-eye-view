@@ -1,0 +1,14 @@
+{
+  "name": "gev-backend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node main.js"
+  },
+  "engines": {
+    "node": ">=24.14.0 <25 || >=26 <27"
+  },
+  "dependencies": {
+    "pg": "^8.23.1"
+  }
+}
