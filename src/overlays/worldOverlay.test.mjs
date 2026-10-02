@@ -7,6 +7,7 @@ import {
   keyholeLabelAlphaFromGeometry,
   setKeyholeFadeTuning,
 } from '../celestialRing.js';
+import { setScopeMaskEnabled } from '../scopeMask.js';
 import { createCctvThumbnailOverlayEntry, createFrameSlot } from '../data/cctvCards.js';
 import { combinedOverlayAlpha } from './worldOverlayDraw.js';
 import {
@@ -615,6 +616,8 @@ test('shared fade tuning reaches a host-painted card on the next rendered frame'
     set(value) { paintedAlphas.push(value); },
   });
   try {
+    // Edge fade only applies while the scope is on (it boots off).
+    setScopeMaskEnabled(true);
     setKeyholeFadeTuning({ fadeRatio: 0.16, outsideOpacity: 0.05 });
     initWorldOverlay(env.viewer);
     setOverlayEntries('fade-host', [selectedEntry('CARD', {
@@ -634,6 +637,32 @@ test('shared fade tuning reaches a host-painted card on the next rendered frame'
     assert.ok(nextAlpha > firstAlpha, `${firstAlpha} should change on the next frame, got ${nextAlpha}`);
   } finally {
     setKeyholeFadeTuning({ fadeRatio: 0.16, outsideOpacity: 0.05 });
+    setScopeMaskEnabled(false);
+    env.cleanup();
+  }
+});
+
+test('with the scope off, labels near the screen edge are not faded', () => {
+  const env = installMockEnvironment({ width: 400, height: 300, dpr: 1 });
+  const paintedAlphas = [];
+  Object.defineProperty(env.ctx, 'globalAlpha', {
+    configurable: true,
+    get() { return paintedAlphas.at(-1) ?? 1; },
+    set(value) { paintedAlphas.push(value); },
+  });
+  try {
+    setScopeMaskEnabled(false);
+    setKeyholeFadeTuning({ fadeRatio: 0.16, outsideOpacity: 0.05 });
+    initWorldOverlay(env.viewer);
+    setOverlayEntries('fade-host', [selectedEntry('CARD', {
+      position: new Cesium.Cartesian3(0.85, 0, 0),
+      variant: 'card',
+      edgeFade: 'keyhole',
+      placement: 'above',
+    })]);
+    env.postRender.raise();
+    assert.equal(Math.max(...paintedAlphas), 1, 'the same card is fully opaque without the scope');
+  } finally {
     env.cleanup();
   }
 });

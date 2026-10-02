@@ -69,7 +69,7 @@ test('any other camera destination clears the search label too', () => {
   assert.match(ui.slice(start, start + 700), /if \(clearSearchedLocation\) this\.clearSearchedLocation\(\);/);
 
   // The shared funnel is what the reset and voice seams actually reach.
-  for (const seam of ['resetToGlobeView() {', 'beginLocationNavigation() {', '_runExplicitNavigation(noun, navigate']) {
+  for (const seam of ['resetToGlobeView(frame = {}) {', 'beginLocationNavigation() {', '_runExplicitNavigation(noun, navigate']) {
     const at = ui.indexOf(seam);
     assert.ok(at > 0, `missing navigation seam "${seam}"`);
     assert.match(ui.slice(at, at + 900), /_stampNavigation\(/, `"${seam}" must stamp navigation`);

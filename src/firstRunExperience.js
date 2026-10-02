@@ -87,6 +87,20 @@ export function environmentalLabel(choice = ENVIRONMENTAL_LABEL_CHOICE) {
 
 /** @type {Readonly<Record<string, object>>} */
 export const FIRST_RUN_MISSIONS = Object.freeze({
+  'storm-chase': Object.freeze({
+    kind: 'globe',
+    // NEXRAD radar + NWS storm warnings, framed from the Rockies east.
+    // Radar drapes only onto the globe (never the Google 3D tileset — that
+    // froze machines; see src/data/nexrad.js), so this mission is the one
+    // that also switches the basemap: a Storm Chase that lands in the
+    // photoreal stack would show warnings over an empty sky.
+    // team-chasers succeeds even unconfigured (its row says to add the
+    // Life360 token), so a fresh install still opens Storm Chase cleanly.
+    layerIds: Object.freeze(['nexrad', 'nws-warnings', 'team-chasers']),
+    mapStack: 'esri-imagery',
+    frame: Object.freeze({ center: Object.freeze({ latitude: 38, longitude: -92 }), heightM: 4_500_000 }),
+    busyText: 'Loading radar and storm warnings…',
+  }),
   contacts: Object.freeze({
     kind: 'context',
     contextMode: 'contacts',
@@ -248,10 +262,11 @@ export function rememberFirstRunSessionDismissed(sessionStorageRef) {
  * @param {object} deps
  * @param {(mode: string) => Promise<object>} deps.setContextMode
  * @param {(layerId: string) => Promise<boolean>} deps.setLayerEnabled
- * @param {() => Promise<any>} deps.flyToGlobe
+ * @param {(frame?: object) => Promise<any>} deps.flyToGlobe
+ * @param {(stackId: string) => Promise<object>} [deps.setMapStack]
  * @returns {Promise<{ok: boolean, choice: string, result?: object, failedLayerIds?: string[]}>}
  */
-export async function runFirstRunChoice(choice, { setContextMode, setLayerEnabled, flyToGlobe }) {
+export async function runFirstRunChoice(choice, { setContextMode, setLayerEnabled, flyToGlobe, setMapStack }) {
   const mission = FIRST_RUN_MISSIONS[choice];
   if (!mission) return { ok: false, choice };
   if (mission.kind === 'none') return { ok: true, choice };
@@ -262,8 +277,14 @@ export async function runFirstRunChoice(choice, { setContextMode, setLayerEnable
   // Globe missions: start the pull-out and the layer work together so the
   // camera is already moving while the feeds spin up. The flight is framing,
   // not the mission — a stalled or superseded flight never fails the tile.
+  // A mission that needs a basemap (Storm Chase) switches it like the flight:
+  // presentation, not the mission. If it fails the layers still come on and
+  // the radar row says it needs a globe map.
+  const basemap = mission.mapStack && typeof setMapStack === 'function'
+    ? Promise.resolve().then(() => setMapStack(mission.mapStack)).catch(() => null)
+    : null;
   const flight = Promise.resolve()
-    .then(() => flyToGlobe())
+    .then(() => (mission.frame ? flyToGlobe(mission.frame) : flyToGlobe()))
     .catch(() => null);
   const outcomes = await Promise.all(mission.layerIds.map(async (layerId) => {
     try {
@@ -272,7 +293,7 @@ export async function runFirstRunChoice(choice, { setContextMode, setLayerEnable
       return { layerId, ok: false };
     }
   }));
-  await flight;
+  await Promise.all([flight, basemap]);
   const failedLayerIds = outcomes.filter((entry) => !entry.ok).map((entry) => entry.layerId);
   return { ok: failedLayerIds.length === 0, choice, failedLayerIds };
 }
@@ -454,7 +475,8 @@ export function initFirstRunExperience({
         // `origin: 'user'` on purpose: a mission tile is a real person choosing
         // these layers, so it persists exactly as clicking those rows would.
         setLayerEnabled: (layerId) => dataManager.setEnabled(layerId, true, { origin: 'user' }),
-        flyToGlobe: () => styleManager.resetToGlobeView(),
+        flyToGlobe: (frame) => styleManager.resetToGlobeView(frame),
+        setMapStack: (stackId) => styleManager.setMapStack(stackId),
       });
     } catch (error) {
       // A thrown mission is a real defect worth seeing in a bug report; the

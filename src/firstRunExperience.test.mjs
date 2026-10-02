@@ -395,14 +395,15 @@ function missionSpy({ contextOk = true, layerResult = () => true, globe = async 
   };
 }
 
-test('the menu is the four owner-ordered missions', () => {
+test('the menu is the five owner-ordered missions', () => {
   // INFRASTRUCTURE was removed after the owner playtested it: enabling all
   // three bundled layers at once put ~5,700 entities on a full-earth view and
   // tanked the frame rate. The layers stay reachable by hand and by voice; what
   // went is the one-click globe-scale dump. Restoring the tile needs the
   // globe-LOD declutter first.
   assert.deepEqual(Object.keys(FIRST_RUN_MISSIONS), [
-    'contacts', 'space-missions', 'environmental', 'explore',
+    // STORM CHASE leads: this deployment is a storm-chasing team's console.
+    'storm-chase', 'contacts', 'space-missions', 'environmental', 'explore',
   ]);
   assert.equal(FIRST_RUN_MISSIONS.infrastructure, undefined,
     'the infrastructure mission must be gone, not dormant');
@@ -550,7 +551,7 @@ test('markup, startup ordering and accessibility remain pinned', () => {
   const css = fs.readFileSync(new URL('../style.css', import.meta.url), 'utf8');
 
   assert.match(html, /id="first-run-launcher" role="dialog"[^>]*aria-labelledby="first-run-title"[^>]*hidden/);
-  assert.equal((html.match(/data-first-run-choice=/g) || []).length, 4);
+  assert.equal((html.match(/data-first-run-choice=/g) || []).length, 5);
   assert.match(html, /data-first-run-status[^>]*role="status"[^>]*aria-live="polite"/);
   assert.match(html, /<input type="checkbox" data-first-run-suppress \/>/);
   assert.match(html, /<strong data-first-run-environmental-title>/);
@@ -573,7 +574,7 @@ test('markup, startup ordering and accessibility remain pinned', () => {
 
   // Menu order is the owner's, read straight off the markup.
   const order = [...html.matchAll(/data-first-run-choice="([a-z-]+)"/g)].map((match) => match[1]);
-  assert.deepEqual(order, ['contacts', 'space-missions', 'environmental', 'explore']);
+  assert.deepEqual(order, ['storm-chase', 'contacts', 'space-missions', 'environmental', 'explore']);
   assert.doesNotMatch(html, /data-first-run-choice="infrastructure"/,
     'the removed tile must leave no markup behind');
 
@@ -660,10 +661,13 @@ test('the voice TOOL SCHEMA is byte-identical to main — the mission mapping is
   // exactly the kind of schema change this pin exists to make loud). The
   // guarded claim is unchanged: first-run missions ride existing tools, and
   // any NEW drift from this recorded schema still fails here.
-  assert.equal(block.length, 31189, 'tool schema byte length drifted from the pinned release schema');
+  // Re-pinned 2026-10-01: the NEXRAD radar layer DELIBERATELY joins the
+  // set_layer_visibility / show_data_layers_menu enums (a real new layer),
+  // followed by the nws-warnings and team-chasers storm-chase layers.
+  assert.equal(block.length, 31493, 'tool schema byte length drifted from the pinned release schema');
   assert.equal(
     crypto.createHash('sha256').update(block).digest('hex'),
-    '73aaabdb169a5478893d28688f327a21edd32ed3ec16fc6287bd944ed77beecf',
+    '70e7a89519f3c98bfcda32f4eb716814c6d8280f4e31a947b17ea3baa7d3078f',
     'the first-run missions must ride EXISTING tools: no schema edit, no cache bust',
   );
 
@@ -695,4 +699,37 @@ test('every layer a mission drives is already in the shipped set_layer_visibilit
   for (const layerId of missionLayerIds) {
     assert.ok(tool.includes(`'${layerId}'`), `${layerId} must already be an allowed enum value`);
   }
+});
+
+// ── Storm Chase: radar needs the globe basemap ──────────────────────────────
+
+test('STORM CHASE turns on radar and warnings, switches to the globe basemap, and frames the US', async () => {
+  const calls = [];
+  const outcome = await runFirstRunChoice('storm-chase', {
+    setContextMode: async () => assert.fail('Storm Chase is a globe mission'),
+    setLayerEnabled: async (layerId) => { calls.push(['layer', layerId]); return true; },
+    flyToGlobe: async (frame) => { calls.push(['fly', frame]); },
+    setMapStack: async (stackId) => { calls.push(['stack', stackId]); return { ok: true }; },
+  });
+  assert.equal(outcome.ok, true);
+  assert.deepEqual(calls.filter(([k]) => k === 'layer').map(([, id]) => id).sort(), ['nexrad', 'nws-warnings', 'team-chasers']);
+  assert.deepEqual(calls.find(([k]) => k === 'stack'), ['stack', 'esri-imagery']);
+  const [, frame] = calls.find(([k]) => k === 'fly');
+  assert.ok(frame.center.longitude < -85 && frame.center.longitude > -100, 'framed on the central US');
+});
+
+test('a failed basemap switch does not fail Storm Chase; other missions never touch the basemap', async () => {
+  const outcome = await runFirstRunChoice('storm-chase', {
+    setContextMode: async () => ({ ok: false }),
+    setLayerEnabled: async () => true,
+    flyToGlobe: async () => {},
+    setMapStack: async () => { throw new Error('stack down'); },
+  });
+  assert.equal(outcome.ok, true);
+  await runFirstRunChoice('environmental', {
+    setContextMode: async () => ({ ok: false }),
+    setLayerEnabled: async () => true,
+    flyToGlobe: async (frame) => assert.equal(frame, undefined),
+    setMapStack: async () => assert.fail('environmental must not switch the basemap'),
+  });
 });

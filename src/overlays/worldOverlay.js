@@ -4,6 +4,7 @@ import {
   getKeyholeGeometry,
   keyholeLabelAlphaFromGeometry,
 } from '../celestialRing.js';
+import { isScopeMaskEnabled } from '../scopeMask.js';
 import { BoundedCohort, stableIdentityHash } from '../data/detectionCohort.js';
 import { LabelArbiter, LABEL_ARBITER_TIMING } from '../data/labelArbiter.js';
 import {
@@ -1707,7 +1708,7 @@ function snapshotAndProject(entry, source, viewProjection, keyhole) {
   // Shared keyhole alpha is radial and monotonic, so the closest surviving
   // placement is exactly the maximum-alpha placement. Evaluate the shared
   // helper once, then evaluate the final chosen rectangle again at paint.
-  record.candidate.keyholeAlpha = entry.edgeFade === 'keyhole'
+  record.candidate.keyholeAlpha = entry.edgeFade === 'keyhole' && isScopeMaskEnabled()
     ? (centerDistance <= keyhole.radius
       ? 1
       : keyholeLabelAlphaFromGeometry(closestCenterX, closestCenterY, keyhole))
@@ -2036,7 +2037,8 @@ function paintEntryItem(item, keyhole) {
   const { record, placement } = item;
   const entry = record.entry;
   let keyholeAlpha = 1;
-  if (entry.edgeFade === 'keyhole') {
+  // With the scope off the view is full screen: nothing is "outside" it.
+  if (entry.edgeFade === 'keyhole' && isScopeMaskEnabled()) {
     const keyholeX = placement.centerX - keyhole.centerX;
     const keyholeY = placement.centerY - keyhole.centerY;
     keyholeAlpha = keyholeX * keyholeX + keyholeY * keyholeY <= keyhole.radius * keyhole.radius

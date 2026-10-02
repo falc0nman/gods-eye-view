@@ -3400,6 +3400,8 @@ export class StyleManager {
       setScopeMaskEnabled(next);
       this._scopeBtn.classList.toggle('active', next);
       this._scopeBtn.setAttribute('aria-pressed', String(next));
+      // Labels near the edge change fade with the scope; repaint them now.
+      governorRequestRender('scope-toggle');
       this._syncShareState();
     });
     this._scopeFeatherSlider?.addEventListener('input', () => {
@@ -9700,9 +9702,12 @@ export class StyleManager {
   /**
    * Release every camera owner and return to the canonical full-globe frame.
    * Repeated requests adopt the in-flight reset rather than cancelling it.
+   * @param {{center?: {latitude: number, longitude: number}, heightM?: number}} [frame]
+   *   Optional regional framing (e.g. Storm Chase over the central US); omitted,
+   *   the reset keeps the current sub-camera point at full-globe height.
    * @returns {Promise<object>} Canonical reset result shared with voice.
    */
-  resetToGlobeView() {
+  resetToGlobeView(frame = {}) {
     if (this._globeResetPromise) return this._globeResetPromise;
     this._stampNavigation();
     interruptCameraMotion('reset-globe');
@@ -9723,6 +9728,7 @@ export class StyleManager {
     this.viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
     this._beginWorldJumpTransition();
 
+    const targetHeightM = Number(frame.heightM) > 0 ? Number(frame.heightM) : GLOBE_VIEW.heightM;
     let resolveReset;
     const resetPromise = new Promise((resolve) => { resolveReset = resolve; });
     this._globeResetPromise = resetPromise;
@@ -9738,7 +9744,7 @@ export class StyleManager {
         ok: !cancelled,
         action: 'zoom_to_globe',
         cancelled,
-        heightKm: Math.round(GLOBE_VIEW.heightM / 1000),
+        heightKm: Math.round(targetHeightM / 1000),
         centeredOn: {
           latitude: Number(Cesium.Math.toDegrees(carto.latitude).toFixed(2)),
           longitude: Number(Cesium.Math.toDegrees(carto.longitude).toFixed(2)),
@@ -9751,11 +9757,13 @@ export class StyleManager {
     };
     timer = window.setTimeout(() => {
       const height = this.viewer.camera.positionCartographic?.height;
-      finish(!Number.isFinite(height) || Math.abs(height - GLOBE_VIEW.heightM) > 1000);
+      finish(!Number.isFinite(height) || Math.abs(height - targetHeightM) > 1000);
     }, 4200);
     this._resetGlobeBtn?.setAttribute('aria-label', 'Resetting to full globe view');
     this._cockpitResetGlobeBtn?.setAttribute('aria-label', 'Resetting cockpit to full globe view');
     const target = flyToGlobeView(this.viewer, {
+      center: frame.center,
+      heightM: frame.heightM,
       onComplete: () => finish(false),
       onCancel: () => finish(true),
     });

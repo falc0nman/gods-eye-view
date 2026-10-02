@@ -9517,3 +9517,85 @@ body.scene-playback-mode #key-setup {
   border-color: rgba(255, 170, 150, 0.65);
   outline: none;
 }
+
+/* ── PICK CHASERS (Team Chasers row) ───────────────────────────────────── */
+.chaser-picker {
+  position: fixed;
+  z-index: 180;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(24rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  max-height: calc(100dvh - 2rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1rem;
+  color: var(--text-primary);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border-hover);
+  border-radius: var(--panel-radius);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
+  font-family: var(--font-sans);
+}
+.chaser-picker-title {
+  font: 600 0.8rem/1 var(--font-mono);
+  letter-spacing: 0.18em;
+  color: var(--accent);
+}
+.chaser-picker-mode,
+.chaser-picker-status,
+.chaser-picker-empty {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+.chaser-picker-status:empty { display: none; }
+.chaser-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  min-height: 0;
+}
+.chaser-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.88rem;
+}
+.chaser-picker-row:hover { background: rgba(255, 255, 255, 0.05); }
+.chaser-picker-row input { accent-color: var(--accent); width: 1rem; height: 1rem; }
+.chaser-picker-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chaser-picker-nofix {
+  font: 0.65rem var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.chaser-picker-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: flex-end;
+}
+.chaser-picker-btn {
+  padding: 0.45rem 0.75rem;
+  border: 1px solid var(--glass-border-hover);
+  border-radius: var(--btn-radius);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+  font: 500 0.72rem var(--font-mono);
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+.chaser-picker-btn:hover { border-color: var(--accent-glow); }
+.chaser-picker-btn:focus-visible,
+.chaser-picker-row:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
+.chaser-picker-save { background: var(--accent-dim); border-color: var(--accent-glow); color: var(--accent); }
+.chaser-picker-reset { margin-right: auto; }

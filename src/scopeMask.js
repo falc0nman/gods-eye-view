@@ -101,7 +101,10 @@ const SCOPE_TERMINUS_SAMPLE_MS = 120;
 let _canvas = null;
 let _container = null;
 let _viewer = null;
-let _enabled = true;
+// Default OFF (storm-chase deployment, 2026-10-01): the console runs full
+// screen; the circular scope is one click away on the DISPLAY rail. Keep in
+// lockstep with `_scopeEnabled` in sharelink.js and #scope-toggle's markup.
+let _enabled = false;
 let _featherRatio = SCOPE_FEATHER_RATIO_DEFAULT;
 let _resizeObserver = null;
 let _dprQuery = null;
@@ -518,7 +521,7 @@ export function _resetScopeMaskForTest() {
   _canvas = null;
   _container = null;
   _viewer = null;
-  _enabled = true;
+  _enabled = false;
   _featherRatio = SCOPE_FEATHER_RATIO_DEFAULT;
   _terminusAlpha = SCOPE_OUTSIDE_ALPHA;
   _terminusOverride = null;

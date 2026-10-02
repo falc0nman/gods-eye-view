@@ -67,6 +67,16 @@ export const DATA_CREDITS = [
     html: 'Earthquakes: Data courtesy of the U.S. Geological Survey',
   },
   {
+    key: 'nws-alerts',
+    html: 'Storm warnings: National Weather Service (api.weather.gov), U.S. public domain',
+  },
+  {
+    key: 'nexrad-iem',
+    html:
+      'Weather radar: NOAA NEXRAD composite via ' +
+      '<a href="https://mesonet.agron.iastate.edu/" target="_blank" rel="noopener">Iowa Environmental Mesonet</a>',
+  },
+  {
     key: 'overpass',
     html:
       'Road geometry (traffic): ' +
