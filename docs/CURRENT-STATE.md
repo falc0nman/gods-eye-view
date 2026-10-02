@@ -1,5 +1,46 @@
 # God's Eye View Current State
 
+## Standalone backend — October 2, 2026
+
+GW-86 replaces the Compose app's Vite runtime with an unprivileged Nginx static
+frontend and a separate Node backend in `backend/`. Only the frontend port is
+published. All API requests enter a live database session and permission gate;
+anonymous requests receive 401 and unregistered or unauthorized routes receive
+403. Cookie-authenticated writes require the configured origin and CSRF header.
+The backend connects as `gev_app`, provides minimal `/healthz` and `/readyz`
+probes, and drains requests on shutdown. `npm run qa:backend` tests real sessions,
+revocation, database failure/recovery and shutdown through both services.
+
+OAuth login and session issuance belong to GW-45. GW-53 is still in progress,
+so migration of surviving provider proxies remains deferred as specified by
+GW-86. Production does not expose legacy Vite provider routes; `npm run dev`
+retains the local development experience. See [backend operations](BACKEND.md).
+
+## PostgreSQL and PostGIS — October 2, 2026
+
+GW-85 adds an optional local Compose stack with a PostgreSQL 17 / PostGIS 3.5
+container, persistent volume and resource limits. Generate ignored credentials
+with `npm run db:secrets`, then start it with `npm run db:up`. Startup runs
+checksummed SQL migrations before the app and workers. Ordinary `npm run dev`
+still starts without database configuration.
+
+The initial schema covers identity and access, operational workspaces and
+settings, targets, annotations, handoffs, team position history, feed settings,
+cameras and feed health. Spatial geometry uses SRID 4326 and GiST indexes. Media
+stays on disk or in object storage, with database pointers. The app uses the
+`gev_app` identity through a bounded server-only pool; migration ownership and
+administrator credentials are separate. This supplies storage for future
+authentication and shared-workspace APIs.
+
+`GET /api/database/health` reports `ready`, `disabled` or `unavailable` without
+connection details. Hourly maintenance applies operator-managed retention
+(30 days for position and feed health by default); daily backups retain custom
+archives for approximately 14 days. Secret and backup directories are excluded
+from Git, images and Vite file serving. `npm run qa:database` covers concurrent
+and atomic migrations, permissions, spatial queries, notifications, retention,
+restart persistence, HTTP readiness and a complete scratch restore with fixture
+data. See [database operations](DATABASE.md) for setup and recovery.
+
 ## Cyber HUD — September 23, 2026
 
 Display > HUD > Layout includes Cyber, also available through the HUD voice
