@@ -39,6 +39,9 @@ export inventory. Use declared exports rather than reaching into internal files.
 
 See [application construction](APPLICATION.md) and the
 [infrastructure contract](INFRASTRUCTURE-LAYERS.md) for construction interfaces.
+Server data providers implement the common
+[data provider interface](DATA-PROVIDERS.md) and register in
+`server/providers/registry.js`.
 
 ## Import direction gates
 

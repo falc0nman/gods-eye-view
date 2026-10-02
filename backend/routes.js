@@ -1,5 +1,5 @@
 export const readinessSql = `SELECT PostGIS_Version(), EXISTS (
-  SELECT FROM gev.schema_migrations WHERE name = '0002_authentication.sql'
+  SELECT FROM gev.schema_migrations WHERE name = '0003_provider_health.sql'
 ) AS migrated`;
 
 export async function databaseReady(pool) {

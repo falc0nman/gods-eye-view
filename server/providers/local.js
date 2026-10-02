@@ -27,43 +27,63 @@ import { nexradLevel3Proxy } from './nexrad.js';
 import { life360ChasersProxy } from './life360.js';
 import { windProxy } from './wind.js';
 import { databasePlugin } from './database.js';
+import { createProviderRegistry } from './registry.js';
+import { registerInterfaceProviders } from './interface.js';
 
-/** Construct the local provider plugins in their established order. */
-function localProviderPlugins() {
-  return [
-    openSkyProxy(),
-    celestrakProxy(),
-    tomtomProxy(),
-    firmsProxy(),
-    rocketLaunchesProxy(),
-    terrainHeightsProxy(),
-    adsbdbProxy(),
-    overpassProxy(),
-    militaryInstallationsProxy(),
-    regionalBriefProxy(),
-    geocodeProxy(),
-    weatherEffectsProxy(),
+/**
+ * Register the local providers in their established order. Providers that
+ * implement the common interface (./common/provider.js) use
+ * `registry.register(definition)`; the rest are per-layer proxies awaiting
+ * migration and are installed unchanged. See docs/DATA-PROVIDERS.md.
+ */
+function localProviderRegistry({ notificationTransport } = {}) {
+  // The interface providers, exactly as the backend registers them.
+  const registry = registerInterfaceProviders(createProviderRegistry(), {
+    notificationTransport,
+  });
+  registry.registerLegacy('opensky', openSkyProxy);
+  registry.registerLegacy('celestrak', celestrakProxy);
+  registry.registerLegacy('tomtom', tomtomProxy);
+  registry.registerLegacy('firms', firmsProxy);
+  registry.registerLegacy('rocket-launches', rocketLaunchesProxy);
+  registry.registerLegacy('terrain-heights', terrainHeightsProxy);
+  registry.registerLegacy('adsbdb', adsbdbProxy);
+  registry.registerLegacy('overpass', overpassProxy);
+  registry.registerLegacy('military-installations', militaryInstallationsProxy);
+  registry.registerLegacy('regional-brief', regionalBriefProxy);
+  registry.registerLegacy('geocode', geocodeProxy);
+  registry.registerLegacy('weather-effects', weatherEffectsProxy);
+  registry.registerLegacy('cctv', () =>
     cctvProxy({ sourceRoot: defaultSourceRoot }),
-    radioBrowserProxy(),
-    gbfsProxy(),
-    localReceiversProxy(),
-    transitProxy(),
-    adsbLolProxy(),
-    aisLiveProxy(),
-    trackBackfillProxies(),
-    openAiRealtimeProxy(),
-    googlePlacesContextProxy(),
-    windProxy(),
-    weatherProxy(),
-    cycloneProxy(),
-    nexradLevel3Proxy(),
-    life360ChasersProxy(),
-    firePerimetersProxy(),
-    databasePlugin(),
-  ];
+  );
+  registry.registerLegacy('radio-browser', radioBrowserProxy);
+  registry.registerLegacy('gbfs', gbfsProxy);
+  registry.registerLegacy('local-receivers', localReceiversProxy);
+  registry.registerLegacy('transit', transitProxy);
+  registry.registerLegacy('adsb-lol', adsbLolProxy);
+  registry.registerLegacy('ais-live', aisLiveProxy);
+  registry.registerLegacy('track-backfill', trackBackfillProxies);
+  registry.registerLegacy('openai-realtime', openAiRealtimeProxy);
+  registry.registerLegacy('google-places-context', googlePlacesContextProxy);
+  registry.registerLegacy('wind', windProxy);
+  registry.registerLegacy('weather', weatherProxy);
+  registry.registerLegacy('cyclones', cycloneProxy);
+  registry.registerLegacy('nexrad-level3', nexradLevel3Proxy);
+  registry.registerLegacy('life360-chasers', life360ChasersProxy);
+  registry.registerLegacy('fire-perimeters', firePerimetersProxy);
+  return registry;
 }
 
-export { localProviderPlugins };
+/**
+ * Construct the local server plugins in their established order: the data
+ * providers, then the backend's database plugin (GW-85/86), which is
+ * infrastructure rather than a data provider and so is not registered.
+ */
+function localProviderPlugins() {
+  return [...localProviderRegistry().plugins(), databasePlugin()];
+}
+
+export { localProviderPlugins, localProviderRegistry };
 
 export {
   CCTV_FRAME_FETCH_TIMEOUT_MS,
