@@ -1,6 +1,7 @@
 # Data providers
 
-Status: interface defined (GW-80), notification dispatch defined (GW-81).
+Status: interface defined (GW-80), notification dispatch (GW-81), feed
+health and data age (GW-83).
 Reference implementation: chunked NEXRAD Level II (GW-74).
 Existing per-layer proxies are registered as **legacy** entries and move over
 one at a time.
@@ -111,6 +112,76 @@ connected (for example a server-sent events stream).
 To port a legacy proxy, split its handler into the stages above, move its
 routes into `routes()`, and change its `registerLegacy` line to `register`.
 Keep its URLs stable so the browser layer does not change.
+
+## Health and data age (GW-83)
+
+[`server/providers/common/health.js`](../server/providers/common/health.js)
+gives every provider on the interface, and every product within it, one of
+four standard states. A product is a sub-stream: `normalize()` returns
+`product` (for example a radar site), and records without one count toward
+the provider itself.
+
+| State      | Meaning                                                                                                 |
+| ---------- | ------------------------------------------------------------------------------------------------------- |
+| `healthy`  | Data is current and the provider is working                                                             |
+| `degraded` | Working but late (data age past `degradedAfterMs`), failing intermittently, or on a fallback it reports |
+| `stale`    | Data age past `staleAfterMs`; what is shown is no longer current                                        |
+| `down`     | `downAfterFailures` stage failures in a row (default 3), or no data within `staleAfterMs` of starting   |
+
+There are also two non-standard states:
+
+- `idle`: nobody is using the provider, so it isn't running.
+- `unmonitored`: a legacy proxy that isn't on the interface yet.
+
+A provider takes the worst state of its products and its own signals.
+
+- **Data age** is now minus the valid time of the newest published record.
+  A late, backfilled record does not make the data look fresher.
+- **Ingest latency** is reported separately, as `availableToIngestMs`, per
+  provider and per product.
+
+### Thresholds
+
+Each provider sets defaults in its definition:
+
+```js
+health: {
+  degradedAfterMs: 90_000,  // defaults to half of staleAfterMs
+  staleAfterMs: 300_000,    // none: data age never makes it stale
+  downAfterFailures: 3,
+  check: () => [{ product: 'KTLX', state: 'degraded', reason: '…' }],
+}
+```
+
+`check()` adds the provider's own signals, either for one product or, when
+`product` is omitted, for the whole provider. A check that throws counts as
+`degraded`. Deployments override thresholds per provider or per product:
+
+```js
+createProviderRegistry({
+  healthThresholds: {
+    'nexrad-level2': { staleAfterMs: 10 * 60_000 },
+    'nexrad-level2:KTLX': { staleAfterMs: 2 * 60_000 },
+  },
+});
+```
+
+### Reporting
+
+- `GET /api/providers/health` returns:
+  - `providers[]`: `state`, `reason`, failures, `lastError`, and `products[]`
+    with `dataAgeMs`, `validTime`, `lastIngestAt`, `availableToIngestMs` and
+    the thresholds that apply
+  - `streams`
+  - `history`: state transitions from the last hour (at most 500)
+- `GET /api/providers` now includes each entry's `health` state.
+- `registry.health.subscribe((snapshot, changes) => …)` runs after every
+  evaluation. This is where shared operational state (GW-28) attaches.
+  Evaluation runs every 15 s while the server is up, so a provider going
+  stale shows in the history even with no requests.
+
+The operator status view and per-layer indicators (GW-25) read these routes;
+they are UI work.
 
 ## Notifications (GW-81)
 

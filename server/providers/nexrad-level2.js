@@ -154,6 +154,25 @@ export function createLevel2Ingest({
       url: chunkBucket,
       license: 'NOAA open data (AWS Open Data Sponsorship Program)',
     },
+    // Chunks arrive every few seconds while a radar scans; between volumes
+    // the gap is well under a minute.
+    health: {
+      degradedAfterMs: 90_000,
+      staleAfterMs: 5 * 60_000,
+      check: () =>
+        [...watched.keys()].flatMap((site) => {
+          const feedState = feed.status(site);
+          if (feedState.state === 'unavailable' || feedState.state === 'stale')
+            return [
+              {
+                product: site,
+                state: 'degraded',
+                reason: `chunk feed ${feedState.state}; serving completed volumes`,
+              },
+            ];
+          return [];
+        }),
+    },
     subscribe(_ctx, emit) {
       emitChunk = (object) => emit(object);
       for (const site of watched.keys()) feedWatch(site);
@@ -181,6 +200,8 @@ export function createLevel2Ingest({
       const times = decoded.radials.map((r) => r.timeMs);
       return {
         key: item.key,
+        // Health and data age are tracked per radar.
+        product: key.site,
         validTime: times.length
           ? Math.min(...times)
           : (decoded.volume?.startMs ?? item.lastModified),

@@ -85,6 +85,7 @@ test('records carry source, valid time, ingest time and provenance', () => {
     source: { name: 'Test Bucket', url: 'https://example.test' },
     validTime: Date.parse('2026-10-02T01:09:25Z'),
     ingestTime: 2_000,
+    product: null,
     provenance: {
       provider: 'test-pull',
       mode: 'pull',

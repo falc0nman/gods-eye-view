@@ -95,6 +95,9 @@ function normalizeSource(source, where) {
  * @param {(raw, item, ctx) => any} [spec.decode] - defaults to identity.
  * @param {(decoded, item, ctx) => object|object[]|null} spec.normalize - returns record input(s).
  * @param {(server, runtime) => void} [spec.routes] - mounts HTTP routes on the dev/preview server.
+ * @param {object} [spec.health] - health defaults (GW-83, ./health.js):
+ *   `staleAfterMs` / `degradedAfterMs` (data age), `downAfterFailures`, and
+ *   `check()` → [{product?, state, reason}] for provider-specific signals.
  */
 export function defineProvider(spec) {
   if (!spec || typeof spec !== 'object')
@@ -107,6 +110,22 @@ export function defineProvider(spec) {
   const source = normalizeSource(spec.source, id);
   if (typeof spec.normalize !== 'function')
     throw invalid(`${id} must implement normalize()`);
+  const health = spec.health ?? {};
+  if (typeof health !== 'object')
+    throw invalid(`${id} health must be an object`);
+  for (const field of [
+    'staleAfterMs',
+    'degradedAfterMs',
+    'downAfterFailures',
+  ]) {
+    if (
+      health[field] !== undefined &&
+      !(Number.isFinite(health[field]) && health[field] > 0)
+    )
+      throw invalid(`${id} health.${field} must be a positive number`);
+  }
+  if (health.check !== undefined && typeof health.check !== 'function')
+    throw invalid(`${id} health.check must be a function`);
   for (const stage of ['fetch', 'decode', 'routes']) {
     if (spec[stage] !== undefined && typeof spec[stage] !== 'function')
       throw invalid(`${id} ${stage} must be a function`);
@@ -136,6 +155,7 @@ export function defineProvider(spec) {
     decode: spec.decode ?? identity,
     normalize: spec.normalize,
     routes: spec.routes ?? null,
+    health: Object.freeze({ ...health }),
   });
   definitions.add(definition);
   return definition;
@@ -158,6 +178,8 @@ function toMs(value, field, providerId) {
  * - `source`: the upstream that produced it.
  * - `provenance`: how GEV got it — provider id, the discovered item key and
  *   any upstream identifiers (object key, ETag, sequence number, …).
+ * - `product`: optional sub-stream (a radar site, a model run); health and
+ *   data age are tracked per product.
  */
 export function createRecord(
   provider,
@@ -178,6 +200,7 @@ export function createRecord(
       : provider.source,
     validTime,
     ingestTime: ingested,
+    product: input.product == null ? null : String(input.product),
     provenance: Object.freeze({
       provider: provider.id,
       mode: provider.mode,
@@ -224,7 +247,12 @@ export function createProviderRuntime(
     lastIngestAt: null,
     lastError: null,
     published: 0,
+    startedAt: null,
+    // Stage failures since the last successful publish.
+    consecutiveFailures: 0,
   };
+  /** product ('' for the provider itself) → per-product health inputs */
+  const products = new Map();
   /** Availability → ingest samples, ms (records whose provenance has `availableAt`). */
   const latency = [];
   let controller = null;
@@ -242,6 +270,7 @@ export function createProviderRuntime(
       message: String(cause?.message || cause),
       at: now(),
     };
+    status.consecutiveFailures += 1;
     onError(error);
     return error;
   }
@@ -251,11 +280,33 @@ export function createProviderRuntime(
     if (records.length > retain) records.splice(0, records.length - retain);
     status.published += 1;
     status.lastIngestAt = record.ingestTime;
+    status.consecutiveFailures = 0;
+    const productKey = record.product ?? '';
+    let product = products.get(productKey);
+    if (!product) {
+      product = {
+        product: record.product,
+        newestValidTime: null,
+        lastIngestAt: null,
+        published: 0,
+        latency: [],
+      };
+      products.set(productKey, product);
+    }
+    // Data age follows the newest observation, not the newest arrival.
+    product.newestValidTime = Math.max(
+      product.newestValidTime ?? -Infinity,
+      record.validTime,
+    );
+    product.lastIngestAt = record.ingestTime;
+    product.published += 1;
     const availableAt = record.provenance.availableAt;
     if (Number.isFinite(availableAt)) {
-      latency.push(record.ingestTime - availableAt);
-      if (latency.length > LATENCY_SAMPLES)
-        latency.splice(0, latency.length - LATENCY_SAMPLES);
+      for (const samples of [latency, product.latency]) {
+        samples.push(record.ingestTime - availableAt);
+        if (samples.length > LATENCY_SAMPLES)
+          samples.splice(0, samples.length - LATENCY_SAMPLES);
+      }
     }
     for (const listener of listeners) {
       try {
@@ -342,6 +393,8 @@ export function createProviderRuntime(
   function start() {
     if (status.running) return;
     status.running = true;
+    status.startedAt = now();
+    status.consecutiveFailures = 0;
     controller = new AbortController();
     if (provider.mode === 'pull') {
       loop();
@@ -360,6 +413,7 @@ export function createProviderRuntime(
   function stop() {
     if (!status.running) return;
     status.running = false;
+    status.startedAt = null;
     controller?.abort();
     controller = null;
     if (timer !== null) unschedule(timer);
@@ -403,6 +457,16 @@ export function createProviderRuntime(
         median: median(latency),
         samples: latency.length,
       },
+      products: [...products.values()].map((p) => ({
+        product: p.product,
+        newestValidTime: p.newestValidTime,
+        lastIngestAt: p.lastIngestAt,
+        published: p.published,
+        availableToIngestMs: {
+          last: p.latency.at(-1) ?? null,
+          median: median(p.latency),
+        },
+      })),
     }),
   });
 }

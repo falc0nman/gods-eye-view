@@ -3,6 +3,7 @@ import {
   defineProvider,
   isProviderDefinition,
 } from './common/provider.js';
+import { createHealthMonitor } from './common/health.js';
 
 /**
  * Central provider registry (GW-80). Providers register here once instead of
@@ -16,11 +17,23 @@ import {
  *     has not been ported yet. It is installed unchanged, so migration can go
  *     one provider at a time.
  */
-export function createProviderRegistry({ runtimeOptions = {} } = {}) {
+export function createProviderRegistry({
+  runtimeOptions = {},
+  healthThresholds = {},
+  healthIntervalMs = 15_000,
+} = {}) {
   /** @type {Map<string, {id: string, kind: 'provider'|'legacy', provider?: object, runtime?: object, createPlugin?: Function}>} */
   const entries = new Map();
   /** name → () => status, e.g. the notification dispatcher (GW-81). */
   const streams = new Map();
+  const providerEntries = () =>
+    [...entries.values()].filter((entry) => entry.kind === 'provider');
+  // GW-83: health and data age for every provider on the common interface.
+  const health = createHealthMonitor({
+    entries: providerEntries,
+    thresholds: healthThresholds,
+    now: runtimeOptions.now,
+  });
 
   function claim(id) {
     if (entries.has(id))
@@ -105,12 +118,40 @@ export function createProviderRegistry({ runtimeOptions = {} } = {}) {
     );
   }
 
-  /** `GET /api/providers` — what is registered and how each provider is doing. */
+  /** Health for every entry; legacy proxies do not report any. */
+  function healthReport() {
+    const report = health.report();
+    const byId = new Map(report.providers.map((p) => [p.id, p]));
+    return {
+      generatedAt: report.generatedAt,
+      providers: [...entries.values()].map(
+        (entry) =>
+          byId.get(entry.id) ?? {
+            id: entry.id,
+            state: 'unmonitored',
+            reason: 'legacy proxy; not on the provider interface yet',
+          },
+      ),
+      streams: streamStatus(),
+      history: report.history,
+    };
+  }
+
+  /**
+   * `GET /api/providers` — what is registered and how each provider is doing.
+   * `GET /api/providers/health` — health, data age and recent transitions.
+   */
   function catalogPlugin() {
     const install = (server) => {
       server.middlewares.use('/api/providers', (req, res, next) => {
         const path = new URL(req.url || '/', 'http://local').pathname;
-        if (req.method !== 'GET' || (path !== '/' && path !== '')) {
+        const route =
+          path === '/' || path === ''
+            ? 'catalog'
+            : path === '/health'
+              ? 'health'
+              : null;
+        if (req.method !== 'GET' || !route) {
           next();
           return;
         }
@@ -118,13 +159,27 @@ export function createProviderRegistry({ runtimeOptions = {} } = {}) {
           'Content-Type': 'application/json',
           'Cache-Control': 'no-store',
         });
+        if (route === 'health') {
+          res.end(JSON.stringify(healthReport()));
+          return;
+        }
+        const states = new Map(
+          health.evaluate().providers.map((p) => [p.id, p.state]),
+        );
         res.end(
           JSON.stringify({
-            providers: [...entries.values()].map(describe),
+            providers: [...entries.values()].map((entry) => ({
+              ...describe(entry),
+              health: states.get(entry.id) ?? 'unmonitored',
+            })),
             streams: streamStatus(),
           }),
         );
       });
+      // Evaluate in the background so a provider going stale is recorded in
+      // the history even when nobody is asking.
+      health.start(healthIntervalMs);
+      server.httpServer?.once?.('close', () => health.stop());
     };
     return {
       name: 'gev-provider-catalog',
@@ -164,6 +219,9 @@ export function createProviderRegistry({ runtimeOptions = {} } = {}) {
     get: (id) => entries.get(id)?.runtime ?? null,
     has: (id) => entries.has(id),
     list: () => [...entries.values()].map(describe),
+    /** The health monitor: evaluate(), report(), subscribe() for shared state (GW-28). */
+    health,
+    healthReport,
     plugins,
   });
 }
