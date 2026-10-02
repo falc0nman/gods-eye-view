@@ -248,7 +248,7 @@ test('keyless ion stacks stay focusable, aria-disabled, and say why', () => {
           ...stack,
           available: false,
           unavailableReason:
-            'Needs CESIUM_ION_TOKEN — add it in Provider Settings',
+            'Needs CESIUM_ION_TOKEN — configure it on the server',
         }
       : stack,
   );
@@ -268,12 +268,12 @@ test('keyless ion stacks stay focusable, aria-disabled, and say why', () => {
   assert.equal(bingAerial.getAttribute('aria-disabled'), 'true');
   assert.equal(
     bingAerial.getAttribute('aria-label'),
-    'Bing Aerial unavailable: Needs CESIUM_ION_TOKEN — add it in Provider Settings',
+    'Bing Aerial unavailable: Needs CESIUM_ION_TOKEN — configure it on the server',
   );
   assert.ok(bingAerial.classList.contains('unavailable'));
   assert.equal(
     bingAerial.title,
-    'Needs CESIUM_ION_TOKEN — add it in Provider Settings',
+    'Needs CESIUM_ION_TOKEN — configure it on the server',
   );
   assert.equal(chipText(bingAerial), 'Bing Aerial ION');
 
@@ -301,7 +301,7 @@ test('a non-ion stack that fails never claims an ion token is required', () => {
           ...stack,
           available: false,
           unavailableReason:
-            'Needs GOOGLE_MAPS_API_KEY — add it in Provider Settings',
+            'Needs GOOGLE_MAPS_API_KEY — configure it on the server',
         }
       : stack,
   );
@@ -311,7 +311,7 @@ test('a non-ion stack that fails never claims an ion token is required', () => {
   assert.equal(google.getAttribute('aria-disabled'), 'true');
   assert.equal(
     google.getAttribute('aria-label'),
-    'Google 3D unavailable: Needs GOOGLE_MAPS_API_KEY — add it in Provider Settings',
+    'Google 3D unavailable: Needs GOOGLE_MAPS_API_KEY — configure it on the server',
   );
   assert.equal(
     chipText(google),
@@ -320,7 +320,7 @@ test('a non-ion stack that fails never claims an ion token is required', () => {
   );
   assert.equal(
     google.title,
-    'Needs GOOGLE_MAPS_API_KEY — add it in Provider Settings',
+    'Needs GOOGLE_MAPS_API_KEY — configure it on the server',
   );
   assert.equal(
     chipText(container.children[1]),
@@ -367,8 +367,8 @@ test("models carry the stack's own reason and never invent an active chip", () =
     [
       {
         requirement: 'ION',
-        unavailableHint: 'Needs CESIUM_ION_TOKEN — add it in Provider Settings',
-        title: 'Needs CESIUM_ION_TOKEN — add it in Provider Settings',
+        unavailableHint: 'Needs CESIUM_ION_TOKEN — configure it on the server',
+        title: 'Needs CESIUM_ION_TOKEN — configure it on the server',
       },
       {
         requirement: '',

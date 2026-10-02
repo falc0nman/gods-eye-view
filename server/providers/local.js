@@ -20,7 +20,6 @@ import { aisLiveProxy } from './vessels/ais-live.js';
 import { trackBackfillProxies } from './aircraft/tracks.js';
 import { openAiRealtimeProxy } from './openai.js';
 import { googlePlacesContextProxy } from './places.js';
-import { keySetupEndpoint } from '../standalone/key-setup.js';
 import { weatherProxy } from './weather.js';
 import { firePerimetersProxy } from './firePerimeters.js';
 import { cycloneProxy } from './cyclones.js';
@@ -30,6 +29,7 @@ import { createNotificationDispatcher } from './notifications/dispatcher.js';
 import { unconfiguredTransport } from './notifications/transport.js';
 import { life360ChasersProxy } from './life360.js';
 import { windProxy } from './wind.js';
+import { databasePlugin } from './database.js';
 import { createProviderRegistry } from './registry.js';
 
 /**
@@ -77,13 +77,16 @@ function localProviderRegistry({ notificationTransport } = {}) {
   registry.register(nexradLevel2Provider({ dispatcher }));
   registry.registerLegacy('life360-chasers', life360ChasersProxy);
   registry.registerLegacy('fire-perimeters', firePerimetersProxy);
-  registry.registerLegacy('key-setup', keySetupEndpoint);
   return registry;
 }
 
-/** Construct the local provider plugins in their established order. */
+/**
+ * Construct the local server plugins in their established order: the data
+ * providers, then the backend's database plugin (GW-85/86), which is
+ * infrastructure rather than a data provider and so is not registered.
+ */
 function localProviderPlugins() {
-  return localProviderRegistry().plugins();
+  return [...localProviderRegistry().plugins(), databasePlugin()];
 }
 
 export { localProviderPlugins, localProviderRegistry };

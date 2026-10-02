@@ -46,7 +46,17 @@
     "test:track": "node scripts/track-regression.mjs",
     "qa:map-source-tray": "node scripts/qa-map-source-tray.mjs",
     "check:boundaries": "node scripts/check-import-directions.mjs && node scripts/check-package-boundaries.mjs",
-    "qa:transit": "node scripts/qa-transit.mjs"
+    "qa:transit": "node scripts/qa-transit.mjs",
+    "db:secrets": "node scripts/db-secrets.mjs",
+    "db:migrate": "node server/database/migrate.js",
+    "db:up": "docker compose up --build -d",
+    "db:backup": "docker compose run --rm backup --once",
+    "qa:database": "node scripts/qa-database.mjs",
+    "backend:start": "node --env-file-if-exists=.env backend/main.js",
+    "backend:dev": "node --env-file-if-exists=.env --watch backend/main.js",
+    "qa:backend": "node scripts/qa-backend.mjs",
+    "auth:admin": "node scripts/auth-admin.mjs",
+    "qa:auth": "docker compose run --rm qa node scripts/auth-integration.mjs"
   },
   "dependencies": {
     "@jtarrio/signals": "^0.10.0",
@@ -56,8 +66,10 @@
     "cesium": "^1.124.0",
     "egm96-universal": "^1.1.1",
     "hls.js": "^1.7.3",
+    "jose": "6.2.12",
     "mgrs": "^2.1.0",
     "pbf": "^5.1.2",
+    "pg": "^8.23.1",
     "satellite.js": "^6.0.2",
     "seek-bzip": "^2.0.0"
   },
@@ -122,9 +134,6 @@
     },
     "./server/providers/openai": {
       "node": "./server/providers/openai.js"
-    },
-    "./server/standalone/key-setup": {
-      "node": "./server/standalone/key-setup.js"
     },
     "./search": "./src/search/index.js",
     "./ui/panels": "./src/ui/panelDisclosure.js",
@@ -197,7 +206,6 @@
     "./application/errors": "./src/app/errors.js",
     "./ui/composition": "./src/ui/composition.js",
     "./ui/hud": "./src/hud.js",
-    "./standalone/settings": "./src/keySetup.js",
     "./voice/actions": "./src/voice/gevActions.js",
     "./annotations": "./src/annotations/index.js",
     "./context": "./src/data/contextStore.js",
@@ -251,6 +259,15 @@
     "./layers/transit/standalone": "./src/data/transit.js",
     "./layers/transit/source": "./src/layers/transit/source.js",
     "./sources/transit-service": "./src/sources/transitService.js",
-    "./sources/map-features": "./src/sources/overpassFeatures.js"
+    "./sources/map-features": "./src/sources/overpassFeatures.js",
+    "./server/providers/database": {
+      "node": "./server/providers/database.js"
+    },
+    "./backend": {
+      "node": "./backend/server.js"
+    },
+    "./backend/identity": {
+      "node": "./backend/identity/index.js"
+    }
   }
 }

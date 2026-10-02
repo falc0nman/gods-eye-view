@@ -32,10 +32,8 @@ export function installPinokioDependencies() {
   // Keychain items, so its install report must describe that exact runtime.
   const report = inspectSetup({
     includeKeychain: false,
-    // The raw app ENVIRONMENT file was applied above. Even an empty field now
-    // shadows Vite's dotenv ladder, so diagnosis must stop there instead of
-    // claiming a dotenv-only value will reach the launched app.
-    authoritativeEnvironment: true,
+    // Provider credentials use the normal process environment / dotenv ladder.
+    authoritativeEnvironment: false,
   });
   console.log(`\n${formatSetupReport(report, {
     readyMessage: 'Ready. Return to Pinokio and choose Start.',

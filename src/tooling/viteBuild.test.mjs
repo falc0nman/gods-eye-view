@@ -66,7 +66,7 @@ test('root config retains existing named exports and standalone provider order',
     config.plugins.slice(2, -1).map((plugin) => plugin.name),
     providers.localProviderPlugins().map((plugin) => plugin.name),
   );
-  assert.equal(config.plugins.at(-2).name, 'gev-key-setup');
+  assert.ok(config.plugins.every(({ name }) => name !== 'gev-key-setup'));
   assert.equal(config.plugins.at(-1).name, 'api-not-found');
 });
 
