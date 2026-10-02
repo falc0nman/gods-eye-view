@@ -23,8 +23,6 @@ import { createApplicationSatellites } from './layers/satellites.js';
 import { createApplicationLaunches } from './layers/rocketLaunches.js';
 import { createApplicationLocalAdsb } from './layers/localAdsb.js';
 import { createApplicationAwareness } from './layers/militaryAwareness.js';
-import { createApplicationFirms } from './layers/firms.js';
-import { createApplicationFirePerimeters } from './layers/perimeters.js';
 import { createInfrastructureLayers } from '../data/infrastructure.js';
 import { localGeoJsonServices } from './localGeojsonServices.js';
 
@@ -45,14 +43,12 @@ const SOURCE_METHODS = Object.freeze({
   installations: ['getMappedSites', 'searchNearby'],
   satellites: ['readGroup'],
   launches: ['getLaunches', 'getActiveTle'],
-  firms: ['getSnapshot'],
   wind: ['getSnapshot'],
   weather: ['getSnapshot'],
   cyclones: ['getSnapshot'],
   nexrad: ['getSites', 'getScan', 'getValue'],
   'nws-warnings': ['getSnapshot'],
   'team-chasers': ['getSnapshot', 'getRoster', 'saveSelection'],
-  'fire-perimeters': ['getSnapshot'],
 });
 
 /**
@@ -136,9 +132,6 @@ export function createApplicationCatalog({
           displayParams: () => flights.getParams(),
           ...(resolveAsset ? { resolveAsset } : {}),
         }),
-        createApplicationFirePerimeters({
-          source: sources['fire-perimeters'],
-        }),
         satellites,
         createApplicationLaunches({ source: sources.launches, satellites }),
         createApplicationTraffic({ source: sources.traffic, surface }),
@@ -177,14 +170,6 @@ export function createApplicationCatalog({
         createApplicationNwsWarnings({ source: sources['nws-warnings'] }),
         createApplicationTeamChasers({ source: sources['team-chasers'] }),
         ...createInfrastructureLayers(localGeoJsonServices),
-        createApplicationFirms({
-          surface,
-          id: 'local-firms',
-          name: 'FIRMS Active Fires',
-          icon: '▲',
-          source: 'NASA FIRMS · LIVE',
-          feed: sources.firms,
-        }),
       ],
       metadata,
     );

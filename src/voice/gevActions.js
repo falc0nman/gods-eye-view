@@ -228,12 +228,6 @@ const LAYER_ALIASES = new Map([
   ['data centers', 'local-datacenters'],
   ['data centres', 'local-datacenters'],
   ['dams', 'local-dams'],
-  ['fire perimeters', 'fire-perimeters'],
-  ['perimeters', 'fire-perimeters'],
-  ['wildfire perimeters', 'fire-perimeters'],
-  ['firms', 'local-firms'],
-  ['fires', 'local-firms'],
-  ['active fires', 'local-firms'],
   ['local-adsb', 'local-adsb'],
   ['local adsb', 'local-adsb'],
   ['local ads-b', 'local-adsb'],
@@ -2089,63 +2083,6 @@ export function formatTrackedEntityLabel(found, query = '') {
 async function trackEntity(viewer, dataManager, styleManager, args = {}) {
   const query = String(args.query || '').trim();
   if (!query) throw new Error('track_entity needs a query');
-
-  // Fire queries route to the FIRMS layer's strongest detection
-  if (/\bfires?\b/i.test(query)) {
-    if (!dataManager.isEnabled('local-firms')) {
-      return {
-        ok: false,
-        action: 'track_entity',
-        query,
-        error: 'The FIRMS fires layer is not enabled',
-      };
-    }
-    const firms = dataManager.layers.get('local-firms')?.module;
-    const strongest = firms?.getStrongestFire?.();
-    if (!strongest) {
-      return {
-        ok: false,
-        action: 'track_entity',
-        query,
-        error: 'No fire detections loaded yet',
-      };
-    }
-    if (
-      !Number.isFinite(strongest.latitude) ||
-      !Number.isFinite(strongest.longitude)
-    ) {
-      return {
-        ok: false,
-        action: 'track_entity',
-        query,
-        error: 'The strongest fire has no usable position',
-      };
-    }
-    return runManagedVoiceNavigation(
-      styleManager,
-      'fire',
-      'track_entity',
-      () => {
-        flyToLandmark(viewer, strongest.latitude, strongest.longitude, {
-          range: 14000,
-          pitch: -50,
-          heading: 0,
-          buildingHeight: 0,
-          duration: 2.2,
-        });
-        return {
-          ok: true,
-          action: 'track_entity',
-          kind: 'fire',
-          layerId: 'local-firms',
-          label: strongest.label || 'Strongest fire',
-          latitude: strongest.latitude,
-          longitude: strongest.longitude,
-          frp: strongest.frp ?? null,
-        };
-      },
-    );
-  }
 
   const requested = args.layerId ? normalizeLayerId(args.layerId) : null;
   const families = TRACKABLE_FAMILIES.filter(
@@ -4186,7 +4123,6 @@ function cleanText(value) {
 function layerTitle(layerId) {
   if (layerId === 'local-datacenters') return 'Datacenter';
   if (layerId === 'local-dams') return 'Dam';
-  if (layerId === 'local-firms') return 'Active Fire';
   return layerId || 'Entity';
 }
 
@@ -4198,7 +4134,7 @@ function clampNumber(value, min, max, fallback) {
 
 /**
  * Analyst query — spoken questions over data already on the client
- * ("how many flights over Texas?", "biggest fire near LA?", "which ships
+ * ("how many flights over Texas?", "which ships
  * are headed to Oakland?"). The ENGINE (analystEngine.js) does the query
  * logic; this wiring supplies live providers and compacts the result for
  * the voice payload. One engine per runner keeps follow-up memory

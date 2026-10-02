@@ -32,7 +32,6 @@ const LAYER_WAIT_MS = 60_000;
 const KNOWN_OVERLAY_CANVASES = new Set([
   'world-overlay-canvas',
   'tracked-readout',
-  'firms-labels',
   'vessel-labels',
   'cctv-cards',
 ]);
@@ -44,7 +43,6 @@ const SCENES = Object.freeze([
   { id: 'cctv-street', layers: ['cctv'], cctvHeightM: 1_500 },
   { id: 'cctv-city', layers: ['cctv'], cctvHeightM: 6_000 },
   { id: 'cctv-high', layers: ['cctv'], cctvHeightM: 12_000 },
-  { id: 'firms', layers: ['local-firms'], camera: [-110, 45, 5_000_000, 0, -Math.PI / 2] },
   { id: 'vessels', layers: ['ais-live-vessels'], camera: [4.05, 51.93, 18_000, 0.3, -1.25] },
   { id: 'detection-25', layers: ['flights', 'satellites'], detectionDensity: 25, camera: [-98, 38, 2_500_000, 0, -Math.PI / 2] },
   { id: 'detection-50', layers: ['flights', 'satellites'], detectionDensity: 50, camera: [-98, 38, 2_500_000, 0, -Math.PI / 2] },
@@ -278,7 +276,7 @@ function printScene(result) {
   }
   const exposed = result.samples?.rest?.exposedCounts;
   if (exposed && Object.values(exposed).some((value) => value != null)) {
-    console.log(`  exposed     : CCTV cards=${exposed.cctvOwnedEntries ?? 'n/a'}/${exposed.cctvEntryLimit ?? 'n/a'} · FIRMS objects=${exposed.firmsSourceObjects ?? 'n/a'} · vessel objects=${exposed.vesselSourceObjects ?? 'n/a'}`);
+    console.log(`  exposed     : CCTV cards=${exposed.cctvOwnedEntries ?? 'n/a'}/${exposed.cctvEntryLimit ?? 'n/a'} · vessel objects=${exposed.vesselSourceObjects ?? 'n/a'}`);
   }
   console.log('');
 }
@@ -387,7 +385,7 @@ async function readLayerState(page, layerId) {
 async function waitForLayer(page, layerId) {
   const dataBearing = new Set([
     'local-datacenters', 'local-dams', 'cctv',
-    'local-firms', 'ais-live-vessels', 'flights', 'satellites', 'rocket-launches',
+    'ais-live-vessels', 'flights', 'satellites', 'rocket-launches',
   ]);
   if (!dataBearing.has(layerId)) return readLayerState(page, layerId);
   try {
@@ -548,19 +546,6 @@ async function prepareCctv(page, heightM) {
   return null;
 }
 
-async function prepareFirms(page) {
-  const result = await page.evaluate(() => {
-    const layer = window.__godsEyeView.dataManager.layers.get('local-firms')?.module;
-    const stats = layer?.getStats?.() || {};
-    const fire = layer?.getStrongestFire?.();
-    return { stats, fire };
-  });
-  if (!result.fire) return `FIRMS unavailable (${result.stats.error || 'no detections'})`;
-  await setCamera(page, [result.fire.longitude, result.fire.latitude, 60_000, 0, -1.45]);
-  await sleep(4_000);
-  return null;
-}
-
 async function prepareVessels(page) {
   const state = await readLayerState(page, 'ais-live-vessels');
   if (!(state?.stats?.count > 0)) return `AIS unavailable (${state?.stats?.error || 'no live vessels'})`;
@@ -649,7 +634,6 @@ async function prepareScene(page, scene) {
   const layerActivations = await activateLayers(page, scene.layers);
   let skipReason = null;
   if (scene.cctvHeightM) skipReason = await prepareCctv(page, scene.cctvHeightM);
-  if (!skipReason && scene.id === 'firms') skipReason = await prepareFirms(page);
   if (!skipReason && scene.id === 'vessels') skipReason = await prepareVessels(page);
   if (!skipReason && scene.detectionDensity) skipReason = await prepareDetection(page, scene.detectionDensity);
   if (!skipReason && scene.trackedFlight) skipReason = await prepareTrackedFlight(page, scene.cockpit);
@@ -702,7 +686,6 @@ async function samplePhase(page, moving) {
     const manager = window.__godsEyeView.dataManager;
     const cctvEntry = manager.layers.get('cctv');
     const cctvState = cctvEntry?.initialized ? cctvEntry.module.getUIState?.() : null;
-    const firmsEntry = manager.layers.get('local-firms');
     const vesselsEntry = manager.layers.get('ais-live-vessels');
     return {
       intervals,
@@ -711,7 +694,6 @@ async function samplePhase(page, moving) {
       exposedCounts: {
         cctvOwnedEntries: cctvState?.ambientCards?.count ?? null,
         cctvEntryLimit: cctvState?.ambientCards?.limit ?? null,
-        firmsSourceObjects: firmsEntry?.initialized ? firmsEntry.module.getStats?.()?.count ?? null : null,
         vesselSourceObjects: vesselsEntry?.initialized ? vesselsEntry.module.getStats?.()?.count ?? null : null,
       },
       elapsedMs: performance.now() - startedAt,

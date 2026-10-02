@@ -508,21 +508,15 @@ test('successful voice overhead framing stamps and releases the old owner before
   assert.deepEqual(order, ['stamp:frame', 'release', 'cancel', 'fly:released']);
 });
 
-test('tracked aircraft yields to strongest-fire and vessel voice flights before either flight begins', async () => {
+test('tracked aircraft yields to vessel voice flights before the flight begins', async () => {
   globalThis.window = globalThis.window || { clearTimeout, setTimeout, requestIdleCallback: null };
-  for (const kind of ['fire', 'vessel']) {
+  for (const kind of ['vessel']) {
     const { order, viewer, styleManager } = createVoiceNavigationHarness();
-    const module = kind === 'fire'
-      ? {
-          getStrongestFire: () => ({
-            id: 'fire-1', label: 'Strongest fire', latitude: 37.77, longitude: -122.42, frp: 900,
-          }),
-        }
-      : {
-          findByQuery: () => ({ mmsi: '123456789', name: 'Test vessel', latitude: 29.75, longitude: -95.35 }),
-          selectById(id) { order.push(`select:${id}`); return true; },
-        };
-    const layerId = kind === 'fire' ? 'local-firms' : 'ais-live-vessels';
+    const module = {
+      findByQuery: () => ({ mmsi: '123456789', name: 'Test vessel', latitude: 29.75, longitude: -95.35 }),
+      selectById(id) { order.push(`select:${id}`); return true; },
+    };
+    const layerId = 'ais-live-vessels';
     const dataManager = {
       layers: new Map([[layerId, { module }]]),
       isEnabled: (id) => id === layerId,
@@ -530,14 +524,14 @@ test('tracked aircraft yields to strongest-fire and vessel voice flights before 
     };
     const runner = createGevActionRunner({ viewer, styleManager, dataManager });
     const result = await runner('track_entity', {
-      query: kind === 'fire' ? 'strongest fire' : 'Test vessel',
+      query: 'Test vessel',
       layerId,
     });
     assert.equal(result.ok, true, kind);
     assert.equal(order[0], `stamp:${kind}`);
     assert.equal(order[1], 'release');
     assert.equal(order[2], 'cancel');
-    if (kind === 'vessel') assert.equal(order[3], 'select:123456789');
+    assert.equal(order[3], 'select:123456789');
     assert.equal(order.at(-1), 'fly:released');
   }
 });
@@ -636,7 +630,6 @@ test('Cockpit refuses every named voice camera route before camera or selection 
     ['move_camera', { motion: 'stop' }],
     ['fly_route', { label: 'harbor' }],
     ['frame_overhead', { target: 'flights' }],
-    ['track_entity', { query: 'strongest fire', layerId: 'local-firms' }],
     ['track_entity', { query: 'Test vessel', layerId: 'ais-live-vessels' }],
   ];
   for (const [name, args] of cases) {
@@ -645,7 +638,6 @@ test('Cockpit refuses every named voice camera route before camera or selection 
     const position = viewer.camera.positionWC;
     const modules = new Map([
       ['flights', { module: { getNearby: () => [{ id: 'flight-1', position }] } }],
-      ['local-firms', { module: { getStrongestFire: () => ({ latitude: 37.77, longitude: -122.42, frp: 900 }) } }],
       ['ais-live-vessels', { module: {
         findByQuery: () => ({ mmsi: '123456789', latitude: 29.75, longitude: -95.35 }),
         selectById: () => { selected += 1; return true; },
@@ -684,14 +676,15 @@ test('a newer voice action makes an older deferred navigation authority inert', 
     viewer,
     styleManager,
     dataManager: {
-      layers: new Map([['local-firms', { module: {
-        getStrongestFire: () => ({ latitude: 37.77, longitude: -122.42, frp: 900 }),
+      layers: new Map([['ais-live-vessels', { module: {
+        findByQuery: () => ({ mmsi: '123456789', name: 'Test vessel', latitude: 29.75, longitude: -95.35 }),
+        selectById: () => true,
       } }]]),
       isEnabled: () => true,
       getAll: () => [],
     },
   });
-  assert.equal((await runner('track_entity', { query: 'strongest fire' })).ok, true);
+  assert.equal((await runner('track_entity', { query: 'Test vessel', layerId: 'ais-live-vessels' })).ok, true);
   let staleReleased = false;
   assert.equal(reassertNavigationHandoff({
     generation: oldGeneration,

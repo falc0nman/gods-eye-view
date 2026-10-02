@@ -1,7 +1,6 @@
 import { openSkyProxy } from './aircraft/opensky.js';
 import { celestrakProxy, rocketLaunchesProxy } from './space.js';
 import { tomtomProxy } from './traffic.js';
-import { firmsProxy } from './firms.js';
 import { terrainHeightsProxy } from './terrain.js';
 import { adsbdbProxy } from './aircraft/enrichment.js';
 import { overpassProxy } from './overpass.js';
@@ -21,7 +20,6 @@ import { trackBackfillProxies } from './aircraft/tracks.js';
 import { openAiRealtimeProxy } from './openai.js';
 import { googlePlacesContextProxy } from './places.js';
 import { weatherProxy } from './weather.js';
-import { firePerimetersProxy } from './firePerimeters.js';
 import { cycloneProxy } from './cyclones.js';
 import { nexradLevel3Proxy } from './nexrad.js';
 import { life360ChasersProxy } from './life360.js';
@@ -44,7 +42,6 @@ function localProviderRegistry({ notificationTransport } = {}) {
   registry.registerLegacy('opensky', openSkyProxy);
   registry.registerLegacy('celestrak', celestrakProxy);
   registry.registerLegacy('tomtom', tomtomProxy);
-  registry.registerLegacy('firms', firmsProxy);
   registry.registerLegacy('rocket-launches', rocketLaunchesProxy);
   registry.registerLegacy('terrain-heights', terrainHeightsProxy);
   registry.registerLegacy('adsbdb', adsbdbProxy);
@@ -70,7 +67,6 @@ function localProviderRegistry({ notificationTransport } = {}) {
   registry.registerLegacy('cyclones', cycloneProxy);
   registry.registerLegacy('nexrad-level3', nexradLevel3Proxy);
   registry.registerLegacy('life360-chasers', life360ChasersProxy);
-  registry.registerLegacy('fire-perimeters', firePerimetersProxy);
   return registry;
 }
 

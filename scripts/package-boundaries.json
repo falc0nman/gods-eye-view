@@ -122,17 +122,6 @@
     "modules": ["src/data/tomtomTiles.js"],
     "external": []
   },
-  "firms-csv": {
-    "exports": ["./sources/firms-csv"],
-    "modules": ["src/data/firmsCsv.js"],
-    "external": []
-  },
-  "firms-provider": {
-    "runtime": "node",
-    "exports": ["./server/providers/firms"],
-    "modules": ["server/providers/firms.js", "src/data/firmsCsv.js"],
-    "external": []
-  },
   "gbfs-provider": {
     "runtime": "node",
     "exports": ["./server/providers/gbfs"],
@@ -865,29 +854,6 @@
     ],
     "external": ["cesium"]
   },
-  "fire-layer": {
-    "exports": ["./layers/firms"],
-    "modules": [
-      "src/data/firmsAdapt.js",
-      "src/data/firmsLabels.js",
-      "src/data/iconOrientation.js",
-      "src/layers/firms/anchors.js",
-      "src/layers/firms/cards.js",
-      "src/layers/firms/index.js",
-      "src/layers/firms/ingestion.js",
-      "src/layers/firms/lifecycle.js",
-      "src/layers/firms/model.js",
-      "src/layers/firms/policy.js",
-      "src/layers/firms/queries.js",
-      "src/layers/firms/rendering.js",
-      "src/layers/firms/selection.js",
-      "src/layers/firms/source.js",
-      "src/layers/firms/state.js",
-      "src/layers/firms/viewport.js",
-      "src/data/inputOwnership.js"
-    ],
-    "external": ["cesium"]
-  },
   "satellites-layer": {
     "exports": ["./layers/satellites"],
     "modules": [
@@ -1255,7 +1221,6 @@
       "src/app/layers/aisLiveVessels.js",
       "src/app/layers/bikeshare.js",
       "src/app/layers/cctv.js",
-      "src/app/layers/firms.js",
       "src/app/layers/flights.js",
       "src/app/layers/militaryAwareness.js",
       "src/app/layers/militaryFlights.js",
@@ -1329,9 +1294,6 @@
       "src/data/detectionPresentation.js",
       "src/data/detectionRenderDemand.js",
       "src/data/fireAnchors.js",
-      "src/data/firmsAdapt.js",
-      "src/data/firmsHeatmap.js",
-      "src/data/firmsLabels.js",
       "src/data/flights.js",
       "src/data/flowMatch.js",
       "src/data/focusDeemphasis.js",
@@ -1461,19 +1423,7 @@
       "src/layers/cctv/source.js",
       "src/layers/cctv/state.js",
       "src/layers/cctv/testing.js",
-      "src/layers/firms/anchors.js",
-      "src/layers/firms/cards.js",
-      "src/layers/firms/index.js",
-      "src/layers/firms/ingestion.js",
-      "src/layers/firms/lifecycle.js",
-      "src/layers/firms/model.js",
-      "src/layers/firms/policy.js",
-      "src/layers/firms/queries.js",
-      "src/layers/firms/rendering.js",
-      "src/layers/firms/selection.js",
-      "src/layers/firms/source.js",
-      "src/layers/firms/state.js",
-      "src/layers/firms/viewport.js",
+      "src/services/fireAnchors.js",
       "src/layers/flights/controller.js",
       "src/layers/flights/enrichment.js",
       "src/layers/flights/evidence.js",
@@ -1773,14 +1723,7 @@
       "src/app/localGeojsonServices.js",
       "src/data/feedState.js",
       "src/data/layerSnapshot.js",
-      "src/app/layers/perimeters.js",
-      "src/layers/perimeters/index.js",
-      "src/layers/perimeters/source.js",
-      "src/layers/perimeters/records.js",
-      "src/layers/perimeters/cards.js",
-      "src/layers/perimeters/inciweb.js",
       "src/layers/cctv/sourcePolicy.js",
-      "src/sources/reference.js",
       "src/search/nominatim.js",
       "src/nominatimGeocode.js",
       "src/sources/httpBody.js",
@@ -1963,7 +1906,6 @@
       "src/app/layers/aisLiveVessels.js",
       "src/app/layers/bikeshare.js",
       "src/app/layers/cctv.js",
-      "src/app/layers/firms.js",
       "src/app/layers/flights.js",
       "src/app/layers/militaryAwareness.js",
       "src/app/layers/militaryFlights.js",
@@ -1995,8 +1937,6 @@
       "src/data/detectionCohort.js",
       "src/data/detectionDraw.js",
       "src/data/detectionPolicy.js",
-      "src/data/firmsAdapt.js",
-      "src/data/firmsLabels.js",
       "src/data/flowMatch.js",
       "src/data/focusDeemphasis.js",
       "src/data/geoid.js",
@@ -2102,19 +2042,7 @@
       "src/layers/cctv/source.js",
       "src/layers/cctv/state.js",
       "src/layers/cctv/testing.js",
-      "src/layers/firms/anchors.js",
-      "src/layers/firms/cards.js",
-      "src/layers/firms/index.js",
-      "src/layers/firms/ingestion.js",
-      "src/layers/firms/lifecycle.js",
-      "src/layers/firms/model.js",
-      "src/layers/firms/policy.js",
-      "src/layers/firms/queries.js",
-      "src/layers/firms/rendering.js",
-      "src/layers/firms/selection.js",
-      "src/layers/firms/source.js",
-      "src/layers/firms/state.js",
-      "src/layers/firms/viewport.js",
+      "src/services/fireAnchors.js",
       "src/layers/flights/controller.js",
       "src/layers/flights/enrichment.js",
       "src/layers/flights/evidence.js",
@@ -2280,12 +2208,6 @@
       "src/search/coordinateParser.js",
       "src/search/presetGeocoder.js",
       "src/app/localGeojsonServices.js",
-      "src/app/layers/perimeters.js",
-      "src/layers/perimeters/index.js",
-      "src/layers/perimeters/source.js",
-      "src/layers/perimeters/records.js",
-      "src/layers/perimeters/cards.js",
-      "src/layers/perimeters/inciweb.js",
       "src/layers/cctv/sourcePolicy.js",
       "src/search/nominatim.js",
       "src/nominatimGeocode.js",
@@ -2421,7 +2343,7 @@
       "src/data/retryableLoad.js",
       "src/data/scenePick.js",
       "src/keylessGeocoder.js",
-      "src/layers/firms/anchors.js",
+      "src/services/fireAnchors.js",
       "src/locations.js",
       "src/cameraGroundGuard.js",
       "src/search/defaults.js",
@@ -2637,11 +2559,6 @@
     "modules": ["src/layers/cctv/source.js", "src/layers/cctv/sourcePolicy.js"],
     "external": []
   },
-  "firms-source": {
-    "exports": ["./layers/firms/source"],
-    "modules": ["src/layers/firms/source.js"],
-    "external": []
-  },
   "installations-source": {
     "exports": ["./layers/installations/source"],
     "modules": [
@@ -2695,16 +2612,6 @@
       "src/data/flowMatch.js"
     ],
     "external": ["@mapbox/vector-tile", "pbf"]
-  },
-  "reference-sources": {
-    "exports": ["./sources/reference"],
-    "modules": [
-      "src/sources/reference.js",
-      "src/sources/httpBody.js",
-      "src/layers/perimeters/source.js",
-      "src/layers/perimeters/records.js"
-    ],
-    "external": []
   },
   "nominatim-provider": {
     "exports": ["./search/nominatim"],
@@ -2898,27 +2805,6 @@
       "src/sources/overpassFeatures.js",
       "src/sources/featureSource.js",
       "src/sources/capability.js"
-    ],
-    "external": []
-  },
-  "perimeters": {
-    "exports": ["./layers/perimeters"],
-    "modules": [
-      "src/layers/perimeters/index.js",
-      "src/sources/httpBody.js",
-      "src/layers/perimeters/source.js",
-      "src/layers/perimeters/records.js",
-      "src/layers/perimeters/cards.js",
-      "src/layers/perimeters/inciweb.js"
-    ],
-    "external": ["cesium"]
-  },
-  "perimeters-source": {
-    "exports": ["./layers/perimeters/source"],
-    "modules": [
-      "src/layers/perimeters/records.js",
-      "src/sources/httpBody.js",
-      "src/layers/perimeters/source.js"
     ],
     "external": []
   },

@@ -110,9 +110,6 @@
       "node": "./server/providers/traffic.js"
     },
     "./sources/traffic": "./src/data/tomtomTiles.js",
-    "./server/providers/firms": {
-      "node": "./server/providers/firms.js"
-    },
     "./server/providers/gbfs": {
       "node": "./server/providers/gbfs.js"
     },
@@ -166,9 +163,6 @@
     "./aircraft": "./src/layers/aircraft/index.js",
     "./layers/vessels": "./src/layers/vessels/index.js",
     "./layers/recent-imagery": "./src/layers/recentImagery/index.js",
-    "./layers/perimeters": "./src/layers/perimeters/index.js",
-    "./sources/firms-csv": "./src/data/firmsCsv.js",
-    "./layers/firms": "./src/layers/firms/index.js",
     "./layers/satellites": "./src/layers/satellites/index.js",
     "./layers/launches": "./src/layers/launches/index.js",
     "./layers/installations": "./src/layers/installations/index.js",
@@ -232,14 +226,11 @@
     "./voice/realtime-session": "./src/voice/realtimeSession.js",
     "./layers/bikeshare/source": "./src/layers/bikeshare/source.js",
     "./layers/cctv/source": "./src/layers/cctv/source.js",
-    "./layers/perimeters/source": "./src/layers/perimeters/source.js",
-    "./layers/firms/source": "./src/layers/firms/source.js",
     "./layers/installations/source": "./src/layers/installations/source.js",
     "./layers/launches/source": "./src/layers/launches/source.js",
     "./layers/radio/source": "./src/layers/radio/source.js",
     "./layers/satellites/source": "./src/layers/satellites/source.js",
     "./layers/traffic/source": "./src/layers/traffic/source.js",
-    "./sources/reference": "./src/sources/reference.js",
     "./sources/http-body": "./src/sources/httpBody.js",
     "./sources/overpass": "./src/sources/overpass.js",
     "./search/nominatim": "./src/search/nominatim.js",

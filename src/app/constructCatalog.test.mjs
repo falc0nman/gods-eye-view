@@ -39,7 +39,7 @@ test('catalogs construct distinct layers and classification from their supplied 
     signal: b.signal,
     surface: fixtureSurface(b.signal),
   });
-  assert.equal(first.layers.length, 27);
+  assert.equal(first.layers.length, 25);
   for (const id of ['nexrad', 'nws-warnings', 'team-chasers'])
     assert.ok(first.get(id), `${id} (storm chase) is registered`);
   assert.ok(first.get('local-adsb'), 'Local ADS-B is registered');
@@ -60,7 +60,6 @@ test('catalogs construct distinct layers and classification from their supplied 
       first.get(id).getDiagnostics().clock.target,
       '2026-09-21T12:00:00.000Z',
     );
-  assert.ok(first.get('fire-perimeters'));
   assert.ok(first.get('transit'));
   const order = first.layers.map(({ id }) => id);
   assert.deepEqual(
@@ -70,10 +69,12 @@ test('catalogs construct distinct layers and classification from their supplied 
   // GW-53: the Bhote Koshi event pack is removed.
   assert.equal(first.get('bhote-koshi-2026'), undefined);
   assert.equal(first.get('bhote-koshi-locator'), undefined);
-  // GW-57: submarine cables, ALPR and earthquakes are removed.
+  // GW-57: submarine cables, ALPR, earthquakes and fires are removed.
   assert.equal(first.get('telegeography-submarine-cables'), undefined);
   assert.equal(first.get('alpr-cameras'), undefined);
   assert.equal(first.get('earthquakes'), undefined);
+  assert.equal(first.get('local-firms'), undefined);
+  assert.equal(first.get('fire-perimeters'), undefined);
   const lifecycle = new LayerLifecycle({});
   for (const layer of first.layers) lifecycle.register(layer);
   const rows = lifecycle.getAll();

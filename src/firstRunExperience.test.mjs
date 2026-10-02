@@ -611,12 +611,13 @@ test('the voice TOOL SCHEMA matches the pinned release — the mission mapping i
   // Re-derived for the additive `local-adsb` set_layer_visibility value and
   // its common-name mapping; the missions still ride existing tools.
   // Re-derived again for the storm-chase layer ids and their mapping, and
-  // for GW-57 removing telegeography-submarine-cables, alpr-cameras and
-  // earthquakes from enums, mappings and analyst fields.
-  assert.equal(block.length, 27447, 'serialized tool schema length drifted');
+  // for GW-57 removing telegeography-submarine-cables, alpr-cameras,
+  // earthquakes, local-firms and fire-perimeters from enums, mappings and
+  // analyst fields.
+  assert.equal(block.length, 27191, 'serialized tool schema length drifted');
   assert.equal(
     crypto.createHash('sha256').update(block).digest('hex'),
-    '620e72e22e25e79bdc1074424ef80e586a538f3e17b9eb544030cb63d31b093a',
+    'ed941d528f9b95eb6b096f5bbb5c04b9506fd55b98ea682e1a16febd69a73398',
     'the first-run missions must ride EXISTING tools: no schema edit, no cache bust',
   );
   const instructions = fs.readFileSync(new URL('../server/providers/openai/instructions.js', import.meta.url), 'utf8');

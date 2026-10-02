@@ -199,8 +199,8 @@ function encode(state) {
 
 test('production registry is exact, canonical, and rejects incomplete contracts', async () => {
   assert.equal(validateLayerStateRegistry(), true);
-  assert.equal(REGISTERED_LAYER_IDS.length, 26);
-  assert.equal(new Set(REGISTERED_LAYER_IDS).size, 26);
+  assert.equal(REGISTERED_LAYER_IDS.length, 24);
+  assert.equal(new Set(REGISTERED_LAYER_IDS).size, 24);
   assert.ok(REGISTERED_LAYER_IDS.includes('transit'));
   assert.deepEqual(REGISTERED_LAYER_IDS, [...REGISTERED_LAYER_IDS].sort());
   assert.deepEqual(LEGACY_LAYER_STATE_TOKENS, {
@@ -557,6 +557,14 @@ test('removed layers keep their tokens reserved and old links skip them', () => 
   assert.deepEqual(
     decodeLayerStateParams(new URLSearchParams('v=2&l=e.c')).retiredLayerIds,
     ['earthquakes'],
+  );
+  // ...and FIRMS fires (w) and fire perimeters (2).
+  assert.equal(LAYER_STATE_TOKEN_RESERVATIONS['local-firms'], 'w');
+  assert.equal(LAYER_STATE_TOKEN_RESERVATIONS['fire-perimeters'], '2');
+  assert.deepEqual(
+    decodeLayerStateParams(new URLSearchParams('v=2&l=2.k.1.w'))
+      .retiredLayerIds,
+    ['fire-perimeters', 'local-firms'],
   );
   // A token that was never reserved is still malformed.
   assert.equal(decodeLayerStateParams(new URLSearchParams('v=2&l=c.Q')), null);
@@ -2670,22 +2678,5 @@ test('the recent-imagery split is share-link only: never stored locally, and a s
   assert.equal(
     parseStoredLayerState(previous).options['recent-imagery'].split,
     50,
-  );
-});
-
-test('fire perimeters uses digit 2 without colliding with wind or recent imagery', () => {
-  const decoded = decodeLayerStateParams(new URLSearchParams('v=2&l=2.k.1'));
-  assert.deepEqual(decoded.enabledLayerIds, [
-    'fire-perimeters',
-    'recent-imagery',
-    'wind',
-  ]);
-  assert.equal(
-    LAYER_STATE_REGISTRY.find(({ id }) => id === 'fire-perimeters').token,
-    '2',
-  );
-  assert.deepEqual(
-    decodeLayerStateParams(new URLSearchParams(encode(decoded))),
-    decoded,
   );
 });

@@ -126,7 +126,7 @@ function normalizeVerdict(res) {
 
 /** Environment facts discovered in preflight; checks read this. */
 const env = {
-  // FIRMS/TOMTOM/AIS/OPENAI/OPENSKY →
+  // TOMTOM/AIS/OPENAI/OPENSKY →
   //   true    key positively present
   //   false   key positively ABSENT (the endpoint said so in its own words)
   //   'error' the status endpoint is unhealthy — key state UNKNOWN, and any
@@ -174,7 +174,6 @@ const CREDIT_EXPECTATIONS = {
   'military-installations': /OpenStreetMap/i,
   'local-datacenters': /OpenStreetMap/i,
   'local-dams': /OpenStreetMap/i,
-  'local-firms': /FIRMS/i,
   'local-neighborhoods': /DataSF|San Francisco/i,
   'weather-effects': /Open-Meteo/i,
 };
@@ -799,31 +798,6 @@ check({
 });
 
 check({
-  id: 'B6', group: 'B', desc: 'FIRMS proxy returns live fires', needsKey: 'FIRMS',
-  run: async () => {
-    const r = await jget('/api/firms', { timeoutMs: 60000 });
-    if (!r.ok) return fail(`HTTP ${r.status}: ${r.text.slice(0, 120)}`);
-    const n = r.json?.count ?? r.json?.fires?.length ?? 0;
-    return n > 0
-      ? pass(`${n} fires, stale=${r.json?.stale}, sources=${(r.json?.sources || []).length}`)
-      : fail('0 fires from a keyed FIRMS proxy');
-  },
-});
-
-check({
-  id: 'B7', group: 'B', desc: 'FIRMS without a key fails HONESTLY (503 no_key, never a healthy-empty)',
-  run: async () => {
-    const guard = keyGuard('FIRMS', env.keys.FIRMS);
-    if (guard) return guard;
-    if (env.keys.FIRMS === true) return skip('server HAS a FIRMS key — the keyless path needs an unkeyed server', 'N/A');
-    const r = await jget('/api/firms');
-    return r.status === 503 && r.json?.error === 'no_key'
-      ? pass('503 {"error":"no_key"}')
-      : fail(`expected 503 no_key, got ${r.status} ${r.text.slice(0, 120)}`);
-  },
-});
-
-check({
   id: 'B8', group: 'B', desc: 'AIS vessel feed is live (/api/ais-live)', needsKey: 'AIS',
   run: async () => {
     const r = await jget('/api/ais-live', { timeoutMs: 40000 });
@@ -1020,7 +994,7 @@ check({
 check({
   id: 'B21', group: 'B', desc: 'No proxy echoes credential material back to the client (P1-5 acceptance #4)',
   run: async () => {
-    const paths = ['/api/cctv/sources', '/api/tomtom/status', '/api/firms/status', '/api/celestrak/stations', '/api/ais-live'];
+    const paths = ['/api/cctv/sources', '/api/tomtom/status', '/api/celestrak/stations', '/api/ais-live'];
     const leaked = [];
     const unscannable = [];
     for (const p of paths) {
@@ -1065,7 +1039,6 @@ const BROWSER_CHECKS = [
   ['C5', 'Satellites layer propagates the live catalog'],
   ['C7', 'CCTV layer populates and its frame loop is healthy'],
   ['C8', 'Vessels: live rows when keyed, honest UNAVAILABLE when not'],
-  ['C9', 'Fires: live cells when keyed, honest KEY REQUIRED when not'],
   ['C10', 'Traffic: LIVE mode when keyed, clearly-labelled SIMULATION when not'],
   ['C11', 'Bundled layers render: datacenters, dams, installations'],
   ['C12', 'Attribution lightbox lists a credit for every enabled layer'],
@@ -1151,10 +1124,6 @@ check({
 check({
   id: 'D10', group: 'D', desc: 'qa-voice-routing (behavior layer) — tool behavior without model turns',
   heavy: true, run: harness({ id: 'D10', script: 'qa-voice-routing.mjs', args: ['--layer', 'behavior', '--url', APP_URL], timeoutMs: 1500000 }),
-});
-check({
-  id: 'D11', group: 'D', desc: 'qa-firms — live fire rendering and interaction', needsKey: 'FIRMS', heavy: true,
-  run: harness({ id: 'D11', script: 'qa-firms.mjs', args: ['--url', APP_URL], timeoutMs: 900000 }),
 });
 check({
   id: 'D12', group: 'D', desc: 'qa-overlay-baseline (datacenters scene) — overlay/label baseline',
@@ -1568,19 +1537,6 @@ async function runBrowserGroup(record) {
     return /UNAVAILABLE|LOADING|DEGRADED|STALE/i.test(chip.text)
       ? skip(`keyed but 0 vessels and the UI says so (chip="${chip.text}", transport=${transport}, error="${String(s.error || '').slice(0, 60)}") — AISStream connects open-but-silent upstream`, 'ENV')
       : fail(`keyed, 0 vessels, and the chip claims "${chip.text}" — the layer is empty without surfacing it`);
-  });
-
-  await step('C9', async () => {
-    const guard = keyGuard('FIRMS', env.keys.FIRMS);
-    if (guard) return guard;
-    const r = await settle('local-firms', 30);
-    const s = r.stats || {};
-    if (env.keys.FIRMS === false) {
-      return s.error === 'KEY REQUIRED'
-        ? pass('keyless and honest: getStats().error === "KEY REQUIRED"')
-        : fail(`keyless but error=${s.error} count=${s.count} — expected "KEY REQUIRED"`);
-    }
-    return s.count > 0 ? pass(`${s.count} fires, cells=${s.cells}`) : fail(`keyed but 0 fires (error=${s.error || ''})`);
   });
 
   await step('C10', async () => {
@@ -2059,7 +2015,6 @@ async function preflight() {
     if (typeof r.json?.hasKey !== 'boolean') return 'error';
     return r.json.hasKey;
   };
-  env.keys.FIRMS = await statusKey('/api/firms/status');
   env.keys.TOMTOM = await statusKey('/api/tomtom/status');
   try {
     const ais = await jget('/api/ais-live');
@@ -2136,7 +2091,7 @@ async function main() {
     console.log(C.r(`  shell  : HTTP ${env.shellStatus} — the target is RESPONDING but erroring. Running the matrix anyway; this is a product failure, not an environment one.`));
   }
   console.log(`  node   : ${process.versions.node}${env.node24 ? C.d(` (Node 24 available: ${env.node24.label})`) : ''}`);
-  console.log(`  keys   : OpenSky ${keyLabel(env.keys.OPENSKY)} · FIRMS ${keyLabel(env.keys.FIRMS)} · TomTom ${keyLabel(env.keys.TOMTOM)} · AISStream ${keyLabel(env.keys.AIS)} · OpenAI ${keyLabel(env.keys.OPENAI)}`);
+  console.log(`  keys   : OpenSky ${keyLabel(env.keys.OPENSKY)} · TomTom ${keyLabel(env.keys.TOMTOM)} · AISStream ${keyLabel(env.keys.AIS)} · OpenAI ${keyLabel(env.keys.OPENAI)}`);
   console.log(C.d('  (key presence is read from each proxy\'s own status report; no key value is ever read or logged)\n'));
 
   const record = (c, rawRes, ms) => {

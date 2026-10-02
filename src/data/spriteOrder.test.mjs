@@ -1,4 +1,3 @@
-import { createRendering as createFirmsRendering } from '../layers/firms/rendering.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -9,9 +8,8 @@ import {
 } from './spriteOrder.js';
 import flightsLayer from './flights.js';
 import aisLiveVesselsLayer from './aisLiveVessels.js';
-import { createFirmsHeatmapLayer } from './firmsHeatmap.js';
 
-const ORDER = ['cctv', 'firms', 'bikeshare', 'ais', 'military', 'flights'];
+const ORDER = ['cctv', 'transit', 'bikeshare', 'ais', 'military', 'flights'];
 
 function makePrimitives(initial = []) {
   return {
@@ -33,9 +31,9 @@ function makeCollection(id, destroyed = false) {
 
 test('restoreSpriteOrder raises live collections bottom-to-top and skips destroyed entries', () => {
   const collections = Object.fromEntries(ORDER.map((id) => [id, makeCollection(id)]));
-  const destroyedFirms = makeCollection('firms', true);
+  const destroyedTransit = makeCollection('transit', true);
   for (const id of ORDER) {
-    registerSpriteCollection(id, id === 'firms' ? destroyedFirms : collections[id]);
+    registerSpriteCollection(id, id === 'transit' ? destroyedTransit : collections[id]);
   }
   const primitives = makePrimitives([
     collections.flights,
@@ -100,22 +98,15 @@ test('restoreSpriteOrder never raises a registered collection absent from scene 
   unregisterSpriteCollection('flights', flights);
 });
 
-test('flights, AIS, and FIRMS enable paths are wired through the shared sprite restorer', () => {
+test('flights and AIS enable paths are wired through the shared sprite restorer', () => {
   const viewer = { id: 'viewer' };
   const calls = [];
   const restoreSpy = (value) => calls.push(value);
-  for (const layerId of ['flights', 'ais', 'firms']) {
+  for (const layerId of ['flights', 'ais']) {
     restoreSpriteOrderOnEnable(layerId, viewer, restoreSpy);
   }
-  assert.deepEqual(calls, [viewer, viewer, viewer]);
+  assert.deepEqual(calls, [viewer, viewer]);
 
-  const firmsLayer = createFirmsHeatmapLayer({ id: 'firms', name: 'FIRMS' });
   assert.match(flightsLayer.enable.toString(), /restoreSpriteOrderOnEnable\('flights', viewer\)/);
   assert.match(aisLiveVesselsLayer.enable.toString(), /restoreSpriteOrderOnEnable\('ais', activeViewer\)/);
-  assert.match(firmsLayer.enable.toString(), /restoreSpriteOrderOnEnable\('firms', viewer\)/);
-  assert.match(
-    createFirmsRendering.toString(),
-    /registerSpriteCollection\('firms', layerState\._billboards\);\s*restoreSpriteOrder\(layerState\._viewer\);/,
-    'lazy FIRMS registration must restore order immediately',
-  );
 });

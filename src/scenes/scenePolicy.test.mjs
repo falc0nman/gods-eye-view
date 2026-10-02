@@ -44,7 +44,7 @@ const REGISTERED = new Set([
   'bhote-koshi-2026', 'bhote-koshi-locator',
   'flights', 'military', 'earthquakes', 'satellites', 'rocket-launches', 'traffic',
   'cctv', 'radio', 'bikeshare', 'ais-live-vessels', 'military-installations',
-  'military-awareness', 'local-datacenters', 'local-dams', 'local-firms',
+  'military-awareness', 'local-datacenters', 'local-dams',
 ]);
 
 test('a shot only reconciles the layers it declares', () => {
@@ -62,7 +62,7 @@ test('undeclared layers are never torn down by a four-layer recipe', () => {
   );
   const touched = plan.map((entry) => entry.id);
   assert.deepEqual(touched, ['flights', 'satellites']);
-  for (const untouched of ['cctv', 'radio', 'local-dams', 'local-datacenters', 'local-firms']) {
+  for (const untouched of ['cctv', 'radio', 'local-dams', 'local-datacenters']) {
     assert.ok(!touched.includes(untouched), `${untouched} must be left alone`);
   }
 });

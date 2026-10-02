@@ -32,8 +32,6 @@ remain subject to their own licenses and terms. Notably:
 
   - Datacenters and Dams (OpenStreetMap / Open Infrastructure Map extracts):
     Open Database License (ODbL) 1.0 — attribution + share-alike on the data.
-  - NASA FIRMS active-fire snapshot: CC0 / U.S. public domain (citation
-    requested).
 
 Live sources (Google Maps, OpenSky, adsb.lol, AISStream, CelesTrak,
 OSM Overpass, City of Austin, GBFS) are fetched at runtime under each

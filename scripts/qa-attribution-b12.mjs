@@ -59,7 +59,6 @@ function check(name, ok, detail) {
 const REQUIRED_CREDIT_SUBSTRINGS = [
   'OpenStreetMap contributors', // ODbL — datacenters/dams/roads
   'adsb.lol',                    // ODbL — military traces
-  'NASA FIRMS',                  // fires
   'CelesTrak',                   // satellites
   'OpenSky Network',             // flights
   'AISStream',                   // vessels

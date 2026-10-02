@@ -12,7 +12,6 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const ui = readShellSource();
-const firms = readLayerSource(path.join(ROOT, 'src', 'data', 'firmsHeatmap.js'));
 const vessels = readLayerSource(path.join(ROOT, 'src', 'data', 'aisLiveVessels.js'));
 const voice = fs.readFileSync(path.join(ROOT, 'src', 'voice', 'gevActions.js'), 'utf8');
 const cameraVerbs = fs.readFileSync(path.join(ROOT, 'src', 'cameraVerbs.js'), 'utf8');
@@ -204,7 +203,6 @@ test('validated voice camera destinations share the UI navigation authority faca
   assert.match(ui, /runImmediateNavigation\(noun, navigate, releaseOptions = undefined\) \{\s*return this\._runExplicitNavigation\(noun, navigate, releaseOptions\);/);
   assert.match(voice, /runManagedVoiceNavigation\(\s*styleManager,\s*'camera',\s*'move_camera',\s*navigate,\s*releaseOptions/);
   assert.match(voice, /runManagedVoiceNavigation\(\s*styleManager,\s*'route',\s*'fly_route',\s*navigate/);
-  assert.match(voice, /runManagedVoiceNavigation\(\s*styleManager,\s*'fire',\s*'track_entity'/);
   assert.match(voice, /runManagedVoiceNavigation\(\s*styleManager,\s*family\.kind,\s*'track_entity'/);
   assert.match(voice, /runManagedVoiceNavigation\(\s*styleManager,\s*'frame',\s*'frame_overhead'/);
   const trackedVoice = voice.slice(
@@ -383,8 +381,8 @@ test('world-focus listener lifecycle is symmetric and idempotent', () => {
   assert.match(ui, /this\._removeWorldRequestFocusListener = null;/);
 });
 
-test('vessel and fire layers announce valid clicks and never fly cameras', () => {
-  for (const [label, source] of [['vessels', vessels], ['fires', firms]]) {
+test('the vessel layer announces valid clicks and never flies cameras', () => {
+  for (const [label, source] of [['vessels', vessels]]) {
     assert.match(source, /requestWorldFocus\(\{/);
     assert.doesNotMatch(source, /camera\.flyTo/);
   }
@@ -404,14 +402,4 @@ test('vessel and fire layers announce valid clicks and never fly cameras', () =>
     'vessel focus helper',
   );
   assert.match(vesselFocus, /requestWorldFocus\(\{/);
-  const fireClick = body(
-    firms,
-    /_clickHandler\.setInputAction\(\(click\) => \{([\s\S]*?)\n    \}, Cesium\.ScreenSpaceEventType\.LEFT_CLICK\);/,
-    'fire click',
-  );
-  ordered(fireClick, [
-    'isOwnedByOtherLayer(id, pickedId)',
-    'overlayHost.hitTest?.(',
-    'selectAndFocusFire(carded)',
-  ], 'fire sibling ownership');
 });

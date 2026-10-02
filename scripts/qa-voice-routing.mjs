@@ -103,7 +103,7 @@ const PHRASES = [
   // — layers —
   { phrase: 'Turn on the flights layer', expect: 'set_layer_visibility', args: { layerId: 'flights' } },
   { phrase: 'Show me live vessels', expect: 'set_layer_visibility' },
-  { phrase: 'Turn on the fires layer', expect: 'set_layer_visibility' },
+  { phrase: 'Turn on the storm warnings layer', expect: 'set_layer_visibility' },
   { phrase: 'Turn on street traffic', expect: 'set_layer_visibility', args: { layerId: 'traffic' } },
   { phrase: 'Open the data layers menu', expect: 'show_data_layers_menu' },
   { phrase: 'Show me the datacenter layers', expect: 'show_data_layers_menu' },
@@ -176,7 +176,7 @@ const PHRASES = [
   // — analyst queries (tool #22) —
   { phrase: 'How many flights are over Texas right now?', expect: 'analyst_query' },
   { phrase: 'Which ships are headed to Oakland?', expect: 'analyst_query' },
-  { phrase: 'What is the biggest fire near Los Angeles?', expect: 'analyst_query' },
+  { phrase: 'What is the fastest ship near Los Angeles?', expect: 'analyst_query' },
   { phrase: 'Is anything flying above forty thousand feet?', expect: 'analyst_query' },
 
   // — negative controls: conversation must NOT tool-call —
@@ -495,16 +495,14 @@ async function runBehaviorLayer() {
       const app = window.__godsEyeView;
       const runner = window.__gevVoiceCommands?.runner;
       const { viewer, dataManager, styleManager } = app || {};
-      const fireEntry = dataManager?.layers?.get('local-firms');
       const vesselEntry = dataManager?.layers?.get('ais-live-vessels');
       const flightsEntry = dataManager?.layers?.get('flights');
-      if (!runner || !fireEntry || !vesselEntry || !flightsEntry) {
+      if (!runner || !vesselEntry || !flightsEntry) {
         return { error: 'required product modules unavailable' };
       }
 
       const original = {
         isEnabled: dataManager.isEnabled,
-        fireModule: fireEntry.module,
         vesselModule: vesselEntry.module,
         flightsModule: flightsEntry.module,
         flyToBoundingSphere: viewer.camera.flyToBoundingSphere,
@@ -518,15 +516,8 @@ async function runBehaviorLayer() {
         return original.flyToBoundingSphere.apply(this, args);
       };
       dataManager.isEnabled = function (id) {
-        if (['local-firms', 'ais-live-vessels', 'flights'].includes(id)) return true;
+        if (['ais-live-vessels', 'flights'].includes(id)) return true;
         return original.isEnabled.call(this, id);
-      };
-      fireEntry.module = {
-        ...original.fireModule,
-        getStrongestFire: () => ({
-          id: 'qa-synthetic-fire', label: 'QA synthetic fire',
-          latitude: 37.7749, longitude: -122.4194, frp: 922,
-        }),
       };
       vesselEntry.module = {
         ...original.vesselModule,
@@ -547,7 +538,6 @@ async function runBehaviorLayer() {
       const results = {};
       try {
         for (const [kind, args] of [
-          ['fire', { query: 'strongest fire', layerId: 'local-firms' }],
           ['vessel', { query: 'QA synthetic vessel', layerId: 'ais-live-vessels' }],
         ]) {
           const sentinel = viewer.entities.add({ id: `qa-prior-${kind}` });
@@ -580,7 +570,6 @@ async function runBehaviorLayer() {
           ['move_camera', { motion: 'stop' }],
           ['fly_route', { speed: 'fast' }],
           ['frame_overhead', { target: 'flights' }],
-          ['track_entity', { query: 'strongest fire', layerId: 'local-firms' }],
           ['track_entity', { query: 'QA synthetic vessel', layerId: 'ais-live-vessels' }],
         ]) {
           refused.push((await runner(name, args))?.ok === false);
@@ -601,20 +590,19 @@ async function runBehaviorLayer() {
         styleManager.cockpitView.active = original.cockpitActive;
         viewer.camera.flyToBoundingSphere = original.flyToBoundingSphere;
         dataManager.isEnabled = original.isEnabled;
-        fireEntry.module = original.fireModule;
         vesselEntry.module = original.vesselModule;
         flightsEntry.module = original.flightsModule;
       }
       return { results, flightStarts, vesselSelections };
     });
-    const takeoversPass = ['fire', 'vessel'].every((kind) => {
+    const takeoversPass = ['vessel'].every((kind) => {
       const result = ownerTransfer?.results?.[kind];
       const flight = ownerTransfer?.flightStarts?.find((candidate) => candidate.kind === kind);
       return result?.ok && result?.generationAdvanced && result?.trackingReleased
         && flight?.trackingReleased;
     }) && ownerTransfer?.vesselSelections === 1;
     report(takeoversPass,
-      'behavior: synthetic fire/vessel voice targets take camera authority from tracked aircraft',
+      'behavior: synthetic vessel voice targets take camera authority from tracked aircraft',
       `syntheticTarget=true result=${JSON.stringify(ownerTransfer)?.slice(0, 240)}`);
     const cockpit = ownerTransfer?.results?.cockpit;
     report(Boolean(cockpit?.allRefused && cockpit?.generationUnchanged
@@ -701,9 +689,8 @@ async function runBehaviorLayer() {
       `drawn=${r?.drawn} failed=${r?.failed}`);
 
     // Camera-verb scenarios: shed the heavy layers first — headless
-    // SwiftShader drops to ~1 fps with fires+vessels loaded and every
+    // SwiftShader drops to ~1 fps with vessels loaded and every
     // motion assert starves (environment, not product).
-    await run('set_layer_visibility', { layerId: 'local-firms', enabled: false });
     await run('set_layer_visibility', { layerId: 'ais-live-vessels', enabled: false });
     await settle(1500);
 

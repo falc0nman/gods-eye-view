@@ -6,7 +6,7 @@ import * as Cesium from 'cesium';
  * Legal requirement (see DATA_SOURCES.md, findings H10/H11 in
  * docs/pre-ship-audit-2026-07-01.md): every third-party data layer this app can
  * display carries its own license and required attribution — ODbL (OSM
- * datacenters/dams, adsb.lol, Overpass roads), NASA FIRMS, CelesTrak, City of Austin, Fintraffic (CC BY 4.0),
+ * datacenters/dams, adsb.lol, Overpass roads), CelesTrak, City of Austin, Fintraffic (CC BY 4.0),
  * The MIT code license does NOT cover this data.
  *
  * These credits are registered ONCE at init as STATIC credits with
@@ -159,14 +159,6 @@ export const DATA_CREDITS = [
       '<a href="https://gibs.earthdata.nasa.gov" target="_blank" rel="noopener">gibs.earthdata.nasa.gov</a> · ' +
       '<a href="https://lpdaac.usgs.gov/products/hlss30v002/" target="_blank" rel="noopener">HLS product page</a>',
   },
-  {
-    key: 'wfigs',
-    html:
-      'Wildfire perimeters: ' +
-      '<a href="https://data-nifc.opendata.arcgis.com/" target="_blank" rel="noopener">National Interagency Fire Center (WFIGS)</a>' +
-      ' · Incident information: ' +
-      '<a href="https://inciweb.wildfire.gov/" target="_blank" rel="noopener">InciWeb</a>',
-  },
   OSM_CREDIT,
   OPENMAPTILES_CREDIT,
   {
@@ -310,14 +302,6 @@ export const DATA_CREDITS = [
   {
     key: 'dams',
     html: 'Dams: Open Infrastructure Map',
-  },
-  {
-    key: 'firms',
-    html:
-      'Active fires: NASA FIRMS — we acknowledge the use of data and/or imagery ' +
-      'from NASA’s Fire Information for Resource Management System ' +
-      '(<a href="https://earthdata.nasa.gov/firms" target="_blank" rel="noopener">earthdata.nasa.gov/firms</a>), ' +
-      'part of NASA’s Earth Observing System Data and Information System (EOSDIS)',
   },
   {
     key: 'drivebc-cctv',

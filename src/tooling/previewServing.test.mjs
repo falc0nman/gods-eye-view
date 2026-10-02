@@ -9,7 +9,7 @@ import { makeFixtureRoot } from './fixtureRoot.mjs';
 
 test('data providers have both hooks; credential editing is absent', () => {
   const plugins = localProviderPlugins();
-  assert.ok(plugins.some(({ name }) => name === 'fire-perimeters'));
+  assert.ok(plugins.some(({ name }) => name === 'cyclones'));
   for (const plugin of plugins) {
     assert.notEqual(plugin.name, 'gev-key-setup');
     assert.equal(typeof plugin.configureServer, 'function', plugin.name);
@@ -89,8 +89,6 @@ test('real dev and built-preview servers serve provider JSON and terminate unkno
         ['/api/opensky', 200],
         ['/api/adsblol/mil', 200],
         ['/api/adsbdb/type/invalid', 400],
-        ['/api/firms/status', 200],
-        ['/api/fire-perimeters/inciweb/publication/invalid', 400],
         ['/api/terrain/heights?points=invalid', 400],
         ['/api/overpass', 405],
         ['/api/overpass/status', 200],

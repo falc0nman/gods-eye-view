@@ -69,7 +69,7 @@ Realtime protocol implementation. Negative fixtures cover indirect helpers,
 self-package imports, symlinks and unreachable files.
 
 Source factories have dedicated exports for bikeshare, CCTV,
-FIRMS, installations, launches, radio, satellites and traffic. They preserve the
+installations, launches, radio, satellites and traffic. They preserve the
 same factory implementations without loading layer rendering. CCTV source
 endpoint policy has a plain owner separate
 from geometry/cards. Source exports do not start acquisition at import time.
@@ -172,9 +172,9 @@ response limits and cache policy. The boundary gate checks this portable entry
 separately from the Node providers. Satellite rendering and launch replay remain
 in their existing browser modules.
 
-## Terrain, traffic, fires and bike-share providers
+## Terrain, traffic and bike-share providers
 
-`gods-eye-view/server/providers/terrain`, `/traffic`, `/firms` and `/gbfs`
+`gods-eye-view/server/providers/terrain`, `/traffic` and `/gbfs`
 are separate Node-only entries. Each owns its existing middleware and
 process-scoped cache or request handling. Standalone composition mounts them in
 the original order; their imports do not start acquisition.
@@ -185,13 +185,6 @@ reconstruction mechanics with injectable acquisition dependencies.
 `gods-eye-view/sources/gbfs` exports host/path acceptance and cache-header rules.
 These entries import no Node middleware, application configuration or rendering.
 Callers retain their request admission and transport policy.
-
-`gods-eye-view/sources/firms-csv` exports the existing CSV parser, header
-recognition, acquisition-time conversion and trailing-day filter independently
-of the Node middleware. It imports no Node, DOM, rendering or network code.
-The Node provider continues using the same implementation; contract fixtures
-cover malformed rows, acquisition times, empty feeds and the inclusive time
-window. The boundary gate checks each entry independently.
 
 Browser terrain sampling, traffic matching/drawing, fire overlays and bike-share
 layer lifecycle remain in their current modules. This extraction changes no
@@ -624,9 +617,6 @@ retention. `layers/vessels/ingestion` owns source requests and feed state throug
 explicit operations. Both exports exclude Cesium, DOM and application assembly.
 The snapshot renderer applies record changes; rendering owns a weak map of
 geometry and billboard resources used by cards, picking and trails.
-
-`gods-eye-view/sources/reference` constructs fresh fire-perimeter source
-instances independently of standalone setup.
 
 ## Geocoding and feature-query providers
 

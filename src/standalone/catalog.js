@@ -2,7 +2,6 @@ import { createSurfaceServices } from '../app/surfaceServices.js';
 import { createApplicationRequestServices } from '../services/requests.js';
 import { createApplicationCatalog } from '../app/constructCatalog.js';
 import { createStandaloneLayerSources } from './layerSources.js';
-export { createStandaloneReferenceSources } from './layerSources.js';
 
 /** Create fresh layer instances using the existing standalone source choices. */
 export function createStandaloneCatalog({

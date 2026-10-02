@@ -1549,26 +1549,6 @@ test('production eviction sites actually tag their clears', () => {
     /clearVesselInspection\(\{ evicted: true \}\)/,
     'aisLiveVessels must mark its aged-out selected vessel as an eviction',
   );
-  // Fourth cull site: a FIRMS refresh whose new payload no longer carries the
-  // selected fire. The fire did not get deselected — it left the feed.
-  // The tag alone is not enough — see the behavioral test in
-  // firmsInteraction.test.mjs. The clear must also run BEFORE renderCurrentLod,
-  // whose registration sweep deletes the record the clear needs to see.
-  const firmsSource = readLayerSource(new URL('./firmsHeatmap.js', import.meta.url));
-  const evictedClear = firmsSource.indexOf('clearSelectedEntityContextForLayer(id, { evicted: true });');
-  const lodRebuild = firmsSource.indexOf('components.rendering.renderCurrentLod(true);\n      if (reselected) components.selection.selectFire(reselected, false);');
-  assert.ok(evictedClear > 0, 'FIRMS must mark a refresh-vanished selection as an eviction');
-  assert.ok(lodRebuild > 0, 'the FIRMS refresh must settle its selection before rebuilding');
-  assert.ok(
-    evictedClear < lodRebuild,
-    'the eviction clear must precede the LOD rebuild or it emits nothing at all',
-  );
-  // …and the deliberate FIRMS paths (layer disable, destroy, deselect) stay untagged.
-  assert.equal(
-    (firmsSource.match(/clearSelectedEntityContextForLayer\(id\);/g) || []).length,
-    3,
-    'only the refresh-vanish site is an eviction; disable/destroy/deselect stay deliberate',
-  );
   assert.match(
     militaryAwarenessSource,
     /awarenessClearIsEviction/,

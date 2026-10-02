@@ -11,11 +11,6 @@ import {
   createLocalInfrastructureOverlayEntry,
 } from '../data/localGeojsonCore.js';
 import {
-  FIRMS_AMBIENT_COHORT_LIMIT,
-  FIRMS_OVERLAY_SOURCE_ID,
-} from '../data/firmsLabels.js';
-import { applyFirmsOverlayPolicy } from '../data/firmsHeatmap.js';
-import {
   applyVesselOverlayPolicy,
   VESSEL_OVERLAY_SOURCE_ID,
   vesselOverlayCohortLimit,
@@ -408,103 +403,18 @@ function buildLocalInfrastructureWorkload(count) {
   };
 }
 
-function buildPhase3FirmsWorkload(count) {
-  const localCount = LOCAL_OVERLAY_COHORT_LIMIT * 2;
-  const expectedCount = localCount + FIRMS_AMBIENT_COHORT_LIMIT;
-  if (count !== expectedCount)
-    throw new Error(`phase3-firms requires ${expectedCount} entries`);
-  const workload = buildWorkload(count);
-  const datacenters = [];
-  const dams = [];
-  const firms = [];
-  for (let index = 0; index < workload.entries.length; index++) {
-    const position = workload.entries[index].position;
-    if (index < localCount) {
-      const isDatacenter = index < LOCAL_OVERLAY_COHORT_LIMIT;
-      const sourceId = isDatacenter ? 'local-datacenters' : 'local-dams';
-      const entry = createLocalInfrastructureOverlayEntry({
-        id: `${isDatacenter ? 'dc' : 'dam'}-${index}`,
-        layerId: sourceId,
-        position,
-        properties: isDatacenter
-          ? {
-              tags: { name: `DC ${index}`, operator: `Operator ${index % 17}` },
-            }
-          : {
-              name: `Dam ${index}`,
-              tags: { associated_river: `River ${index % 23}` },
-            },
-        priority: index % 7,
-        accent: isDatacenter ? '#00ffff' : '#0088ff',
-      });
-      entry.horizonCull = false;
-      (isDatacenter ? datacenters : dams).push(entry);
-      continue;
-    }
-    const fireIndex = index - localCount;
-    firms.push(
-      applyFirmsOverlayPolicy(
-        {
-          id: `fire:${fireIndex}`,
-          position,
-          gapPx: 10,
-          accent: '224, 82, 82',
-          title: `▲ ${50 + fireIndex} MW`,
-          details: ['high · 2h · N20'],
-          selected: false,
-          priority: 100 - fireIndex,
-        },
-        12_000_000,
-      ),
-    );
-    firms.at(-1).horizonCull = false;
-  }
-  return {
-    ...workload,
-    registrations: [
-      {
-        sourceId: 'local-datacenters',
-        entries: datacenters,
-        options: {
-          collisionCapacity: 96,
-          cohortLimit: LOCAL_OVERLAY_COHORT_LIMIT,
-        },
-      },
-      {
-        sourceId: 'local-dams',
-        entries: dams,
-        options: {
-          collisionCapacity: 96,
-          cohortLimit: LOCAL_OVERLAY_COHORT_LIMIT,
-        },
-      },
-      {
-        sourceId: FIRMS_OVERLAY_SOURCE_ID,
-        entries: firms,
-        options: {
-          collisionCapacity: FIRMS_AMBIENT_COHORT_LIMIT,
-          cohortLimit: FIRMS_AMBIENT_COHORT_LIMIT,
-        },
-      },
-    ],
-    ambientCardCapacity: AMBIENT_CARD_COLLISION_CAPACITY,
-  };
-}
-
 function buildPhase3VesselsWorkload(count) {
   const localCount = LOCAL_OVERLAY_COHORT_LIMIT * 2;
   const vesselAmbientCount = vesselOverlayCohortLimit(
     VIEWPORT_WIDTH,
     VIEWPORT_HEIGHT,
   );
-  const expectedCount =
-    localCount + FIRMS_AMBIENT_COHORT_LIMIT + vesselAmbientCount + 1;
+  const expectedCount = localCount + vesselAmbientCount + 1;
   if (count !== expectedCount)
     throw new Error(`phase3-vessels requires ${expectedCount} entries`);
   const workload = buildWorkload(count);
   const datacenters = [];
   const dams = [];
-  const firms = [];
   const vessels = [];
   for (let index = 0; index < workload.entries.length; index++) {
     const position = workload.entries[index].position;
@@ -530,27 +440,7 @@ function buildPhase3VesselsWorkload(count) {
       (isDatacenter ? datacenters : dams).push(entry);
       continue;
     }
-    const firmsEnd = localCount + FIRMS_AMBIENT_COHORT_LIMIT;
-    if (index < firmsEnd) {
-      const fireIndex = index - localCount;
-      const entry = applyFirmsOverlayPolicy(
-        {
-          id: `fire:${fireIndex}`,
-          position,
-          gapPx: 10,
-          accent: '224, 82, 82',
-          title: `▲ ${50 + fireIndex} MW`,
-          details: ['high · 2h · N20'],
-          selected: false,
-          priority: 100 - fireIndex,
-        },
-        12_000_000,
-      );
-      entry.horizonCull = false;
-      firms.push(entry);
-      continue;
-    }
-    const vesselIndex = index - firmsEnd;
+    const vesselIndex = index - localCount;
     const selected = vesselIndex === vesselAmbientCount;
     const entry = applyVesselOverlayPolicy(
       {
@@ -590,14 +480,6 @@ function buildPhase3VesselsWorkload(count) {
         },
       },
       {
-        sourceId: FIRMS_OVERLAY_SOURCE_ID,
-        entries: firms,
-        options: {
-          collisionCapacity: FIRMS_AMBIENT_COHORT_LIMIT,
-          cohortLimit: FIRMS_AMBIENT_COHORT_LIMIT,
-        },
-      },
-      {
         sourceId: VESSEL_OVERLAY_SOURCE_ID,
         entries: vessels,
         options: {
@@ -616,8 +498,7 @@ function buildPhase3TrackedWorkload(count) {
     VIEWPORT_WIDTH,
     VIEWPORT_HEIGHT,
   );
-  const expectedCount =
-    localCount + FIRMS_AMBIENT_COHORT_LIMIT + vesselAmbientCount + 1;
+  const expectedCount = localCount + vesselAmbientCount + 1;
   if (count !== expectedCount)
     throw new Error(`phase3-tracked requires ${expectedCount} entries`);
   const workload = buildPhase3VesselsWorkload(count);
@@ -654,7 +535,6 @@ function buildPhase3TrackedWorkload(count) {
 function buildPhase4CctvWorkload(count) {
   const phase3Count =
     LOCAL_OVERLAY_COHORT_LIMIT * 2 +
-    FIRMS_AMBIENT_COHORT_LIMIT +
     vesselOverlayCohortLimit(VIEWPORT_WIDTH, VIEWPORT_HEIGHT) +
     1;
   const expectedCount = phase3Count + CCTV_AMBIENT_CARD_MAX + 1;
@@ -708,7 +588,6 @@ function buildPhase4CctvWorkload(count) {
 function buildPhase5BikeshareWorkload(count) {
   const phase4Count =
     LOCAL_OVERLAY_COHORT_LIMIT * 2 +
-    FIRMS_AMBIENT_COHORT_LIMIT +
     vesselOverlayCohortLimit(VIEWPORT_WIDTH, VIEWPORT_HEIGHT) +
     1 +
     CCTV_AMBIENT_CARD_MAX +
@@ -743,7 +622,6 @@ function buildPhase5BikeshareWorkload(count) {
 function buildPhase5SatellitesWorkload(count) {
   const bikeshareCount =
     LOCAL_OVERLAY_COHORT_LIMIT * 2 +
-    FIRMS_AMBIENT_COHORT_LIMIT +
     vesselOverlayCohortLimit(VIEWPORT_WIDTH, VIEWPORT_HEIGHT) +
     1 +
     CCTV_AMBIENT_CARD_MAX +
@@ -769,7 +647,6 @@ function buildPhase5SatellitesWorkload(count) {
 function buildPhase5CctvProjectionWorkload(count) {
   const satelliteCount =
     LOCAL_OVERLAY_COHORT_LIMIT * 2 +
-    FIRMS_AMBIENT_COHORT_LIMIT +
     vesselOverlayCohortLimit(VIEWPORT_WIDTH, VIEWPORT_HEIGHT) +
     1 +
     CCTV_AMBIENT_CARD_MAX +
@@ -885,7 +762,6 @@ function buildRocketMissionAmbientWorkload(count) {
 function buildPhase5RocketMissionWorkload(count) {
   const phase5Count =
     LOCAL_OVERLAY_COHORT_LIMIT * 2 +
-    FIRMS_AMBIENT_COHORT_LIMIT +
     vesselOverlayCohortLimit(VIEWPORT_WIDTH, VIEWPORT_HEIGHT) +
     1 +
     CCTV_AMBIENT_CARD_MAX +
@@ -905,7 +781,6 @@ function buildPhase5RocketMissionWorkload(count) {
 function buildAllLiveRadioWorkload(count) {
   const phase5Count =
     LOCAL_OVERLAY_COHORT_LIMIT * 2 +
-    FIRMS_AMBIENT_COHORT_LIMIT +
     vesselOverlayCohortLimit(VIEWPORT_WIDTH, VIEWPORT_HEIGHT) +
     1 +
     CCTV_AMBIENT_CARD_MAX +
@@ -1045,31 +920,29 @@ function main() {
       ? buildPhase6DetectionWorkload(ENTRY_COUNT)
       : PROFILE === 'local-infrastructure'
         ? buildLocalInfrastructureWorkload(ENTRY_COUNT)
-        : PROFILE === 'phase3-firms'
-          ? buildPhase3FirmsWorkload(ENTRY_COUNT)
-          : PROFILE === 'phase3-vessels'
-            ? buildPhase3VesselsWorkload(ENTRY_COUNT)
-            : PROFILE === 'phase3-tracked'
-              ? buildPhase3TrackedWorkload(ENTRY_COUNT)
-              : PROFILE === 'phase4-cctv'
-                ? buildPhase4CctvWorkload(ENTRY_COUNT)
-                : PROFILE === 'phase5-bikeshare'
-                  ? buildPhase5BikeshareWorkload(ENTRY_COUNT)
-                  : PROFILE === 'phase5-satellites'
-                    ? buildPhase5SatellitesWorkload(ENTRY_COUNT)
-                    : PROFILE === 'phase5-cctv-projection'
-                      ? buildPhase5CctvProjectionWorkload(ENTRY_COUNT)
-                      : PROFILE === 'phase5-civil'
-                        ? buildPhase5CivilWorkload(ENTRY_COUNT)
-                        : PROFILE === 'phase5-military'
-                          ? buildPhase5MilitaryWorkload(ENTRY_COUNT)
-                          : PROFILE === 'rocket-missions'
-                            ? buildRocketMissionAmbientWorkload(ENTRY_COUNT)
-                            : PROFILE === 'phase5-rockets'
-                              ? buildPhase5RocketMissionWorkload(ENTRY_COUNT)
-                              : PROFILE === 'all-live-radio'
-                                ? buildAllLiveRadioWorkload(ENTRY_COUNT)
-                                : buildWorkload(ENTRY_COUNT);
+        : PROFILE === 'phase3-vessels'
+          ? buildPhase3VesselsWorkload(ENTRY_COUNT)
+          : PROFILE === 'phase3-tracked'
+            ? buildPhase3TrackedWorkload(ENTRY_COUNT)
+            : PROFILE === 'phase4-cctv'
+              ? buildPhase4CctvWorkload(ENTRY_COUNT)
+              : PROFILE === 'phase5-bikeshare'
+                ? buildPhase5BikeshareWorkload(ENTRY_COUNT)
+                : PROFILE === 'phase5-satellites'
+                  ? buildPhase5SatellitesWorkload(ENTRY_COUNT)
+                  : PROFILE === 'phase5-cctv-projection'
+                    ? buildPhase5CctvProjectionWorkload(ENTRY_COUNT)
+                    : PROFILE === 'phase5-civil'
+                      ? buildPhase5CivilWorkload(ENTRY_COUNT)
+                      : PROFILE === 'phase5-military'
+                        ? buildPhase5MilitaryWorkload(ENTRY_COUNT)
+                        : PROFILE === 'rocket-missions'
+                          ? buildRocketMissionAmbientWorkload(ENTRY_COUNT)
+                          : PROFILE === 'phase5-rockets'
+                            ? buildPhase5RocketMissionWorkload(ENTRY_COUNT)
+                            : PROFILE === 'all-live-radio'
+                              ? buildAllLiveRadioWorkload(ENTRY_COUNT)
+                              : buildWorkload(ENTRY_COUNT);
   const { entries, positions, drifts } = workload;
   const solveIntervalMs = Number(process.env.GEV_ALLOC_SOLVE_MS) || 125;
   const detectionActive = !!workload.detectionLayer;

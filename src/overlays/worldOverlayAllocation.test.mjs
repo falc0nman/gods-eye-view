@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { LOCAL_OVERLAY_COHORT_LIMIT } from '../data/localGeojson.js';
-import { FIRMS_AMBIENT_COHORT_LIMIT } from '../data/firmsLabels.js';
 import { vesselOverlayCohortLimit } from '../data/vesselLabels.js';
 import { CCTV_AMBIENT_CARD_MAX } from '../data/cctvLod.js';
 import { AMBIENT_CARD_COLLISION_CAPACITY } from './worldOverlay.js';
@@ -33,7 +32,6 @@ import { isCalibratedAllocationRuntime } from '../../scripts/run-unit-tests.mjs'
  *   generic below cap    |      60 |         60 |      60 |           3182 |        53.0 |       4,100
  *   generic above cap    |     250 |        250 |      96 |          10022 |        40.1 |      13,000
  *   local infrastructure |     320 |        320 |     192 |          39478 |       123.4 |      49,000
- *   Phase 3 + FIRMS      |     338 |        338 |     210 |          41220 |       122.0 |      53,600
  *   Phase 3 + vessels    |     451 |        451 |     311 |          67252 |       149.1 |      87,500
  *   Phase 3 + tracked    |     451 |        451 |     310 |          66642 |       147.8 |      86,700
  *   Phase 4 + CCTV       |     492 |        492 | 310/312 |     78742/97696 | 160.0/198.6 |     102,400
@@ -87,8 +85,10 @@ import { isCalibratedAllocationRuntime } from '../../scripts/run-unit-tests.mjs'
  * winners in the saturated ambient-label domain while the selected lane
  * remains protected. Since the 2026-08-18 recalibration the row also carries
  * the 160-winner submarine-cable cohort (864 candidates total). GW-57
- * removed the cables layer and then the 96-entry earthquake cohort from every
- * Phase 5 row; the budgets above are unchanged and still pass on Node 24.14.
+ * removed the cables layer, then the 96-entry earthquake cohort from every
+ * Phase 5 row and the 18-entry FIRMS cohort from every Phase 3+ row (with
+ * the isolated FIRMS row); the remaining budgets are unchanged and still pass
+ * on Node 24.14, so the measured figures above are pre-removal history.
  *
  * The Phase-6 row activates the production detection lane at Dense/100 over a
  * deterministic 5,000-observation, 2,500 km scene. All observations exercise
@@ -131,31 +131,22 @@ const WORKLOADS = [
     saturated: true,
   },
   {
-    name: 'with infrastructure and FIRMS live',
-    profile: 'phase3-firms',
-    entries: LOCAL_OVERLAY_COHORT_LIMIT * 2 + FIRMS_AMBIENT_COHORT_LIMIT,
-    candidates: LOCAL_OVERLAY_COHORT_LIMIT * 2 + FIRMS_AMBIENT_COHORT_LIMIT,
-    maxBytesPerFrame: 53_600,
-    saturated: true,
-    ambientCardCapacity: AMBIENT_CARD_COLLISION_CAPACITY,
-  },
-  {
-    name: 'with infrastructure, FIRMS, and vessels live',
+    name: 'with infrastructure and vessels live',
     profile: 'phase3-vessels',
-    entries: LOCAL_OVERLAY_COHORT_LIMIT * 2 + FIRMS_AMBIENT_COHORT_LIMIT
+    entries: LOCAL_OVERLAY_COHORT_LIMIT * 2
       + vesselOverlayCohortLimit(1600, 900) + 1,
-    candidates: LOCAL_OVERLAY_COHORT_LIMIT * 2 + FIRMS_AMBIENT_COHORT_LIMIT
+    candidates: LOCAL_OVERLAY_COHORT_LIMIT * 2
       + vesselOverlayCohortLimit(1600, 900) + 1,
     maxBytesPerFrame: 87_500,
     saturated: true,
     ambientCardCapacity: AMBIENT_CARD_COLLISION_CAPACITY,
   },
   {
-    name: 'with infrastructure, FIRMS, ambient vessels, and tracked readout live',
+    name: 'with infrastructure, ambient vessels, and tracked readout live',
     profile: 'phase3-tracked',
-    entries: LOCAL_OVERLAY_COHORT_LIMIT * 2 + FIRMS_AMBIENT_COHORT_LIMIT
+    entries: LOCAL_OVERLAY_COHORT_LIMIT * 2
       + vesselOverlayCohortLimit(1600, 900) + 1,
-    candidates: LOCAL_OVERLAY_COHORT_LIMIT * 2 + FIRMS_AMBIENT_COHORT_LIMIT
+    candidates: LOCAL_OVERLAY_COHORT_LIMIT * 2
       + vesselOverlayCohortLimit(1600, 900) + 1,
     maxBytesPerFrame: 86_700,
     saturated: true,
@@ -164,9 +155,9 @@ const WORKLOADS = [
   {
     name: 'with all Phase 3 sources and CCTV thumbnails live',
     profile: 'phase4-cctv',
-    entries: LOCAL_OVERLAY_COHORT_LIMIT * 2 + FIRMS_AMBIENT_COHORT_LIMIT
+    entries: LOCAL_OVERLAY_COHORT_LIMIT * 2
       + vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1,
-    candidates: LOCAL_OVERLAY_COHORT_LIMIT * 2 + FIRMS_AMBIENT_COHORT_LIMIT
+    candidates: LOCAL_OVERLAY_COHORT_LIMIT * 2
       + vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1,
     maxBytesPerFrame: 102_400,
     maxBytesPerCandidatePerFrame: 210,
@@ -184,10 +175,10 @@ const WORKLOADS = [
   {
     name: 'with final Phase 5 host sources live (pre-cable-migration surface)',
     profile: 'phase5-military',
-    entries: LOCAL_OVERLAY_COHORT_LIMIT * 2 + FIRMS_AMBIENT_COHORT_LIMIT
+    entries: LOCAL_OVERLAY_COHORT_LIMIT * 2
       + vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
       + 3,
-    candidates: LOCAL_OVERLAY_COHORT_LIMIT * 2 + FIRMS_AMBIENT_COHORT_LIMIT
+    candidates: LOCAL_OVERLAY_COHORT_LIMIT * 2
       + vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
       + 3,
     maxBytesPerFrame: 132_000,
@@ -198,11 +189,11 @@ const WORKLOADS = [
   {
     name: 'with final Phase 5 sources and bounded rocket-mission markers live',
     profile: 'phase5-rockets',
-    entries: LOCAL_OVERLAY_COHORT_LIMIT * 2 + FIRMS_AMBIENT_COHORT_LIMIT
+    entries: LOCAL_OVERLAY_COHORT_LIMIT * 2
       + vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
       + 3
       + ROCKET_MISSION_AMBIENT_OVERLAY_COHORT_LIMIT,
-    candidates: LOCAL_OVERLAY_COHORT_LIMIT * 2 + FIRMS_AMBIENT_COHORT_LIMIT
+    candidates: LOCAL_OVERLAY_COHORT_LIMIT * 2
       + vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
       + 3
       + ROCKET_MISSION_AMBIENT_OVERLAY_COHORT_LIMIT,
@@ -220,11 +211,11 @@ const WORKLOADS = [
     // bounds until the row is re-measured without it.
     name: 'with every shared-host source and bounded Radio text live',
     profile: 'all-live-radio',
-    entries: LOCAL_OVERLAY_COHORT_LIMIT * 2 + FIRMS_AMBIENT_COHORT_LIMIT
+    entries: LOCAL_OVERLAY_COHORT_LIMIT * 2
       + vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
       + 3
       + ROCKET_MISSION_AMBIENT_OVERLAY_COHORT_LIMIT + RADIO_OVERLAY_COHORT_LIMIT + 1,
-    candidates: LOCAL_OVERLAY_COHORT_LIMIT * 2 + FIRMS_AMBIENT_COHORT_LIMIT
+    candidates: LOCAL_OVERLAY_COHORT_LIMIT * 2
       + vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
       + 3
       + ROCKET_MISSION_AMBIENT_OVERLAY_COHORT_LIMIT + RADIO_OVERLAY_COHORT_LIMIT + 1,

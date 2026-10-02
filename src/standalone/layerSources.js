@@ -18,15 +18,11 @@ import { createNexradSource } from '../layers/nexrad/source.js';
 import { createNwsWarningsSource } from '../layers/nwsWarnings/source.js';
 import { createTeamChasersSource } from '../layers/teamChasers/source.js';
 import { createWindSource } from '../layers/wind/source.js';
-import { createFirmsSource } from '../layers/firms/source.js';
-import { createReferenceSources } from '../sources/reference.js';
-export { createReferenceSources as createStandaloneReferenceSources } from '../sources/reference.js';
 
 /** Select standalone providers without starting their acquisition. */
 export function createStandaloneLayerSources() {
   const mapTiles = createOpenFreeMapSource();
   return {
-    ...createReferenceSources(),
     flights: createOpenSkySource(),
     military: createAdsbLolSource(),
     vessels: createAisStreamSource({
@@ -40,7 +36,6 @@ export function createStandaloneLayerSources() {
     installations: createInstallationSource({ mapTiles }),
     satellites: createSatelliteSource(),
     launches: createLaunchSource(),
-    firms: createFirmsSource(),
     wind: createWindSource(),
     weather: createWeatherSource(),
     cyclones: createCycloneSource(),

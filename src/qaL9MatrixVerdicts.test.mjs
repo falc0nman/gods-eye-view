@@ -180,11 +180,11 @@ test('an inconclusive floor verdict fails the oracle, it does not skip it', () =
 
 // ── key-state guard ───────────────────────────────────────────────────────
 test('an unknown key state fails; it never becomes an owner-run skip', () => {
-  const v = keyGuard('FIRMS', 'error');
+  const v = keyGuard('TOMTOM', 'error');
   assert.equal(v.status, FAIL);
-  assert.equal(keyGuard('FIRMS', null).status, SKIP);
-  assert.equal(keyGuard('FIRMS', true), null, 'a known key state does not short-circuit');
-  assert.equal(keyGuard('FIRMS', false), null);
+  assert.equal(keyGuard('TOMTOM', null).status, SKIP);
+  assert.equal(keyGuard('TOMTOM', true), null, 'a known key state does not short-circuit');
+  assert.equal(keyGuard('TOMTOM', false), null);
 });
 
 // ── finding 5: known conditions explain, never excuse ─────────────────────
@@ -208,8 +208,7 @@ function fail(detail) { return { status: FAIL, detail }; }
 test('every layer the matrix can enable has an attribution expectation', () => {
   // C11 enables military-installations, which the old check filtered out.
   for (const id of ['flights', 'satellites', 'cctv', 'traffic',
-    'ais-live-vessels', 'military-installations', 'local-datacenters', 'local-dams',
-    'local-firms']) {
+    'ais-live-vessels', 'military-installations', 'local-datacenters', 'local-dams']) {
     const expectation = requiredCreditFor(id);
     assert.ok(expectation?.regex, `${id} needs a credit expectation`);
   }

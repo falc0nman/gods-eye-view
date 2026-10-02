@@ -40,7 +40,7 @@ const PANEL_GROUPS = [
   },
   {
     label: 'Events',
-    ids: ['rocket-launches', 'local-firms', 'fire-perimeters'],
+    ids: ['rocket-launches'],
   },
   {
     label: 'Weather',
@@ -68,7 +68,6 @@ const PANEL_LABELS = {
   bikeshare: 'Bike Share',
   cctv: 'Cameras',
   'local-datacenters': 'Data Centers',
-  'local-firms': 'Active Fires',
 };
 
 function panelLabel(layer) {

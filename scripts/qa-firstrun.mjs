@@ -113,19 +113,16 @@ const appState = (page) => page.evaluate(() => {
   const all = dm?.getAll?.() || [];
   for (const id of [
     'local-datacenters', 'local-dams',
-    'local-firms', 'weather-radar', 'nws-warnings', 'team-chasers', 'flights', 'military', 'rocket-launches', 'satellites',
+    'weather-radar', 'nws-warnings', 'team-chasers', 'flights', 'military', 'rocket-launches', 'satellites',
   ]) {
     layers[id] = !!dm?.isEnabled?.(id);
     counts[id] = all.find((entry) => entry.id === id)?.stats?.count ?? null;
   }
-  const firms = all.find((entry) => entry.id === 'local-firms');
   return {
     heightKm: carto ? Math.round(carto.height / 1000) : null,
     layers,
     counts,
     contextMode: sm?.getContextModeState?.().mode ?? null,
-    firmsError: firms?.stats?.error ?? null,
-    firmsCount: firms?.stats?.count ?? null,
     detectionOverridden: sm?._detectionUserOverridden ?? null,
     durable: localStorage.getItem('gev:first-run-mission:v1'),
     session: sessionStorage.getItem('gev:first-run-mission-session:v1'),

@@ -1,7 +1,7 @@
 /**
  * Analyst query engine — answers spoken questions over data ALREADY sitting
- * client-side in the layers ("how many flights over Texas?", "biggest fire
- * near LA?", "which ships are headed to Oakland?").
+ * client-side in the layers ("how many flights over Texas?", "which ships
+ * are headed to Oakland?").
  *
  * Design (owner-ratified, docs/voice-engine-evaluation-2026-07-23.md §5.3):
  *  - ENGINE (this module) is pure query logic over plain record arrays; it
@@ -52,11 +52,6 @@ export const ANALYST_LAYERS = {
     text: ['name', 'mmsi', 'shipType', 'destination', 'navStatus'],
     flags: [],
   },
-  'local-firms': {
-    numeric: ['frp'],
-    text: ['confidence', 'satellite'],
-    flags: [],
-  },
   satellites: {
     numeric: ['altitudeM', 'speedMps'],
     text: ['name', 'noradId', 'satelliteClass', 'group'],
@@ -70,11 +65,6 @@ export const ANALYST_LAYERS = {
   'local-dams': {
     numeric: [],
     text: ['name', 'operator', 'river', 'output'],
-    flags: [],
-  },
-  'fire-perimeters': {
-    numeric: ['acres', 'containedPct', 'personnel', 'costToDate'],
-    text: ['name', 'state', 'county', 'cause', 'behavior', 'complexity'],
     flags: [],
   },
 };
