@@ -8,6 +8,7 @@ services:
   db:
     image: postgis/postgis:17-3.5
     entrypoint: [/bin/sh, /opt/gev/entrypoint.sh]
+    command: [postgres]
     restart: unless-stopped
     environment:
       POSTGRES_DB: gev
