@@ -47,8 +47,8 @@ test('the layer is registered for share links and sprite stacking', () => {
   );
   const index = SPRITE_LAYER_ORDER.indexOf('transit');
   assert.ok(
-    index > SPRITE_LAYER_ORDER.indexOf('bikeshare'),
-    'vehicles draw above bikeshare stations',
+    index > SPRITE_LAYER_ORDER.indexOf('cctv'),
+    'vehicles draw above CCTV cameras',
   );
   assert.ok(
     index < SPRITE_LAYER_ORDER.indexOf('flights'),

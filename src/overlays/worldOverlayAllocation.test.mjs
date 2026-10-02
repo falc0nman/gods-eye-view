@@ -177,10 +177,10 @@ const WORKLOADS = [
     profile: 'phase5-military',
     entries: LOCAL_OVERLAY_COHORT_LIMIT * 2
       + vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
-      + 3,
+      + 2,
     candidates: LOCAL_OVERLAY_COHORT_LIMIT * 2
       + vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
-      + 3,
+      + 2,
     maxBytesPerFrame: 132_000,
     maxBytesPerCandidatePerFrame: 225,
     saturated: true,
@@ -191,11 +191,11 @@ const WORKLOADS = [
     profile: 'phase5-rockets',
     entries: LOCAL_OVERLAY_COHORT_LIMIT * 2
       + vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
-      + 3
+      + 2
       + ROCKET_MISSION_AMBIENT_OVERLAY_COHORT_LIMIT,
     candidates: LOCAL_OVERLAY_COHORT_LIMIT * 2
       + vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
-      + 3
+      + 2
       + ROCKET_MISSION_AMBIENT_OVERLAY_COHORT_LIMIT,
     // 142,000 deliberately carries ~6% headroom (vs the ~3.3% the previous
     // aggregate row ran at): a chosen margin correction, not drift.
@@ -213,11 +213,11 @@ const WORKLOADS = [
     profile: 'all-live-radio',
     entries: LOCAL_OVERLAY_COHORT_LIMIT * 2
       + vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
-      + 3
+      + 2
       + ROCKET_MISSION_AMBIENT_OVERLAY_COHORT_LIMIT + RADIO_OVERLAY_COHORT_LIMIT + 1,
     candidates: LOCAL_OVERLAY_COHORT_LIMIT * 2
       + vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
-      + 3
+      + 2
       + ROCKET_MISSION_AMBIENT_OVERLAY_COHORT_LIMIT + RADIO_OVERLAY_COHORT_LIMIT + 1,
     maxBytesPerFrame: 182_000,
     maxBytesPerCandidatePerFrame: 225,

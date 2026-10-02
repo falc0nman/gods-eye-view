@@ -68,7 +68,7 @@ check, not a JavaScript sandbox. Common voice controls cannot depend on a
 Realtime protocol implementation. Negative fixtures cover indirect helpers,
 self-package imports, symlinks and unreachable files.
 
-Source factories have dedicated exports for bikeshare, CCTV,
+Source factories have dedicated exports for CCTV,
 installations, launches, radio, satellites and traffic. They preserve the
 same factory implementations without loading layer rendering. CCTV source
 endpoint policy has a plain owner separate
@@ -172,9 +172,9 @@ response limits and cache policy. The boundary gate checks this portable entry
 separately from the Node providers. Satellite rendering and launch replay remain
 in their existing browser modules.
 
-## Terrain, traffic and bike-share providers
+## Terrain and traffic providers
 
-`gods-eye-view/server/providers/terrain`, `/traffic` and `/gbfs`
+`gods-eye-view/server/providers/terrain` and `/traffic`
 are separate Node-only entries. Each owns its existing middleware and
 process-scoped cache or request handling. Standalone composition mounts them in
 the original order; their imports do not start acquisition.
@@ -182,12 +182,11 @@ the original order; their imports do not start acquisition.
 `gods-eye-view/sources/terrain` exports existing point-key, retry and cache
 reconstruction mechanics with injectable acquisition dependencies.
 `gods-eye-view/sources/traffic` exports tile math and budget calculations.
-`gods-eye-view/sources/gbfs` exports host/path acceptance and cache-header rules.
 These entries import no Node middleware, application configuration or rendering.
 Callers retain their request admission and transport policy.
 
-Browser terrain sampling, traffic matching/drawing, fire overlays and bike-share
-layer lifecycle remain in their current modules. This extraction changes no
+Browser terrain sampling and traffic matching/drawing remain in their current
+modules. This extraction changes no
 source defaults, credentials, quotas, data interpretation or visual behavior.
 
 ## Local search, regional context, voice and setup

@@ -75,7 +75,7 @@ test('scene clock subscribers receive authoritative forward playback snapshots',
 /** The layer registry as main.js builds it (src/main.js dataManager.register calls). */
 const REGISTERED = [
   'flights', 'military', 'earthquakes', 'satellites', 'rocket-launches', 'traffic',
-  'cctv', 'radio', 'bikeshare', 'ais-live-vessels', 'military-installations',
+  'cctv', 'radio', 'ais-live-vessels', 'military-installations',
   'military-awareness', 'local-datacenters', 'local-dams',
 ];
 

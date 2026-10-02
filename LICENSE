@@ -34,7 +34,7 @@ remain subject to their own licenses and terms. Notably:
     Open Database License (ODbL) 1.0 — attribution + share-alike on the data.
 
 Live sources (Google Maps, OpenSky, adsb.lol, AISStream, CelesTrak,
-OSM Overpass, City of Austin, GBFS) are fetched at runtime under each
+OSM Overpass, City of Austin) are fetched at runtime under each
 provider's terms; some (e.g. Google Maps, OpenSky) restrict commercial use
 and require you to supply your own credentials.
 

@@ -122,22 +122,6 @@
     "modules": ["src/data/tomtomTiles.js"],
     "external": []
   },
-  "gbfs-provider": {
-    "runtime": "node",
-    "exports": ["./server/providers/gbfs"],
-    "modules": [
-      "server/providers/gbfs.js",
-      "server/providers/common/http.js",
-      "src/data/gbfsSource.js",
-      "src/sources/httpBody.js"
-    ],
-    "external": []
-  },
-  "gbfs-source": {
-    "exports": ["./sources/gbfs"],
-    "modules": ["src/data/gbfsSource.js"],
-    "external": []
-  },
   "cctv-provider": {
     "runtime": "node",
     "exports": ["./server/providers/cctv"],
@@ -1009,28 +993,6 @@
     ],
     "external": ["cesium", "pbf", "@mapbox/vector-tile"]
   },
-  "bikeshare-layer": {
-    "exports": ["./layers/bikeshare"],
-    "modules": [
-      "src/layers/bikeshare/controls.js",
-      "src/layers/bikeshare/index.js",
-      "src/layers/bikeshare/ingestion.js",
-      "src/layers/bikeshare/lifecycle.js",
-      "src/layers/bikeshare/model.js",
-      "src/layers/bikeshare/policy.js",
-      "src/layers/bikeshare/queries.js",
-      "src/layers/bikeshare/registry.js",
-      "src/layers/bikeshare/rendering.js",
-      "src/layers/bikeshare/selection.js",
-      "src/layers/bikeshare/source.js",
-      "src/layers/bikeshare/state.js",
-      "src/layers/bikeshare/testing.js",
-      "src/layers/bikeshare/viewport.js",
-      "src/data/inputOwnership.js",
-      "src/data/cameraSensitivity.js"
-    ],
-    "external": ["cesium"]
-  },
   "cctv-layer": {
     "exports": ["./layers/cctv"],
     "modules": [
@@ -1219,7 +1181,6 @@
       "src/app/errors.js",
       "src/app/layerPresentation.js",
       "src/app/layers/aisLiveVessels.js",
-      "src/app/layers/bikeshare.js",
       "src/app/layers/cctv.js",
       "src/app/layers/flights.js",
       "src/app/layers/militaryAwareness.js",
@@ -1262,7 +1223,6 @@
       "src/data/aircraftRecession.js",
       "src/data/aisLiveVessels.js",
       "src/data/analystEngine.js",
-      "src/data/bikeshare.js",
       "src/data/cctv.js",
       "src/data/cctvCards.js",
       "src/data/cctvFootprint.js",
@@ -1384,20 +1344,6 @@
       "src/layers/awareness/state.js",
       "src/layers/awareness/subject.js",
       "src/layers/awareness/testing.js",
-      "src/layers/bikeshare/controls.js",
-      "src/layers/bikeshare/index.js",
-      "src/layers/bikeshare/ingestion.js",
-      "src/layers/bikeshare/lifecycle.js",
-      "src/layers/bikeshare/model.js",
-      "src/layers/bikeshare/policy.js",
-      "src/layers/bikeshare/queries.js",
-      "src/layers/bikeshare/registry.js",
-      "src/layers/bikeshare/rendering.js",
-      "src/layers/bikeshare/selection.js",
-      "src/layers/bikeshare/source.js",
-      "src/layers/bikeshare/state.js",
-      "src/layers/bikeshare/testing.js",
-      "src/layers/bikeshare/viewport.js",
       "src/layers/cctv/calibration.js",
       "src/layers/cctv/cards.js",
       "src/layers/cctv/catalog.js",
@@ -1904,7 +1850,6 @@
       "src/layers/wind/rendering.js",
       "src/layers/weather/rasterTiles.js",
       "src/app/layers/aisLiveVessels.js",
-      "src/app/layers/bikeshare.js",
       "src/app/layers/cctv.js",
       "src/app/layers/flights.js",
       "src/app/layers/militaryAwareness.js",
@@ -2003,20 +1948,6 @@
       "src/layers/awareness/state.js",
       "src/layers/awareness/subject.js",
       "src/layers/awareness/testing.js",
-      "src/layers/bikeshare/controls.js",
-      "src/layers/bikeshare/index.js",
-      "src/layers/bikeshare/ingestion.js",
-      "src/layers/bikeshare/lifecycle.js",
-      "src/layers/bikeshare/model.js",
-      "src/layers/bikeshare/policy.js",
-      "src/layers/bikeshare/queries.js",
-      "src/layers/bikeshare/registry.js",
-      "src/layers/bikeshare/rendering.js",
-      "src/layers/bikeshare/selection.js",
-      "src/layers/bikeshare/source.js",
-      "src/layers/bikeshare/state.js",
-      "src/layers/bikeshare/testing.js",
-      "src/layers/bikeshare/viewport.js",
       "src/layers/cctv/calibration.js",
       "src/layers/cctv/cards.js",
       "src/layers/cctv/catalog.js",
@@ -2547,11 +2478,6 @@
       "src/voice/session.js",
       "src/voice/control.js"
     ],
-    "external": []
-  },
-  "bikeshare-source": {
-    "exports": ["./layers/bikeshare/source"],
-    "modules": ["src/layers/bikeshare/source.js"],
     "external": []
   },
   "cctv-source": {

@@ -46,8 +46,7 @@
  * sides need the same answer: the server as a trust boundary, the browser to
  * give immediate feedback on a typed address without a round trip. Sharing one
  * module means they cannot drift — the same reason #274 exists about eight
- * copies of haversine. `server/providers/gbfs.js` importing
- * `src/data/gbfsSource.js` is the established direction for this.
+ * copies of haversine.
  *
  * Note on reuse: `isNonGlobalIpv4()` in `server/providers/radio/stations.js` answers a
  * neighbouring question and was deliberately NOT reused. It reports malformed

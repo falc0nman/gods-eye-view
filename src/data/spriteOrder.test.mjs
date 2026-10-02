@@ -9,7 +9,7 @@ import {
 import flightsLayer from './flights.js';
 import aisLiveVesselsLayer from './aisLiveVessels.js';
 
-const ORDER = ['cctv', 'transit', 'bikeshare', 'ais', 'military', 'flights'];
+const ORDER = ['cctv', 'transit', 'directions', 'ais', 'military', 'flights'];
 
 function makePrimitives(initial = []) {
   return {
@@ -39,15 +39,15 @@ test('restoreSpriteOrder raises live collections bottom-to-top and skips destroy
     collections.flights,
     collections.ais,
     collections.cctv,
-    collections.bikeshare,
+    collections.directions,
     collections.military,
   ]);
 
   restoreSpriteOrder({ scene: { primitives } });
 
-  assert.deepEqual(primitives.calls, ['cctv', 'bikeshare', 'ais', 'military', 'flights']);
+  assert.deepEqual(primitives.calls, ['cctv', 'directions', 'ais', 'military', 'flights']);
   assert.deepEqual(primitives.items.map((item) => item.id), [
-    'cctv', 'bikeshare', 'ais', 'military', 'flights',
+    'cctv', 'directions', 'ais', 'military', 'flights',
   ]);
 
   for (const id of ORDER) unregisterSpriteCollection(id);

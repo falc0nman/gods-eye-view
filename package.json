@@ -110,10 +110,6 @@
       "node": "./server/providers/traffic.js"
     },
     "./sources/traffic": "./src/data/tomtomTiles.js",
-    "./server/providers/gbfs": {
-      "node": "./server/providers/gbfs.js"
-    },
-    "./sources/gbfs": "./src/data/gbfsSource.js",
     "./server/providers/cctv": {
       "node": "./server/providers/cctv.js"
     },
@@ -168,7 +164,6 @@
     "./layers/installations": "./src/layers/installations/index.js",
     "./layers/awareness": "./src/layers/awareness/index.js",
     "./layers/traffic": "./src/layers/traffic/index.js",
-    "./layers/bikeshare": "./src/layers/bikeshare/index.js",
     "./layers/directions": "./src/layers/directions/index.js",
     "./layers/cctv": "./src/layers/cctv/index.js",
     "./layers/radio": "./src/layers/radio/index.js",
@@ -224,7 +219,6 @@
     "./voice/session": "./src/voice/session.js",
     "./voice/session-controls": "./src/voice/sessionCommands.js",
     "./voice/realtime-session": "./src/voice/realtimeSession.js",
-    "./layers/bikeshare/source": "./src/layers/bikeshare/source.js",
     "./layers/cctv/source": "./src/layers/cctv/source.js",
     "./layers/installations/source": "./src/layers/installations/source.js",
     "./layers/launches/source": "./src/layers/launches/source.js",

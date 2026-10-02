@@ -852,24 +852,24 @@ test('disable leaves the fine camera trigger another layer asked for', async (t)
   // The sequence that broke it: two layers ask for the SAME sensitivity, so
   // the value on the camera cannot say who owns it. Transit used to compare
   // the number, find its own 0.05 still there, and hand the coarse default
-  // back while Bikeshare was still driving off the fine one.
+  // back while Traffic was still driving off the fine one.
   const app = harness(t);
   assert.equal(app.viewer.camera.percentageChanged, 0.5);
 
   app.layer.enable(app.viewer);
   assert.equal(app.viewer.camera.percentageChanged, 0.05);
 
-  claimCameraSensitivity(app.viewer.camera, 'bikeshare', 0.05);
+  claimCameraSensitivity(app.viewer.camera, 'traffic', 0.05);
   app.layer.disable(app.viewer);
 
   assert.equal(
     app.viewer.camera.percentageChanged,
     0.05,
-    'bikeshare is still enabled, so the fine trigger stays',
+    'traffic is still enabled, so the fine trigger stays',
   );
-  assert.deepEqual(cameraSensitivityClaims(app.viewer.camera), ['bikeshare']);
+  assert.deepEqual(cameraSensitivityClaims(app.viewer.camera), ['traffic']);
 
-  releaseCameraSensitivity(app.viewer.camera, 'bikeshare');
+  releaseCameraSensitivity(app.viewer.camera, 'traffic');
   assert.equal(
     app.viewer.camera.percentageChanged,
     0.5,
@@ -3561,11 +3561,9 @@ test('reject then selected history backfill cannot resurrect a 111 km displaceme
   assert.equal(entry.track.resets, 0);
 });
 
-test('actual Traffic, Bikeshare and Transit lifecycles retain sensitivity in every enable/disable order', async (t) => {
+test('actual Traffic and Transit lifecycles retain sensitivity in every enable/disable order', async (t) => {
   const { createLifecycle: trafficLifecycle } =
     await import('../traffic/lifecycle.js');
-  const { createLifecycle: bikeLifecycle } =
-    await import('../bikeshare/lifecycle.js');
   const app = harness(t);
   const noop = () => {};
   const traffic = trafficLifecycle({
@@ -3581,40 +3579,11 @@ test('actual Traffic, Bikeshare and Transit lifecycles retain sensitivity in eve
       ingestion: { cancelActiveFetch: noop },
     },
   }).methods;
-  const bike = bikeLifecycle({
-    state: {
-      _pointCollection: {},
-      _overlayHost: { setVisible: noop },
-      _cityRuntime: new Map(),
-    },
-    services: {
-      sprites: { restoreSpriteOrder: noop },
-      picking: { registerPickOwner: noop, unregisterPickOwner: noop },
-    },
-    source: {},
-    parts: {
-      selection: {
-        _installClickHandler: noop,
-        _clearSelection: noop,
-        _onKeyDown: noop,
-      },
-      viewport: {
-        onCameraChanged: noop,
-        runProximityCheck: noop,
-        deactivateAllCities: noop,
-      },
-      ingestion: { abortAllInFlight: noop },
-    },
-  }).methods;
   app.viewer.camera.moveEnd = new Cesium.Event();
-  const layers = { traffic, bikeshare: bike, transit: app.layer };
+  const layers = { traffic, transit: app.layer };
   const orders = [
-    ['traffic', 'bikeshare', 'transit'],
-    ['traffic', 'transit', 'bikeshare'],
-    ['bikeshare', 'traffic', 'transit'],
-    ['bikeshare', 'transit', 'traffic'],
-    ['transit', 'traffic', 'bikeshare'],
-    ['transit', 'bikeshare', 'traffic'],
+    ['traffic', 'transit'],
+    ['transit', 'traffic'],
   ];
   try {
     for (const enable of orders)
@@ -3648,7 +3617,7 @@ test('actual Traffic, Bikeshare and Transit lifecycles retain sensitivity in eve
   }
 });
 
-test('moving and stationary transit stay adjacent above CCTV and Bikeshare during migration', async (t) => {
+test('moving and stationary transit stay adjacent above CCTV during migration', async (t) => {
   const {
     registerSpriteCollection,
     unregisterSpriteCollection,
@@ -3658,9 +3627,8 @@ test('moving and stationary transit stay adjacent above CCTV and Bikeshare durin
   app.layer.enable(app.viewer);
   app.layer._loadTransitFleetForTest(1, BOSTON, 70);
   const cctv = {},
-    bike = {},
     flights = {};
-  app.primitives.push(cctv, bike, flights);
+  app.primitives.push(cctv, flights);
   app.viewer.scene.primitives.raiseToTop = (c) => {
     app.primitives.splice(app.primitives.indexOf(c), 1);
     app.primitives.push(c);
@@ -3668,7 +3636,6 @@ test('moving and stationary transit stay adjacent above CCTV and Bikeshare durin
   const collections = new Map([
     ...app.sprites,
     ['cctv', cctv],
-    ['bikeshare', bike],
     ['flights', flights],
   ]);
   for (const [id, collection] of collections)
@@ -3686,7 +3653,6 @@ test('moving and stationary transit stay adjacent above CCTV and Bikeshare durin
     restoreSpriteOrder(app.viewer);
     const active = app.primitives.indexOf(entry.markerCollection);
     assert.ok(active > app.primitives.indexOf(cctv));
-    assert.ok(active > app.primitives.indexOf(bike));
     assert.ok(active < app.primitives.indexOf(flights));
     assert.equal(
       Math.abs(

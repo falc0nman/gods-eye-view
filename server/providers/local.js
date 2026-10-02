@@ -11,7 +11,6 @@ import { weatherEffectsProxy } from './regional/weather-effects.js';
 import { cctvProxy } from './cctv.js';
 import { defaultSourceRoot } from './common/source-root.js';
 import { radioBrowserProxy } from './radio.js';
-import { gbfsProxy } from './gbfs.js';
 import { localReceiversProxy } from './local-receivers.js';
 import { transitProxy } from './transit.js';
 import { adsbLolProxy } from './aircraft/adsb-lol.js';
@@ -54,7 +53,6 @@ function localProviderRegistry({ notificationTransport } = {}) {
     cctvProxy({ sourceRoot: defaultSourceRoot }),
   );
   registry.registerLegacy('radio-browser', radioBrowserProxy);
-  registry.registerLegacy('gbfs', gbfsProxy);
   registry.registerLegacy('local-receivers', localReceiversProxy);
   registry.registerLegacy('transit', transitProxy);
   registry.registerLegacy('adsb-lol', adsbLolProxy);

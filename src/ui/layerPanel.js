@@ -27,7 +27,6 @@ const PANEL_GROUPS = [
       'ais-live-vessels',
       'traffic',
       'transit',
-      'bikeshare',
     ],
   },
   {
@@ -65,7 +64,6 @@ const PANEL_POSITIONS = new Map(
 );
 const PANEL_LABELS = {
   'ais-live-vessels': 'Live Vessels',
-  bikeshare: 'Bike Share',
   cctv: 'Cameras',
   'local-datacenters': 'Data Centers',
 };

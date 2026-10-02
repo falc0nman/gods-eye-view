@@ -4,7 +4,6 @@ import vessels from '../data/aisLiveVessels.js';
 import { configureCctvSource } from '../data/cctv.js';
 import { configureRadioSource } from '../data/radio.js';
 import { configureTrafficSource } from '../data/traffic.js';
-import { configureBikeshareSource } from '../data/bikeshare.js';
 import { configureInstallationSource } from '../data/militaryInstallations.js';
 import { configureSatelliteSource } from '../data/satellites.js';
 import { configureLaunchSource } from '../data/rocketLaunches.js';
@@ -14,7 +13,6 @@ const configure = {
   cctv: configureCctvSource,
   radio: configureRadioSource,
   traffic: configureTrafficSource,
-  bikeshare: configureBikeshareSource,
   installations: configureInstallationSource,
   satellites: configureSatelliteSource,
   launches: configureLaunchSource,
