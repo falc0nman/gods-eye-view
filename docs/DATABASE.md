@@ -3,8 +3,9 @@
 GEV's optional system of record runs in a separate PostgreSQL 17 / PostGIS 3.5
 container. This foundation defines storage and does not yet implement
 authentication or shared-workspace APIs. Ordinary `npm run dev` works without
-a database. `/api/database/health` reports `ready`, `disabled`, or `unavailable`
-without connection details or credentials.
+a database. The standalone backend's `/readyz` reports readiness without
+connection details or credentials; `/api/database/health` requires an authorized
+session. See [BACKEND.md](BACKEND.md) for the GW-86 service and authorization contract.
 
 ## Start the local stack
 
@@ -20,9 +21,9 @@ docker compose ps
 
 Open <http://localhost:4173>. The existing optional `.env` supplies provider keys;
 it is passed at runtime and excluded from the image. The app's port is bound to
-loopback. PostgreSQL has no published host port. This stack runs the existing
-standalone Vite server locally; internet-facing hosting and authentication belong
-to the deployment/access-control work.
+loopback. PostgreSQL and the backend have no published host ports. The stack now
+serves a static build through Nginx and a separate Node backend; Vite remains a
+local development tool. OAuth login and surviving proxy migration remain follow-up work.
 
 Startup waits for PostgreSQL, runs checked migrations, then starts the app,
 hourly retention worker, and daily backup worker. PostgreSQL is limited to 2 CPUs,

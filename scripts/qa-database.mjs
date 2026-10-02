@@ -45,7 +45,7 @@ try {
   console.log(
     'PASS: persistent volume, automated backup, complete restore, spatial fixture and runtime grants',
   );
-  compose('exec', '-T', 'app', 'node', 'scripts/db-health-check.mjs');
+  compose('run', '--rm', 'qa', 'node', 'scripts/db-health-check.mjs');
 } finally {
   compose(
     'run',

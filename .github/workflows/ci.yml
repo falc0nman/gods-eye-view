@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   database:
-    name: PostgreSQL, PostGIS and backup restore
+    name: Backend, PostgreSQL and backup restore
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -30,9 +30,11 @@ jobs:
         run: node scripts/db-secrets.mjs
       - name: Verify database, persistence and backup restore
         run: node scripts/qa-database.mjs
+      - name: Verify backend authorization, failure recovery and shutdown
+        run: node scripts/qa-backend.mjs
       - name: Show service state
         if: failure()
-        run: docker compose ps --all && docker compose logs --tail=100 db migrate maintenance backup app
+        run: docker compose ps --all && docker compose logs --tail=100 db migrate maintenance backup backend app
       - name: Stop containers and preserve volumes
         if: always()
         run: docker compose down

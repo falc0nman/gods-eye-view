@@ -1,5 +1,11 @@
 # Changelog
 
+- GW-86 now serves the production frontend as static assets through Nginx and
+  runs a separate Node backend with PostGIS readiness, live session/permission
+  checks, default API denial, CSRF protection and graceful shutdown. Vite remains
+  a development tool. Surviving provider proxies move behind backend auth after
+  GW-53's removal work merges.
+
 - Added the optional PostgreSQL 17 / PostGIS 3.5 Compose stack for GW-85, with
   persistent storage, resource limits, checksummed migrations, a server-only
   least-privilege connection pool, and the initial identity, workspace, position,
