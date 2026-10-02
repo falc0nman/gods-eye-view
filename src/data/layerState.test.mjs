@@ -199,8 +199,8 @@ function encode(state) {
 
 test('production registry is exact, canonical, and rejects incomplete contracts', async () => {
   assert.equal(validateLayerStateRegistry(), true);
-  assert.equal(REGISTERED_LAYER_IDS.length, 29);
-  assert.equal(new Set(REGISTERED_LAYER_IDS).size, 29);
+  assert.equal(REGISTERED_LAYER_IDS.length, 28);
+  assert.equal(new Set(REGISTERED_LAYER_IDS).size, 28);
   assert.ok(REGISTERED_LAYER_IDS.includes('transit'));
   assert.deepEqual(REGISTERED_LAYER_IDS, [...REGISTERED_LAYER_IDS].sort());
   assert.deepEqual(LEGACY_LAYER_STATE_TOKENS, {
@@ -537,6 +537,15 @@ test('removed layers keep their tokens reserved and old links skip them', () => 
     'bhote-koshi-locator',
   ]);
   assert.ok(encode(decoded).includes('l=c'));
+  // GW-57 removed submarine cables (u) the same way.
+  assert.equal(
+    LAYER_STATE_TOKEN_RESERVATIONS['telegeography-submarine-cables'],
+    'u',
+  );
+  assert.deepEqual(
+    decodeLayerStateParams(new URLSearchParams('v=2&l=c.u')).retiredLayerIds,
+    ['telegeography-submarine-cables'],
+  );
   // A token that was never reserved is still malformed.
   assert.equal(decodeLayerStateParams(new URLSearchParams('v=2&l=c.Q')), null);
   assert.equal(decodeLayerStateParams(new URLSearchParams('v=2&l=h.h')), null);

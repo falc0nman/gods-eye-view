@@ -41,7 +41,6 @@ const SCENES = Object.freeze([
   { id: 'datacenters', layers: ['local-datacenters'], camera: [-98, 38, 6_000_000, 0, -Math.PI / 2] },
   { id: 'dams', layers: ['local-dams'], camera: [-98, 38, 6_000_000, 0, -Math.PI / 2] },
   { id: 'datacenters+dams', layers: ['local-datacenters', 'local-dams'], camera: [-98, 38, 6_000_000, 0, -Math.PI / 2] },
-  { id: 'submarine-cables', layers: ['telegeography-submarine-cables'], camera: [-20, 12, 11_000_000, 0, -Math.PI / 2] },
   { id: 'cctv-street', layers: ['cctv'], cctvHeightM: 1_500 },
   { id: 'cctv-city', layers: ['cctv'], cctvHeightM: 6_000 },
   { id: 'cctv-high', layers: ['cctv'], cctvHeightM: 12_000 },
@@ -57,7 +56,6 @@ const SCENES = Object.freeze([
 
 const SCENE_ALIASES = Object.freeze({
   'datacenters-dams': 'datacenters+dams',
-  cables: 'submarine-cables',
   'tracked-civil': 'tracked-civil-aircraft',
   missions: 'missions-selected',
   cockpit: 'cockpit-mode',
@@ -388,7 +386,7 @@ async function readLayerState(page, layerId) {
 
 async function waitForLayer(page, layerId) {
   const dataBearing = new Set([
-    'local-datacenters', 'local-dams', 'telegeography-submarine-cables', 'cctv',
+    'local-datacenters', 'local-dams', 'cctv',
     'local-firms', 'ais-live-vessels', 'flights', 'satellites', 'rocket-launches',
   ]);
   if (!dataBearing.has(layerId)) return readLayerState(page, layerId);

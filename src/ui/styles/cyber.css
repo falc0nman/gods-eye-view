@@ -587,11 +587,6 @@
   content: '▦';
 }
 :root[data-ui-theme='cyber']
-  .data-toggle-row[data-layer-id='submarine-cables']
-  .data-icon::before {
-  content: '≋';
-}
-:root[data-ui-theme='cyber']
   .data-toggle-row[data-layer-id='local-dams']
   .data-icon::before {
   content: '▰';

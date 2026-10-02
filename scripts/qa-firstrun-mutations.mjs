@@ -235,7 +235,7 @@ const MUTATIONS = [
     defect: 'the removed INFRASTRUCTURE tile comes back as a one-click globe dump',
     file: 'module',
     from: "  environmental: Object.freeze({",
-    to: "  infrastructure: Object.freeze({\n    kind: 'globe',\n    layerIds: Object.freeze(['local-datacenters', 'local-dams', 'telegeography-submarine-cables']),\n    busyText: 'Mapping global infrastructure…',\n  }),\n  environmental: Object.freeze({",
+    to: "  infrastructure: Object.freeze({\n    kind: 'globe',\n    layerIds: Object.freeze(['local-datacenters', 'local-dams']),\n    busyText: 'Mapping global infrastructure…',\n  }),\n  environmental: Object.freeze({",
   },
   {
     defect: 'ENVIRONMENTAL drops the keyless earthquakes that carry it without a key',

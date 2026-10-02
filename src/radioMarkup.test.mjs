@@ -188,6 +188,8 @@ test('no unchanged Realtime tool definition drifts silently', () => {
     'set_layer_visibility',
     // Storm chase adds nexrad / nws-warnings / team-chasers to the layer menu.
     'show_data_layers_menu',
+    // GW-57 removes telegeography-submarine-cables from its layer enum.
+    'get_entity_context',
   ]);
   const unchanged = realtimeTools()
     .filter((tool) => !TOUCHED.has(tool.name))
@@ -198,13 +200,13 @@ test('no unchanged Realtime tool definition drifts silently', () => {
   const hudLayout = unchanged.find((tool) => tool.name === 'set_hud').parameters.properties.layout;
   assert.deepEqual(hudLayout.enum, ['tactical', 'operator', 'minimal', 'cyber']);
   hudLayout.enum = hudLayout.enum.filter((layout) => layout !== 'cyber');
-  assert.equal(unchanged.length, 17);
+  assert.equal(unchanged.length, 16);
   const digest = createHash('sha256')
     .update(JSON.stringify(unchanged))
     .digest('hex')
     .slice(0, 16);
   // Analyst additions and ISS wording correction are explicitly excluded above; all other tool definitions retain their pin.
-  assert.equal(digest, '9db1b4c24d0b37fd', 'an unchanged Realtime tool definition drifted');
+  assert.equal(digest, '1a094c509b54d5cd', 'an unchanged Realtime tool definition drifted');
 });
 
 test('Radio volume and mission speed share the Sharpen slider visual language', () => {

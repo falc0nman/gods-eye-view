@@ -2,8 +2,7 @@
 /**
  * qa-infra-lod — browser checks for the local-infrastructure LOD declutter.
  *
- * Datacenters and dams use a bounded active-stem set. Cables are loaded for
- * a representative combined view but use their own unchanged renderer.
+ * Datacenters and dams use a bounded active-stem set.
  *
  * Two jobs:
  *  1. GATE — with datacenters + dams enabled:
@@ -47,7 +46,6 @@ const CONTROL = argv.includes('--control');
 const HEADFUL = argv.includes('--headful');
 
 const INFRA_LAYER_IDS = ['local-datacenters', 'local-dams'];
-const CABLE_LAYER_ID = 'telegeography-submarine-cables';
 
 const results = [];
 function check(name, pass, detail) {
@@ -116,20 +114,16 @@ try {
   // Enable the infrastructure layers (skipped in --control so the orbit cost
   // measures the empty scene for attribution).
   if (!CONTROL) {
-    const loaded = await page.evaluate(async (infraIds, cableId) => {
+    const loaded = await page.evaluate(async (infraIds) => {
       const gev = window.__godsEyeView;
-      const ids = [...infraIds, cableId];
+      const ids = [...infraIds];
       for (const id of ids) {
         try { await gev.dataManager.setEnabled(id, true, { origin: 'user' }); } catch { /* reported below */ }
       }
       const deadline = performance.now() + 60_000;
       const stat = (id) => gev.dataManager.layers.get(id)?.module?.getStats?.() || {};
       while (performance.now() < deadline) {
-        // Every id, cables included. The cable layer's enable() only starts
-        // `void load()`, and the manager's immediate update() returns early
-        // because `_loading` is already true — so waiting on datacenters and
-        // dams alone releases the measurement before ~2,600 cable references
-        // exist, and the advertised three-layer frame cost underreports.
+        // Wait on every id: enable() only starts `void load()`.
         const done = ids.every((id) => {
           const s = stat(id);
           return (s.count || 0) > 0 || s.error;
@@ -141,9 +135,9 @@ try {
       const out = {};
       for (const id of ids) out[id] = stat(id);
       return out;
-    }, INFRA_LAYER_IDS, CABLE_LAYER_ID);
+    }, INFRA_LAYER_IDS);
     report('layer load stats', loaded);
-    for (const id of [...INFRA_LAYER_IDS, CABLE_LAYER_ID]) {
+    for (const id of INFRA_LAYER_IDS) {
       check(`${id} loaded its bundled dataset`, (loaded[id]?.count || 0) > 0, loaded[id]);
     }
     // Nudge a render pass so the first post-enable LOD walk runs.

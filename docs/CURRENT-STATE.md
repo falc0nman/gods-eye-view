@@ -405,7 +405,7 @@ Transit snapshot and selected-history reads use an explicit source interface. Th
 
 Place search accepts an explicit Nominatim provider with independently configured search and reverse endpoints. The default offline/Google/Photon/local-fallback order is unchanged when no provider is selected. Provider adapters share normalized coordinates, viewport framing and reverse labels; roads and boundary geometry remain separate services. Portable capped-response and Overpass lexical helpers are exported independently of the Node server.
 
-Reference feed construction is exported through `sources/reference`; the cable source also has a dedicated `layers/submarine-cables/source` entry. Standalone catalog compatibility remains available. Source choices, data and attribution are unchanged.
+Reference feed construction is exported through `sources/reference`. Standalone catalog compatibility remains available. Source choices, data and attribution are unchanged.
 
 Source factories have dedicated `layers/<family>/source` exports. ALPR and earthquake record normalization and CCTV source policy no longer pull rendering into source consumers. Catalog construction and voice feed reads use their focused owners; compatibility entries remain available. Settings filesystem hardening lives under `server/standalone/`. Import-direction checks complement export ownership checks; source behavior, settings policy and rendering are unchanged.
 
@@ -2904,7 +2904,6 @@ its criteria cannot be silently ignored.
 | Directions 🧭          | OSRM on FOSSGIS servers (OpenStreetMap)                                                                                                                                                         | `src/data/directions.js`                              | `/api/route` (`steps=1`)                                 | on placement / mode change                                                        |
 | Datacenters ▣          | OSM extract (bundled)                                                                                                                                                                           | `src/data/localLayers.js`                             | —                                                        | static                                                                            |
 | Dams ▰                 | OpenInfraMap/OSM extract (bundled)                                                                                                                                                              | `src/data/localLayers.js`                             | —                                                        | static                                                                            |
-| Submarine Cables ◠     | TeleGeography public map (bundled)                                                                                                                                                              | `src/data/telegeographySubmarineCables.js`            | —                                                        | static                                                                            |
 | FIRMS Active Fires ▲   | NASA FIRMS live (VIIRS ×3 NRT + MODIS NRT, trailing 24h)                                                                                                                                        | `src/data/firmsHeatmap.js`                            | `/api/firms` (`FIRMS_MAP_KEY`)                           | 10 min (proxy TTL 30 min)                                                         |
 | Wind 🌬                 | NOAA GFS 10 m wind (keyless, 0.25°→1° grid; animated particles)                                                                                                                                 | `src/data/wind.js`                                    | `/api/wind`                                              | 1 h (forecast cycle)                                                              |
 | Fire Perimeters 🔥 | NIFC WFIGS current interagency perimeters (keyless, paged past the 2000-record cap); InciWeb catalog + incident page origin and update time checks for verified incident-page links | `src/layers/perimeters/` via `src/app/layers/perimeters.js` | `/api/fire-perimeters` + `/api/fire-perimeters/inciweb/*` | 5 min (server caches: catalog 1 h; publication 30 min) |
@@ -4746,15 +4745,10 @@ nothing producing, every readable feed stale reads STALE and anything else is
 an error. Without feeds it keeps the WebUSB statuses. See
 `docs/LOCAL-RECEIVERS.md`.
 
-## Bundled geography and submarine cable components
+## Bundled geography components
 
-Submarine cables use separate source, geometry, rendering, interaction and
-lifecycle modules. The layer factory accepts cable and landing-point GeoJSON
-collections from a source with `fetch(signal)` and a display label. The default
-source loads the same bundled TeleGeography files. Disabling still removes all
-three Cesium data sources; enabling rebuilds from the accepted parsed cache,
-and destroying clears it. Load ownership prevents cancelled work from adding
-entities after teardown.
+The submarine cables layer and its bundled TeleGeography (CC BY-NC-SA) data
+were removed in GW-57; token `u` stays reserved in the layer-state ledger.
 
 Natural Earth regions and neighborhood polygon lookup are package exports.
 Their existing lazy loaders, retry behavior, bundled datasets and attribution

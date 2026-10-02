@@ -27,7 +27,6 @@ import { createApplicationAwareness } from './layers/militaryAwareness.js';
 import { createApplicationFirms } from './layers/firms.js';
 import { createApplicationEarthquakes } from './layers/earthquakes.js';
 import { createApplicationFirePerimeters } from './layers/perimeters.js';
-import { createApplicationCables } from './layers/submarineCables.js';
 import { createInfrastructureLayers } from '../data/infrastructure.js';
 import { localGeoJsonServices } from './localGeojsonServices.js';
 
@@ -58,7 +57,6 @@ const SOURCE_METHODS = Object.freeze({
   'team-chasers': ['getSnapshot', 'getRoster', 'saveSelection'],
   earthquakes: ['getSnapshot'],
   'fire-perimeters': ['getSnapshot'],
-  cables: ['fetch'],
 });
 
 /**
@@ -185,7 +183,6 @@ export function createApplicationCatalog({
         createApplicationNwsWarnings({ source: sources['nws-warnings'] }),
         createApplicationTeamChasers({ source: sources['team-chasers'] }),
         ...createInfrastructureLayers(localGeoJsonServices),
-        createApplicationCables({ source: sources.cables }),
         createApplicationFirms({
           surface,
           id: 'local-firms',

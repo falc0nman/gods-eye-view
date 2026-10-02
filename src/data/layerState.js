@@ -641,11 +641,6 @@ export const LAYER_STATE_REGISTRY = Object.freeze([
     disposition: 'enabled-only',
   }),
   Object.freeze({
-    id: 'telegeography-submarine-cables',
-    token: 'u',
-    disposition: 'enabled-only',
-  }),
-  Object.freeze({
     id: 'traffic',
     token: 't',
     disposition: 'enabled+options',

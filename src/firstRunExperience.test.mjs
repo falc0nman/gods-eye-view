@@ -670,11 +670,12 @@ test('the voice TOOL SCHEMA matches the pinned release — the mission mapping i
   const block = JSON.stringify(legacyTools);
   // Re-derived for the additive `local-adsb` set_layer_visibility value and
   // its common-name mapping; the missions still ride existing tools.
-  // Re-derived again for the storm-chase layer ids and their mapping.
-  assert.equal(block.length, 27789, 'serialized tool schema length drifted');
+  // Re-derived again for the storm-chase layer ids and their mapping, and
+  // for GW-57 removing telegeography-submarine-cables from enums and mapping.
+  assert.equal(block.length, 27630, 'serialized tool schema length drifted');
   assert.equal(
     crypto.createHash('sha256').update(block).digest('hex'),
-    'ad703a762a1159adfecd3b0994add3c44cc33b3593fd96eebacc09fb9a78a9c3',
+    'c2b66d6d0df61babf4f2b880132402f311c36a597b386680e9e4d5ba613f665d',
     'the first-run missions must ride EXISTING tools: no schema edit, no cache bust',
   );
   const instructions = fs.readFileSync(new URL('../server/providers/openai/instructions.js', import.meta.url), 'utf8');
@@ -691,7 +692,7 @@ test('the voice TOOL SCHEMA matches the pinned release — the mission mapping i
   const mapping = instructions.slice(instructions.indexOf('NAMED VIEWS are shorthand'));
   const paragraph = mapping.slice(0, mapping.indexOf("',\n"));
   for (const layerId of [
-    'local-datacenters', 'local-dams', 'telegeography-submarine-cables', 'local-firms', 'earthquakes',
+    'local-datacenters', 'local-dams', 'local-firms', 'earthquakes',
   ]) {
     assert.ok(paragraph.includes(layerId), `mapping must name the existing ${layerId} enum value`);
   }

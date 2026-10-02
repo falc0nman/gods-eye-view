@@ -66,12 +66,6 @@ import {
   RADIO_OVERLAY_SOURCE_OPTIONS,
 } from '../data/radio.js';
 import {
-  CABLE_OVERLAY_COLLISION_CAPACITY,
-  CABLE_OVERLAY_SOURCE_ID,
-  CABLE_REFERENCE_LABEL_WINNER_CAP,
-  createCableOverlayEntry,
-} from '../data/telegeographySubmarineCables.js';
-import {
   destroyDetection,
   getDetectionDiagnostics,
   initDetection,
@@ -976,18 +970,10 @@ function buildAllLiveRadioWorkload(count) {
     EARTHQUAKE_OVERLAY_COHORT_LIMIT +
     3 +
     ROCKET_MISSION_AMBIENT_OVERLAY_COHORT_LIMIT;
-  // 2026-08-18: "every shared-host source" includes the migrated
-  // submarine-cable cohort, so the aggregate exercises cable labels
-  // interacting with Radio/earthquake/mission quotas and allocation.
-  const expectedCount =
-    phase5Count +
-    RADIO_OVERLAY_COHORT_LIMIT +
-    1 +
-    CABLE_REFERENCE_LABEL_WINNER_CAP;
+  const expectedCount = phase5Count + RADIO_OVERLAY_COHORT_LIMIT + 1;
   if (count !== expectedCount)
     throw new Error(`all-live-radio requires ${expectedCount} entries`);
   const workload = buildPhase5RocketMissionWorkload(phase5Count);
-  appendSubmarineCableWorkload(workload, CABLE_REFERENCE_LABEL_WINNER_CAP);
   const entries = [];
   for (let index = 0; index < RADIO_OVERLAY_COHORT_LIMIT; index += 1) {
     const position = new Cesium.Cartesian3(
@@ -1036,69 +1022,6 @@ function buildAllLiveRadioWorkload(count) {
     options: RADIO_OVERLAY_SOURCE_OPTIONS,
   });
   return workload;
-}
-
-/**
- * Append the submarine-cable reference cohort (2026-08-18 host migration):
- * the full 160-winner ambient-label field a mid-ocean camera can produce,
- * mixing cable and landing-point accents. Per-frame drift republishes
- * nothing (the real source republishes at 2 Hz and skips identical
- * cohorts); the probe measures the host's steady projection/solve/paint
- * cost for the source shape. Shared by the isolated row and the all-live
- * aggregate.
- */
-function appendSubmarineCableWorkload(workload, count) {
-  const entries = [];
-  for (let index = 0; index < count; index++) {
-    const column = index % 16;
-    const row = Math.floor(index / 16);
-    const baseX = -0.84 + column * 0.112;
-    const baseY = -0.78 + row * 0.164;
-    const position = new Cesium.Cartesian3(baseX, baseY, 0);
-    workload.positions.push(position);
-    workload.drifts.push({
-      baseX,
-      baseY,
-      phase: index * 0.23,
-      rate: 0.33 + (index % 5) * 0.04,
-    });
-    const kind = index % 3 === 0 ? 'cable' : 'landing-point';
-    const entry = createCableOverlayEntry({
-      id: `${kind}-reference-${index}-alloc`,
-      kind,
-      label:
-        kind === 'cable' ? `Cable System ${index}` : `Landing Point ${index}`,
-      tip: position,
-      distanceM: 200_000 + index * 40_000,
-    });
-    entry.horizonCull = false;
-    // The mock camera sits beyond the source's real 9,000 km label range;
-    // lift the range gate (an environment adjustment like horizonCull) so the
-    // probe measures painting labels, not distance-culling them.
-    entry.maxDistance = Number.POSITIVE_INFINITY;
-    entries.push(entry);
-  }
-  workload.registrations.push({
-    sourceId: CABLE_OVERLAY_SOURCE_ID,
-    entries,
-    options: {
-      cohortLimit: CABLE_REFERENCE_LABEL_WINNER_CAP,
-      collisionCapacity: CABLE_OVERLAY_COLLISION_CAPACITY,
-    },
-  });
-  return workload;
-}
-
-function buildSubmarineCablesWorkload(count) {
-  if (count !== CABLE_REFERENCE_LABEL_WINNER_CAP) {
-    throw new Error(
-      `submarine-cables requires ${CABLE_REFERENCE_LABEL_WINNER_CAP} entries`,
-    );
-  }
-  return appendSubmarineCableWorkload(
-    { entries: [], positions: [], drifts: [], registrations: [] },
-    count,
-  );
 }
 
 function buildPhase6DetectionWorkload(count) {
@@ -1206,9 +1129,7 @@ function main() {
                                 ? buildPhase5RocketMissionWorkload(ENTRY_COUNT)
                                 : PROFILE === 'all-live-radio'
                                   ? buildAllLiveRadioWorkload(ENTRY_COUNT)
-                                  : PROFILE === 'submarine-cables'
-                                    ? buildSubmarineCablesWorkload(ENTRY_COUNT)
-                                    : buildWorkload(ENTRY_COUNT);
+                                  : buildWorkload(ENTRY_COUNT);
   const { entries, positions, drifts } = workload;
   const solveIntervalMs = Number(process.env.GEV_ALLOC_SOLVE_MS) || 125;
   const detectionActive = !!workload.detectionLayer;

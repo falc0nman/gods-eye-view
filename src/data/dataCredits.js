@@ -6,8 +6,7 @@ import * as Cesium from 'cesium';
  * Legal requirement (see DATA_SOURCES.md, findings H10/H11 in
  * docs/pre-ship-audit-2026-07-01.md): every third-party data layer this app can
  * display carries its own license and required attribution — ODbL (OSM
- * datacenters/dams, adsb.lol, Overpass roads), CC BY-NC-SA (TeleGeography
- * cables), NASA FIRMS, CelesTrak, USGS, City of Austin, Fintraffic (CC BY 4.0),
+ * datacenters/dams, adsb.lol, Overpass roads), NASA FIRMS, CelesTrak, USGS, City of Austin, Fintraffic (CC BY 4.0),
  * The MIT code license does NOT cover this data.
  *
  * These credits are registered ONCE at init as STATIC credits with
@@ -355,13 +354,6 @@ export const DATA_CREDITS = [
       'CCTV cameras &amp; frames (New South Wales): ' +
       '<a href="https://www.livetraffic.com/" target="_blank" rel="noopener">Live Traffic NSW</a> — Transport for NSW ' +
       '(<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>)',
-  },
-  {
-    key: 'telegeography',
-    html:
-      'Submarine cables: © TeleGeography — ' +
-      '<a href="https://www.submarinecablemap.com" target="_blank" rel="noopener">submarinecablemap.com</a> ' +
-      '(CC BY-NC-SA 3.0 — NonCommercial)',
   },
 ];
 

@@ -44,8 +44,7 @@ const REGISTERED = new Set([
   'bhote-koshi-2026', 'bhote-koshi-locator',
   'flights', 'military', 'earthquakes', 'satellites', 'rocket-launches', 'traffic',
   'cctv', 'radio', 'bikeshare', 'ais-live-vessels', 'military-installations',
-  'military-awareness', 'local-datacenters', 'local-dams',
-  'telegeography-submarine-cables', 'local-firms',
+  'military-awareness', 'local-datacenters', 'local-dams', 'local-firms',
 ]);
 
 test('a shot only reconciles the layers it declares', () => {
