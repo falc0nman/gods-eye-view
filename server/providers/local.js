@@ -25,6 +25,7 @@ import { weatherProxy } from './weather.js';
 import { firePerimetersProxy } from './firePerimeters.js';
 import { cycloneProxy } from './cyclones.js';
 import { nexradLevel3Provider } from './nexrad.js';
+import { stormAttributesProvider } from './stormAttributes.js';
 import { nexradLevel2Provider } from './nexrad-level2.js';
 import { createNotificationDispatcher } from './notifications/dispatcher.js';
 import { unconfiguredTransport } from './notifications/transport.js';
@@ -74,6 +75,7 @@ function localProviderRegistry({ notificationTransport } = {}) {
   registry.registerLegacy('weather', weatherProxy);
   registry.registerLegacy('cyclones', cycloneProxy);
   registry.register(nexradLevel3Provider());
+  registry.register(stormAttributesProvider());
   registry.register(nexradLevel2Provider({ dispatcher }));
   registry.registerLegacy('life360-chasers', life360ChasersProxy);
   registry.registerLegacy('fire-perimeters', firePerimetersProxy);

@@ -149,7 +149,20 @@ Keep its URLs stable so the browser layer does not change.
 
   - Hail Index (NHI), TVS (NTV) and Storm Structure (NSS) haven't been
     published to `unidata-nexrad-level3` since 2022. On 2026-10-02 none of
-    the 206 sites had any.
+    the 206 sites had any. Hail and TVS come from the **`storm-attributes`**
+    provider instead
+    ([`server/providers/stormAttributes.js`](../server/providers/stormAttributes.js)):
+    - Source: the Iowa Environmental Mesonet's NEXRAD storm attribute
+      table, which is derived from the same NWS products.
+    - Route: `GET /api/radar/storm-attributes?site=HGX` returns `cells`,
+      plus `hail` and `tvs` subsets. Each cell has hail probabilities and
+      maximum size, TVS/ETVS, mesocyclone rank, VIL, maximum dBZ, top and
+      motion.
+    - Fetching: it uses the same watch-while-requested pull pattern as Level
+      III, cached for 30 s per radar, with health per radar.
+    - The field mapping follows IEM's published schema. It hasn't been
+      checked against the live feed yet, because the development sandbox
+      can't reach IEM.
 
 ## Health and data age (GW-83)
 
