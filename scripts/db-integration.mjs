@@ -36,7 +36,7 @@ try {
     assert.equal(
       (await app.query('SELECT count(*)::int AS n FROM gev.schema_migrations'))
         .rows[0].n,
-      1,
+      2,
     );
     const roles = await app.query(
       'SELECT rolsuper, rolcreatedb, rolcreaterole FROM pg_roles WHERE rolname = current_user',
@@ -63,6 +63,15 @@ try {
     try {
       const url = pathToFileURL(`${directory}/`);
       await assert.rejects(migrate(owner, url), /Applied migration is missing/);
+      await writeFile(
+        join(directory, '0002_authentication.sql'),
+        await readFile(
+          new URL(
+            '../database/migrations/0002_authentication.sql',
+            import.meta.url,
+          ),
+        ),
+      );
       await writeFile(join(directory, '0001_initial.sql'), 'SELECT 1;');
       await assert.rejects(
         migrate(owner, url),
@@ -75,7 +84,7 @@ try {
         ),
       );
       await writeFile(
-        join(directory, '0002_rollback_probe.sql'),
+        join(directory, '0003_rollback_probe.sql'),
         'CREATE TABLE gev.qa_atomic_rollback(id integer); SELECT gev.qa_missing_function();',
       );
       await assert.rejects(
@@ -96,7 +105,7 @@ try {
             'SELECT count(*)::int AS n FROM gev.schema_migrations',
           )
         ).rows[0].n,
-        1,
+        2,
       );
       console.log(
         'PASS: failed migration rolls back both schema changes and ledger',

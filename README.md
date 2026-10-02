@@ -100,8 +100,8 @@ cameras, radio, and launches are available without keys.
 
 For photorealistic 3D, add a **Cesium ion token** for eligible personal,
 non-commercial use, or a **Google Maps key** for the direct, metered route and
-Google place search. Provider terms and quotas apply. Add keys through the
-app's **POWER UP** panel; [Keys & Costs](#-api-keys) explains the options.
+Google place search. Provider terms and quotas apply. Configure credentials
+in the process environment or operator-managed `.env`; [Keys & Costs](#-api-keys) explains the options.
 
 > **Already installed?** Update to the latest version. Older versions query
 > public OpenStreetMap Overpass servers, which now refuse them, so Traffic,
@@ -149,43 +149,18 @@ See [docs/PERFORMANCE.md](docs/PERFORMANCE.md).
 **macOS shortcut:** `./scripts/dev-fresh.sh` clears the Vite cache and pulls any
 configured keys straight from the Keychain. It starts keyless too.
 
-### Then power it up — in the app, not in a file
+### Configure optional providers
 
-Keys are upgrades, not prerequisites. When you want one, click the **POWER UP**
-chip in the bottom-right corner: Provider Settings lists every supported key,
-what it switches on, and where to get it. Paste, hit **SAVE KEYS**, and the app
-restarts itself with the new capability on. Once everything is configured the
-chip reads **POWERED UP** — and if a compact layout hides it, `?setup=1`
-reopens the same panel.
+Set optional provider credentials in the process environment or an operator-managed
+ignored `.env`. [`.env.example`](.env.example) documents the names. Pinokio manages
+non-secret launcher controls only. Restart after changing server credentials and
+rebuild after changing browser Google Maps or Cesium ion credentials. The app has
+no credential editor or credential-writing endpoint. Provider restrictions and
+credential handling are documented in [SECURITY.md](SECURITY.md).
 
-- **Where keys land:** Pinokio → the app's ignored `pinokio/ENVIRONMENT`; a
-  terminal clone → the repo-root `.env`. Either file is made owner-only
-  _before_ a secret is written into it. These are local plaintext files,
-  excluded from Git; the app uses your keys to contact the providers.
-- **Keys you already have stay yours:** values from your shell or the macOS
-  Keychain show as _configured externally_ and are read-only to the panel.
-- **What to get first:** the free [Cesium ion](https://cesium.com/ion) token
-  (eligible personal, non-commercial use; current terms and quotas apply) for
-  photorealistic 3D and world terrain; a Google Maps key only for the
-  billing-enabled, metered route + Google place search; OpenAI when you want to
-  talk to the world. Full map, costs included, in [Keys & Costs](#-api-keys).
-
-<details>
-<summary>Older Pinokio versions and credential storage</summary>
-
-Do not enter credentials in Pinokio 8.0.40's native **Configure** panel: that
-release does not save this nested app file correctly, and it logs submitted
-values. Use **POWER UP → Provider Settings** inside GEV instead. The Pinokio
-8.2 announcement fixes installation; it does not establish that this separate
-Configure issue is resolved. On macOS, the Keychain via
-`./scripts/dev-fresh.sh` remains the stronger storage option.
-
-</details>
-
-The server binds to **localhost** on both paths, and Provider Settings answers
-requests only from your machine. Browser-side keys (Google Maps, Cesium ion)
-must be restricted at their providers — [SECURITY.md](SECURITY.md) shows how,
-and it carries the LAN-sharing rules alongside [Keys & Costs](#-api-keys).
+Production team access uses Discord OAuth, Google OIDC and server-enforced roles.
+See [authentication setup](docs/AUTHENTICATION.md) for provider callbacks, guild
+role mappings, explicit Google approvals and emergency administrator bootstrap.
 
 ---
 
@@ -384,7 +359,6 @@ src/
 ├── main.js                 # Bootstrap: Google 3D tiles, layer registration
 ├── ui.js                   # Runtime UI — panels, HUD, styles, control facade
 ├── hud.js                  # Intelligence HUD + AI scene summary
-├── keySetup.js             # POWER UP panel — in-app provider keys (dev server only)
 ├── mapStackController.js   # Basemap switching — Google 3D / Esri / OSM / ion stacks
 ├── voice/                  # OpenAI Realtime session + 29 voice tools
 ├── layers/                 # Layer components — weather, wind, cyclones, transit, ALPR, …
@@ -402,9 +376,9 @@ See [`docs/CURRENT-STATE.md`](docs/CURRENT-STATE.md) for the authoritative runti
 
 🟢 **No key** · 🟡 **Free key** · 🔴 **Metered**
 
-Use **POWER UP → Provider Settings** to add keys. The tables below explain what
+Use the process environment or an operator-managed `.env`. The tables explain what
 each provider enables; none is required to start. See the
-[setup instructions](#then-power-it-up--in-the-app-not-in-a-file) for storage
+[setup instructions](#configure-optional-providers) for storage
 and configuration details.
 
 No key needed for Wind, Rain radar, Satellite clouds, Lightning density,
@@ -516,8 +490,7 @@ Everything above is the deliberately cheap baseline — enough to get a real tas
 
 By default nobody else can reach your server — it binds to localhost. To share on your LAN, opt in explicitly (`npm run dev -- --host 0.0.0.0 --port 4173`, or `HOST=0.0.0.0 ./scripts/dev-fresh.sh` on macOS/Linux) — but know that ⚠️ **a LAN-visible server brokers your configured API keys to anyone who can reach it.** Set the per-IP throttles (`GEV_RATELIMIT_OPENAI_PER_MIN`, `GEV_RATELIMIT_GOOGLE_PER_MIN` — see `.env.example`) and, before anything else, **configure provider quotas, usage limits, and billing alerts**: app-level throttles are not billing caps, and a budget alert alone does not stop spending. Full threat model in [SECURITY.md](SECURITY.md).
 
-Provider Settings is disabled when the server is shared, so remote users cannot
-access the key-entry panel.
+There is no browser credential-writing surface.
 
 **Pinokio LAN and Cloudflare sharing remain disabled for this launcher.** Use
 a separately reviewed authentication proxy if remote access is required.

@@ -1,8 +1,8 @@
 import { startApplicationChrome } from '../app/startupChrome.js';
-import { initKeySetup } from '../keySetup.js';
+import { initTeamSession } from '../ui/teamSession.js';
 export function startStandaloneChrome(options) {
   return startApplicationChrome({
-    initializeSettings: initKeySetup,
+    initializeSettings: initTeamSession,
     ...options,
   });
 }

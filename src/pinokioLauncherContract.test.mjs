@@ -67,7 +67,7 @@ test('Pinokio install records success explicitly instead of trusting node_module
   assert.equal(install.run.at(-1).params.message, 'node scripts/pinokio-install.mjs');
   assert.equal(install.run[0].when, "{{!kernel.exists(cwd, 'ENVIRONMENT')}}");
   assert.match(installSource, /includeKeychain: false/);
-  assert.match(installSource, /authoritativeEnvironment: true/);
+  assert.match(installSource, /authoritativeEnvironment: false/);
   assert.match(installSource, /applyPinokioEnvironment\(\)/);
   assert.match(installSource, /Return to Pinokio and choose Start/);
   for (const field of APP_VALUE_FIELDS) {

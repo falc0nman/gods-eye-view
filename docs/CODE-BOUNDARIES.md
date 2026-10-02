@@ -88,13 +88,9 @@ moves it. Do not label all ingestion modules platform-independent by filename.
 | `src/app/sources.js`, `src/services/application.js` | Existing default/override API; current application construction supplies its own instances                         |
 | `server/providers/local.js`                         | Existing Node composition barrel and provider helper re-exports                                                    |
 
-The two exact standalone-import exceptions are `src/ui.js` to
-`src/standalone/catalog.js` and `server/providers/local.js` to
-`server/standalone/key-setup.js`. They do not authorize new compatibility
-back-edges. Voice actions use plain `src/data/feedState.js`, not the manager
-facade. Settings filesystem hardening belongs in
-`server/standalone/key-setup-hardening.mjs`; its settings policy is unchanged.
-Test modules and the Node-only allocation benchmark are outside browser runtime.
+The sole standalone-import exception is `src/ui.js` to `src/standalone/catalog.js`.
+Voice actions use plain `src/data/feedState.js`. Credential-writing modules and
+exports were removed in GW-87. Test modules and the Node-only allocation benchmark are outside browser runtime.
 
 ## Build and standalone server configuration
 
@@ -122,9 +118,8 @@ use build-only dependency exceptions.
 `server/standalone/vite.config.js` loads the root environment and passes selected
 browser keys, host/port and the ordered local provider plugins to this helper.
 `server/providers/local.js` composes provider factories and re-exports existing
-helpers for compatibility. Provider Settings lives in `server/standalone/key-setup.js`
-and writes to the same root `.env` or Pinokio store as before. `vite.config.js`
-preserves the default configuration and named provider exports for tools/tests.
+helpers for compatibility. Provider credentials are operator-managed; there is
+no browser credential editor. `vite.config.js` preserves the default configuration and named provider exports for tools/tests.
 
 ## Aircraft and vessel providers
 
@@ -209,13 +204,10 @@ search shares the bounded transport. Regional place/news/weather acquisition is
 separate from briefing and weather-effect response caches. Voice handlers share
 existing rate limits and request reading; schemas and instructions are separate.
 
-`server/standalone/key-setup` is explicitly standalone Node functionality.
-Its factory and the local voice factory accept `sourceRoot` for application-owned
-configuration/log files; defaults resolve the repository root. Local voice also
-accepts an optional `annotationGuidance` paragraph. Neither factory starts
-acquisition on import. Setup retains its pre-environment-load provenance capture
-and development-only registration. Package checks enumerate every owned module
-and reject browser imports of these Node entries.
+The local voice factory accepts `sourceRoot` for application-owned logs and an
+optional `annotationGuidance` paragraph. Importing it does not start acquisition.
+Team identity, session and role administration belong to the Node-only backend
+identity export; package checks reject browser imports of these modules.
 
 ## Browser place search
 
@@ -254,7 +246,7 @@ removes that listener and restores the opener when connected, otherwise invoking
 the supplied fallback. Omit return focus when yielding to another surface.
 `destroy()` permanently releases ownership without moving focus.
 
-The welcome launcher and Provider Settings retain content, visibility, initial
+The welcome launcher retains content, visibility, initial
 focus, animation and screen-specific policy. Tab boundaries are read from the
 current visible/enabled controls for each key; ordinary movement within those
 boundaries remains native. The component honors already-handled keys and has no

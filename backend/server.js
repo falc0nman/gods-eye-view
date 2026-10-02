@@ -24,6 +24,7 @@ export function createBackend({
   cookieName = DEFAULT_SESSION_COOKIE,
   publicOrigin,
   logger = console,
+  identityService,
   isStopping = () => false,
 } = {}) {
   if (!pool) throw new Error('Backend requires a database pool');
@@ -32,7 +33,11 @@ export function createBackend({
   if (publicOrigin && new URL(publicOrigin).origin !== publicOrigin)
     throw new Error('Expected a canonical public origin');
   const registry = new Map();
-  for (const route of [...coreRoutes(pool), ...routes]) {
+  for (const route of [
+    ...coreRoutes(pool),
+    ...(identityService?.routes || []),
+    ...routes,
+  ]) {
     if (
       !/^\/api\/[A-Za-z0-9_/-]+$/.test(route.path) ||
       !['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(route.method) ||
@@ -48,6 +53,41 @@ export function createBackend({
       Object.freeze({ ...route, permissions: [...route.permissions] }),
     );
   }
+  const publicRegistry = new Map();
+  for (const route of identityService?.publicRoutes || []) {
+    if (
+      route.method !== 'GET' ||
+      !/^\/auth\/(providers|login|(discord|google)\/(login|callback))$/.test(
+        route.path,
+      ) ||
+      typeof route.handler !== 'function'
+    )
+      throw new Error('Invalid public authentication route');
+    publicRegistry.set(route.path, route);
+  }
+  function respond(req, res, result) {
+    if (result.cookies) res.setHeader('Set-Cookie', result.cookies);
+    if (result.location) {
+      res.writeHead(result.status, {
+        Location: result.location,
+        'Cache-Control': 'no-store',
+        'Referrer-Policy': 'no-referrer',
+      });
+      return res.end();
+    }
+    if (result.html) {
+      res.writeHead(result.status, {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-store',
+        'X-Frame-Options': 'DENY',
+        'Referrer-Policy': 'no-referrer',
+        'Content-Security-Policy':
+          "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+      });
+      return res.end(req.method === 'HEAD' ? undefined : result.html);
+    }
+    return json(req, res, result.status, result.body);
+  }
 
   const server = createServer(
     {
@@ -57,7 +97,9 @@ export function createBackend({
       maxHeaderSize: 16384,
     },
     (req, res) => {
-      void handle(req, res).catch(() => {
+      void handle(req, res).catch((error) => {
+        if (error.publicCode && !res.headersSent && !res.destroyed)
+          return json(req, res, error.status, { error: error.publicCode });
         logger.error('[backend] Request failed');
         if (!res.headersSent && !res.destroyed)
           json(req, res, 503, { error: 'service_unavailable' });
@@ -96,7 +138,9 @@ export function createBackend({
       });
     }
     if (path === '/api' || path.startsWith('/api/')) {
-      const session = await authenticate(req, pool, cookieName);
+      const session = identityService
+        ? await identityService.authenticateSession(req)
+        : await authenticate(req, pool, cookieName);
       if (!session) return json(req, res, 401, { error: 'unauthorized' });
       const route = registry.get(
         `${req.method === 'HEAD' ? 'GET' : req.method} ${path}`,
@@ -107,16 +151,32 @@ export function createBackend({
           session.permissions.includes(permission),
         )
       ) {
+        await identityService?.denied(
+          session,
+          route ? 'permission' : 'unregistered_route',
+          route ? route.path : '/api',
+        );
         return json(req, res, 403, { error: 'forbidden' });
       }
       if (
         !['GET', 'HEAD'].includes(req.method) &&
-        !sameOriginWrite(req, publicOrigin)
+        !(identityService
+          ? identityService.authorizeWrite(req, session)
+          : sameOriginWrite(req, publicOrigin))
       ) {
+        await identityService?.denied(session, 'csrf', path);
         return json(req, res, 403, { error: 'csrf_rejected' });
       }
       const result = await route.handler({ req, session, pool });
-      return json(req, res, result.status, result.body);
+      return respond(req, res, result);
+    }
+    const publicRoute = publicRegistry.get(path);
+    if (publicRoute) {
+      if (req.method !== 'GET') {
+        res.setHeader('Allow', 'GET');
+        return json(req, res, 405, { error: 'method_not_allowed' });
+      }
+      return respond(req, res, await publicRoute.handler({ req }));
     }
     return json(req, res, 404, { error: 'not_found' });
   }

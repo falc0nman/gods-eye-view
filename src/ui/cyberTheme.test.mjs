@@ -165,13 +165,8 @@ test('scene and share restoration override Cyber and preserve restored Cyber par
 const read = (relative) =>
   readFileSync(new URL(relative, import.meta.url), 'utf8');
 
-test('Cyber setup uses a compact toolbar icon and highlights the north-up letter', () => {
+test('Cyber highlights the north-up letter', () => {
   const css = read('./styles/cyber.css');
-  assert.match(
-    css,
-    /#top-center-actions #key-setup-chip\s*\{[^}]*inset: auto;[^}]*width: 36px;/,
-  );
-  assert.match(css, /#key-setup-chip\[hidden\]\s*\{\s*display: none;/);
   assert.match(
     css,
     /#north-up-view\[data-north-up='true'\]\s+\.camera-compass-n\s*\{[^}]*color: var\(--cyber-red-bright\)/,

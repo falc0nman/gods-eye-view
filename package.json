@@ -54,7 +54,9 @@
     "qa:database": "node scripts/qa-database.mjs",
     "backend:start": "node --env-file-if-exists=.env backend/main.js",
     "backend:dev": "node --env-file-if-exists=.env --watch backend/main.js",
-    "qa:backend": "node scripts/qa-backend.mjs"
+    "qa:backend": "node scripts/qa-backend.mjs",
+    "auth:admin": "node scripts/auth-admin.mjs",
+    "qa:auth": "docker compose run --rm qa node scripts/auth-integration.mjs"
   },
   "dependencies": {
     "@jtarrio/signals": "^0.10.0",
@@ -64,6 +66,7 @@
     "cesium": "^1.124.0",
     "egm96-universal": "^1.1.1",
     "hls.js": "^1.7.3",
+    "jose": "6.2.12",
     "mgrs": "^2.1.0",
     "pbf": "^5.1.2",
     "pg": "^8.23.1",
@@ -131,9 +134,6 @@
     },
     "./server/providers/openai": {
       "node": "./server/providers/openai.js"
-    },
-    "./server/standalone/key-setup": {
-      "node": "./server/standalone/key-setup.js"
     },
     "./search": "./src/search/index.js",
     "./ui/panels": "./src/ui/panelDisclosure.js",
@@ -206,7 +206,6 @@
     "./application/errors": "./src/app/errors.js",
     "./ui/composition": "./src/ui/composition.js",
     "./ui/hud": "./src/hud.js",
-    "./standalone/settings": "./src/keySetup.js",
     "./voice/actions": "./src/voice/gevActions.js",
     "./annotations": "./src/annotations/index.js",
     "./context": "./src/data/contextStore.js",
@@ -266,6 +265,9 @@
     },
     "./backend": {
       "node": "./backend/server.js"
+    },
+    "./backend/identity": {
+      "node": "./backend/identity/index.js"
     }
   }
 }

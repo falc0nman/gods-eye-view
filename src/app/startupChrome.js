@@ -35,12 +35,12 @@ export function startApplicationChrome({
       });
       revealTimer = setTimeout(revealFirstRun, 900);
     });
-  const keySetup = Promise.resolve(
+  const accountControls = Promise.resolve(
     signal.aborted ? null : initializeSettings?.({ signal }),
   );
   // Own the pending initializer too; it must not reveal a dialog after abort.
-  void keySetup.catch(() =>
-    console.error('Provider settings initialization failed'),
+  void accountControls.catch(() =>
+    console.error('Account controls initialization failed'),
   );
   return async () => {
     disposed = true;
@@ -49,6 +49,6 @@ export function startApplicationChrome({
     resolveDelay();
     loadingScreen.removeEventListener('transitionend', revealFirstRun);
     firstRun?.destroy();
-    (await keySetup.catch(() => null))?.destroy();
+    (await accountControls.catch(() => null))?.destroy();
   };
 }
