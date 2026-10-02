@@ -24,7 +24,7 @@ import { keySetupEndpoint } from '../standalone/key-setup.js';
 import { weatherProxy } from './weather.js';
 import { firePerimetersProxy } from './firePerimeters.js';
 import { cycloneProxy } from './cyclones.js';
-import { nexradLevel3Proxy } from './nexrad.js';
+import { nexradLevel3Provider } from './nexrad.js';
 import { nexradLevel2Provider } from './nexrad-level2.js';
 import { createNotificationDispatcher } from './notifications/dispatcher.js';
 import { unconfiguredTransport } from './notifications/transport.js';
@@ -73,7 +73,7 @@ function localProviderRegistry({ notificationTransport } = {}) {
   registry.registerLegacy('wind', windProxy);
   registry.registerLegacy('weather', weatherProxy);
   registry.registerLegacy('cyclones', cycloneProxy);
-  registry.registerLegacy('nexrad-level3', nexradLevel3Proxy);
+  registry.register(nexradLevel3Provider());
   registry.register(nexradLevel2Provider({ dispatcher }));
   registry.registerLegacy('life360-chasers', life360ChasersProxy);
   registry.registerLegacy('fire-perimeters', firePerimetersProxy);

@@ -2,6 +2,7 @@ import zlib from 'node:zlib';
 import Bunzip from 'seek-bzip';
 import { beamHeightFt, decodeLevel3, valueAt } from './nexrad/level3.js';
 import { encodePng, renderLevel3 } from './nexrad/render.js';
+import { defineProvider } from './common/provider.js';
 
 /**
  * NEXRAD Level III — decoded and rendered here, so browsers only ever receive
@@ -154,101 +155,228 @@ export function createLevel3Service({
   return { latestKey, scan };
 }
 
-/** @returns {import('vite').Plugin} */
-export function nexradLevel3Proxy({ service = createLevel3Service() } = {}) {
-  const sendJson = (res, status, obj) => {
-    if (res.headersSent) return;
-    res.writeHead(status, {
-      'Content-Type': 'application/json',
-      'Cache-Control': 'no-store',
-    });
-    res.end(JSON.stringify(obj));
-  };
-  const install = (server) => {
-    server.middlewares.use('/api/radar/l3', async (req, res) => {
-      const url = new URL(req.url || '/', 'http://local');
-      try {
-        if (url.pathname === '/scan') {
-          const site = String(url.searchParams.get('site') || '').toUpperCase();
-          const product = String(
-            url.searchParams.get('product') || '',
-          ).toUpperCase();
-          if (!/^[A-Z0-9]{3}$/.test(site) || !LEVEL3_PRODUCTS.has(product)) {
-            sendJson(res, 400, {
-              error:
-                'site must be a 3-letter radar id and product a supported Level III code',
-            });
-            return;
-          }
+const SCAN_KEY_TIME_RE = /_(\d{4})_(\d{2})_(\d{2})_(\d{2})_(\d{2})_(\d{2})$/;
+const WATCH_TTL_MS = 6 * 60_000; // three missed 2-minute layer refreshes
+const POLL_MS = 60_000;
+
+/** Scan time from a Level III object key (UTC). */
+export function level3KeyTime(key) {
+  const m = SCAN_KEY_TIME_RE.exec(String(key));
+  return m ? Date.UTC(m[1], m[2] - 1, m[3], m[4], m[5], m[6]) : NaN;
+}
+
+const sendJson = (res, status, obj) => {
+  if (res.headersSent) return;
+  res.writeHead(status, {
+    'Content-Type': 'application/json',
+    'Cache-Control': 'no-store',
+  });
+  res.end(JSON.stringify(obj));
+};
+
+/**
+ * Level III on the common provider interface (GW-73, docs/DATA-PROVIDERS.md).
+ *
+ * A pull provider over the radar/product pairs clients are looking at: a
+ * `/scan` request watches its pair for a few minutes, and while any pair is
+ * watched the provider polls for new scans each minute, so health and data
+ * age are tracked per pair (`TLX/N0B`) even between client refreshes. The
+ * routes and responses are unchanged; `/scan` still answers from the scan
+ * lookup directly, so first requests are no slower.
+ *
+ * @param {{service?: ReturnType<typeof createLevel3Service>, now?: () => number,
+ *   setTimeout?: Function, clearTimeout?: Function}} [options]
+ */
+export function createLevel3Ingest({
+  now = () => Date.now(),
+  service = createLevel3Service({ now }),
+  setTimeout: schedule = globalThis.setTimeout,
+  clearTimeout: unschedule = globalThis.clearTimeout,
+} = {}) {
+  /** `SITE/PRODUCT` → expiry */
+  const watched = new Map();
+  let runtime = null;
+  let release = null;
+  let reaper = null;
+
+  const pairOf = (site, product) => `${site}/${product}`;
+
+  function reap() {
+    reaper = null;
+    for (const [pair, expiresAt] of watched)
+      if (expiresAt <= now()) watched.delete(pair);
+    if (!watched.size) {
+      release?.();
+      release = null;
+      return;
+    }
+    reaper = schedule(reap, WATCH_TTL_MS);
+    reaper?.unref?.();
+  }
+
+  function touch(site, product) {
+    watched.set(pairOf(site, product), now() + WATCH_TTL_MS);
+    if (runtime && !release) release = runtime.acquire();
+    if (reaper === null) {
+      reaper = schedule(reap, WATCH_TTL_MS);
+      reaper?.unref?.();
+    }
+  }
+
+  const provider = defineProvider({
+    id: 'nexrad-level3',
+    label: 'NEXRAD Level III (nearest radar)',
+    mode: 'pull',
+    pollMs: POLL_MS,
+    source: {
+      name: 'NOAA NEXRAD Level III',
+      url: BUCKET,
+      license: 'NOAA open data (AWS Open Data Sponsorship Program)',
+    },
+    // Volume scans every 4–10 minutes; the layer itself calls a scan stale
+    // after 20 minutes (src/layers/nexrad/index.js NEXRAD_STALE_AFTER_MS).
+    health: { degradedAfterMs: 10 * 60_000, staleAfterMs: 20 * 60_000 },
+    async discover() {
+      const items = [];
+      let failure = null;
+      for (const [pair, expiresAt] of watched) {
+        if (expiresAt <= now()) continue;
+        const [site, product] = pair.split('/');
+        try {
           const key = await service.latestKey(site, product);
-          if (!key) {
-            sendJson(res, 404, {
-              error: `${product} is not available from this radar right now`,
-            });
-            return;
-          }
-          sendJson(res, 200, (await service.scan(key)).meta);
-          return;
+          if (key) items.push({ key, site, product });
+        } catch (error) {
+          failure ??= error; // one bad pair must not hide the others
         }
-        if (url.pathname === '/value') {
-          const key = String(url.searchParams.get('key') || '');
-          const lat = Number(url.searchParams.get('lat'));
-          const lon = Number(url.searchParams.get('lon'));
-          if (
-            !LEVEL3_KEY_RE.test(key) ||
-            !LEVEL3_PRODUCTS.has(key.slice(4, 7)) ||
-            !Number.isFinite(lat) ||
-            !Number.isFinite(lon) ||
-            Math.abs(lat) > 90 ||
-            Math.abs(lon) > 180
-          ) {
-            sendJson(res, 400, { error: 'expected key, lat and lon' });
-            return;
-          }
-          const { product } = await service.scan(key);
-          const hit = valueAt(product, lat, lon);
-          sendJson(res, 200, {
-            value: hit.value,
-            inRange: hit.inRange,
-            rangeKm: Math.round(hit.rangeKm * 10) / 10,
-            azimuthDeg: Math.round(hit.azimuthDeg),
-            beamHeightFt:
-              hit.inRange && Number.isFinite(product.elevationDeg)
-                ? Math.round(
-                    beamHeightFt(
-                      hit.rangeKm,
-                      product.elevationDeg,
-                      product.site.heightFt,
-                    ) / 100,
-                  ) * 100
-                : null,
-          });
-          return;
-        }
-        const image = /^\/image\/([A-Z0-9_]+)\.png$/.exec(url.pathname);
-        if (
-          image &&
-          LEVEL3_KEY_RE.test(image[1]) &&
-          LEVEL3_PRODUCTS.has(image[1].slice(4, 7))
-        ) {
-          const { png } = await service.scan(image[1]);
-          res.writeHead(200, {
-            'Content-Type': 'image/png',
-            'Cache-Control': 'public, max-age=86400, immutable',
-          });
-          res.end(png);
-          return;
-        }
-        sendJson(res, 404, { error: 'unknown radar route' });
-      } catch (err) {
-        console.warn('[nexrad-l3]', err?.message || err);
-        sendJson(res, 502, { error: 'radar decode failed' });
       }
-    });
-  };
+      if (!items.length && failure) throw failure;
+      return items;
+    },
+    fetch: (item) => service.scan(item.key),
+    normalize: (scan, item) => {
+      const validTime = Number.isFinite(scan.meta.scanMs)
+        ? scan.meta.scanMs
+        : level3KeyTime(item.key);
+      return {
+        key: item.key,
+        product: pairOf(item.site, item.product),
+        validTime,
+        // Only the metadata: the image and radials stay in the scan cache.
+        data: scan.meta,
+        provenance: { object: item.key },
+      };
+    },
+    routes(server, providerRuntime) {
+      runtime = providerRuntime;
+      server.middlewares.use('/api/radar/l3', handle);
+    },
+  });
+
+  async function handle(req, res) {
+    const url = new URL(req.url || '/', 'http://local');
+    try {
+      if (url.pathname === '/scan') {
+        const site = String(url.searchParams.get('site') || '').toUpperCase();
+        const product = String(
+          url.searchParams.get('product') || '',
+        ).toUpperCase();
+        if (!/^[A-Z0-9]{3}$/.test(site) || !LEVEL3_PRODUCTS.has(product)) {
+          sendJson(res, 400, {
+            error:
+              'site must be a 3-letter radar id and product a supported Level III code',
+          });
+          return;
+        }
+        const key = await service.latestKey(site, product);
+        if (!key) {
+          sendJson(res, 404, {
+            error: `${product} is not available from this radar right now`,
+          });
+          return;
+        }
+        const scan = await service.scan(key);
+        touch(site, product);
+        // Publish through the provider (deduplicated by key) so health and
+        // data age see the scan the client was just given.
+        await runtime?.ingest({ key, site, product });
+        sendJson(res, 200, scan.meta);
+        return;
+      }
+      if (url.pathname === '/value') {
+        const key = String(url.searchParams.get('key') || '');
+        const lat = Number(url.searchParams.get('lat'));
+        const lon = Number(url.searchParams.get('lon'));
+        if (
+          !LEVEL3_KEY_RE.test(key) ||
+          !LEVEL3_PRODUCTS.has(key.slice(4, 7)) ||
+          !Number.isFinite(lat) ||
+          !Number.isFinite(lon) ||
+          Math.abs(lat) > 90 ||
+          Math.abs(lon) > 180
+        ) {
+          sendJson(res, 400, { error: 'expected key, lat and lon' });
+          return;
+        }
+        const { product } = await service.scan(key);
+        const hit = valueAt(product, lat, lon);
+        sendJson(res, 200, {
+          value: hit.value,
+          inRange: hit.inRange,
+          rangeKm: Math.round(hit.rangeKm * 10) / 10,
+          azimuthDeg: Math.round(hit.azimuthDeg),
+          beamHeightFt:
+            hit.inRange && Number.isFinite(product.elevationDeg)
+              ? Math.round(
+                  beamHeightFt(
+                    hit.rangeKm,
+                    product.elevationDeg,
+                    product.site.heightFt,
+                  ) / 100,
+                ) * 100
+              : null,
+        });
+        return;
+      }
+      const image = /^\/image\/([A-Z0-9_]+)\.png$/.exec(url.pathname);
+      if (
+        image &&
+        LEVEL3_KEY_RE.test(image[1]) &&
+        LEVEL3_PRODUCTS.has(image[1].slice(4, 7))
+      ) {
+        const { png } = await service.scan(image[1]);
+        res.writeHead(200, {
+          'Content-Type': 'image/png',
+          'Cache-Control': 'public, max-age=86400, immutable',
+        });
+        res.end(png);
+        return;
+      }
+      sendJson(res, 404, { error: 'unknown radar route' });
+    } catch (err) {
+      console.warn('[nexrad-l3]', err?.message || err);
+      sendJson(res, 502, { error: 'radar decode failed' });
+    }
+  }
+
+  function close() {
+    if (reaper !== null) unschedule(reaper);
+    reaper = null;
+    release?.();
+    release = null;
+    watched.clear();
+  }
+
   return {
-    name: 'nexrad-level3',
-    configureServer: install,
-    configurePreviewServer: install,
+    provider,
+    service,
+    touch,
+    close,
+    handle,
+    watched: () => [...watched.keys()],
   };
+}
+
+/** The provider definition the registry installs. */
+export function nexradLevel3Provider(options) {
+  return createLevel3Ingest(options).provider;
 }

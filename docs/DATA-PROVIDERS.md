@@ -113,6 +113,23 @@ To port a legacy proxy, split its handler into the stages above, move its
 routes into `routes()`, and change its `registerLegacy` line to `register`.
 Keep its URLs stable so the browser layer does not change.
 
+### Ported so far
+
+- **`nexrad-level2`**: chunked Level II, written for the interface (GW-74).
+- **`nexrad-level3`**: NEXRAD Level III (GW-73), the first port of an
+  existing proxy, in [`server/providers/nexrad.js`](../server/providers/nexrad.js).
+  - It's a `pull` provider over the radar/product pairs clients are viewing.
+    A `/api/radar/l3/scan` request watches its pair for 6 minutes (three
+    missed layer refreshes), and while any pair is watched it polls for new
+    scans every minute.
+  - Records carry `product: 'TLX/N0B'` and `validTime` = scan time, so health
+    and data age are reported per radar and product. It is degraded after
+    10 minutes and stale after 20, which is when the layer itself marks a
+    scan stale.
+  - `/scan`, `/image` and `/value` are unchanged. `/scan` still answers from
+    the scan lookup directly, then publishes the scan through the runtime
+    (duplicates are dropped by key).
+
 ## Health and data age (GW-83)
 
 [`server/providers/common/health.js`](../server/providers/common/health.js)
