@@ -168,7 +168,6 @@ const CREDIT_EXPECTATIONS = {
   'rocket-launches': /Launch Library|LL2/i,
   traffic: /TomTom|OpenStreetMap/i,
   cctv: /Austin|Caltrans|Transport for London|TfL/i,
-  radio: /Radio Browser/i,
   'ais-live-vessels': /AISStream/i,
   'military-installations': /OpenStreetMap/i,
   'local-neighborhoods': /DataSF|San Francisco/i,
@@ -901,17 +900,6 @@ check({
     return r.ok && Array.isArray(r.json?.cameras)
       ? pass(`cameras[]=${r.json.cameras.length} tracked`)
       : fail(`HTTP ${r.status} ${r.text.slice(0, 100)}`);
-  },
-});
-
-check({
-  id: 'B15', group: 'B', desc: 'Radio directory proxy returns stations (or a labelled degraded state)',
-  run: async () => {
-    const r = await jget('/api/radio/stations?limit=20', { timeoutMs: 45000 });
-    const rows = Array.isArray(r.json) ? r.json.length : (r.json?.stations?.length || 0);
-    if (r.ok && rows > 0) return pass(`${rows} stations`);
-    if (r.status === 503 && r.json?.degraded) return skip(`upstream Radio Browser degraded: ${r.json.degradedReason}`, 'ENV');
-    return fail(`HTTP ${r.status} rows=${rows} ${r.text.slice(0, 100)}`);
   },
 });
 

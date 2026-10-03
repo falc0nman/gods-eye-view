@@ -1,7 +1,5 @@
 export const RADIO_PREFIX = 'radio:';
 
-export const DIRECTORY_ENDPOINT = '/api/radio/stations';
-
 export const HORIZON_TICK_MS = 250;
 
 export const HORIZON_CAMERA_MOVE_EPSILON_M = 1;

@@ -109,9 +109,6 @@
     "./server/providers/cctv": {
       "node": "./server/providers/cctv.js"
     },
-    "./server/providers/radio": {
-      "node": "./server/providers/radio.js"
-    },
     "./server/providers/overpass": {
       "node": "./server/providers/overpass.js"
     },
@@ -208,7 +205,6 @@
     "./layers/military/ingestion": "./src/layers/military/ingestion.js",
     "./layers/vessels/records": "./src/layers/vessels/records.js",
     "./layers/vessels/ingestion": "./src/layers/vessels/ingestion.js",
-    "./sources/radio-browser": "./src/sources/radioBrowser.js",
     "./sources/cctv-types": "./src/sources/cctvTypes.js",
     "./sources/regional": "./src/data/regionalModel.js",
     "./voice/action-schemas": "./src/voice/actionSchemas.js",

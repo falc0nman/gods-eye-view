@@ -10,7 +10,6 @@ import { geocodeProxy } from './regional/place.js';
 import { weatherEffectsProxy } from './regional/weather-effects.js';
 import { cctvProxy } from './cctv.js';
 import { defaultSourceRoot } from './common/source-root.js';
-import { radioBrowserProxy } from './radio.js';
 import { localReceiversProxy } from './local-receivers.js';
 import { adsbLolProxy } from './aircraft/adsb-lol.js';
 import { aisLiveProxy } from './vessels/ais-live.js';
@@ -51,7 +50,6 @@ function localProviderRegistry({ notificationTransport } = {}) {
   registry.registerLegacy('cctv', () =>
     cctvProxy({ sourceRoot: defaultSourceRoot }),
   );
-  registry.registerLegacy('radio-browser', radioBrowserProxy);
   registry.registerLegacy('local-receivers', localReceiversProxy);
   registry.registerLegacy('adsb-lol', adsbLolProxy);
   registry.registerLegacy('ais-live', aisLiveProxy);
@@ -81,13 +79,6 @@ export {
   CCTV_FRAME_FETCH_TIMEOUT_MS,
   fetchCctvImageFromUpstream,
 } from './cctv.js';
-export {
-  createRadioProxyMiddleware,
-  isPublicRadioAddress,
-  normalizeRadioBrowserStation,
-  publicRadioStation,
-  publicRadioHttpsUrl,
-} from './radio.js';
 export { LL2_CACHE_TTL_MS, launchLibraryRequestHeaders } from './space.js';
 export { googlePlacesContextProxy } from './places.js';
 export { googleServerApiKey } from './places.js';

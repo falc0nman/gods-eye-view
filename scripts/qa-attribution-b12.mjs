@@ -62,7 +62,6 @@ const REQUIRED_CREDIT_SUBSTRINGS = [
   'OpenSky Network',             // flights
   'AISStream',                   // vessels
   'City of Austin',              // CCTV
-  'Radio Browser',               // internet-radio directory
 ];
 
 async function main() {

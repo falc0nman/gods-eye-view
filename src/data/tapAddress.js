@@ -48,7 +48,7 @@
  * module means they cannot drift — the same reason #274 exists about eight
  * copies of haversine.
  *
- * Note on reuse: `isNonGlobalIpv4()` in `server/providers/radio/stations.js` answers a
+ * Note on reuse: the removed Radio Browser proxy's `isNonGlobalIpv4()` answered a
  * neighbouring question and was deliberately NOT reused. It reports malformed
  * input such as `999.1.1.1` as non-global, which is the safe direction for the
  * radio proxy's "is this public enough to fetch?" test but inverts into

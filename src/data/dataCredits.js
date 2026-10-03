@@ -249,13 +249,6 @@ export const DATA_CREDITS = [
       '<a href="https://www.openstreetmap.org/fixthemap" target="_blank" rel="noopener">fix the map</a>',
   },
   {
-    key: 'radio-browser',
-    html:
-      'Internet-radio station directory: ' +
-      '<a href="https://www.radio-browser.info/" target="_blank" rel="noopener">Radio Browser</a> ' +
-      '(public domain; audio delivered directly by each broadcaster)',
-  },
-  {
     key: 'reearth-terrain',
     html:
       'Terrain (keyless globe stacks): ' +

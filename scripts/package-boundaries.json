@@ -132,22 +132,6 @@
     ],
     "external": []
   },
-  "radio-provider": {
-    "runtime": "node",
-    "exports": ["./server/providers/radio"],
-    "modules": [
-      "server/providers/radio.js",
-      "server/providers/radio/catalog.js",
-      "server/providers/radio/constants.js",
-      "server/providers/radio/stations.js",
-      "server/providers/radio/transport.js",
-      "src/data/radioCountry.js",
-      "server/providers/common/http.js",
-      "src/sources/radioBrowser.js",
-      "src/sources/httpBody.js"
-    ],
-    "external": []
-  },
   "overpass-provider": {
     "runtime": "node",
     "exports": ["./server/providers/overpass"],
@@ -2370,11 +2354,6 @@
     "exports": ["./layers/directions"],
     "modules": ["src/layers/directions/index.js", "src/data/routeSteps.js"],
     "external": ["cesium"]
-  },
-  "radio-browser-source": {
-    "exports": ["./sources/radio-browser"],
-    "modules": ["src/sources/radioBrowser.js", "src/data/radioCountry.js"],
-    "external": []
   },
   "cctv-types-source": {
     "exports": ["./sources/cctv-types"],
