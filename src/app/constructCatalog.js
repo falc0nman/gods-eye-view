@@ -15,7 +15,6 @@ import { createApplicationRadio } from './layers/radio.js';
 import { createApplicationTraffic } from './layers/traffic.js';
 import { createApplicationDirections } from './layers/directions.js';
 import { createApplicationRecentImagery } from './layers/recentImagery.js';
-import { createApplicationLocalAdsb } from './layers/localAdsb.js';
 
 const SOURCE_METHODS = Object.freeze({
   flights: ['getSnapshot'],
@@ -37,18 +36,9 @@ const SOURCE_METHODS = Object.freeze({
   'team-chasers': ['getSnapshot', 'getRoster', 'saveSelection'],
 });
 
-/**
- * Hardware-local layers are registered like any other but never enter share
- * links or stored layer state: another browser cannot have this receiver.
- */
-export const LOCAL_ONLY_LAYER_METADATA = Object.freeze([
-  Object.freeze({ id: 'local-adsb', disposition: 'local-only' }),
-]);
-
 /** Serialization metadata for every layer the application catalog constructs. */
 export const APPLICATION_LAYER_METADATA = Object.freeze([
   ...LAYER_STATE_REGISTRY,
-  ...LOCAL_ONLY_LAYER_METADATA,
 ]);
 
 /** Construct the current catalog without choosing any source provider.
@@ -100,12 +90,6 @@ export function createApplicationCatalog({
       [
         flights,
         military,
-        createApplicationLocalAdsb({
-          surface,
-          enrichment: sources.flights,
-          displayParams: () => flights.getParams(),
-          ...(resolveAsset ? { resolveAsset } : {}),
-        }),
         createApplicationTraffic({ source: sources.traffic, surface }),
         createApplicationCctv({ surface, source: sources.cctv }),
         createApplicationRadio({ surface, source: sources.radio }),

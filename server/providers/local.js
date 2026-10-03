@@ -6,7 +6,6 @@ import { overpassProxy } from './overpass.js';
 import { geocodeProxy } from './regional/place.js';
 import { cctvProxy } from './cctv.js';
 import { defaultSourceRoot } from './common/source-root.js';
-import { localReceiversProxy } from './local-receivers.js';
 import { adsbLolProxy } from './aircraft/adsb-lol.js';
 import { trackBackfillProxies } from './aircraft/tracks.js';
 import { openAiRealtimeProxy } from './openai.js';
@@ -40,7 +39,6 @@ function localProviderRegistry({ notificationTransport } = {}) {
   registry.registerLegacy('cctv', () =>
     cctvProxy({ sourceRoot: defaultSourceRoot }),
   );
-  registry.registerLegacy('local-receivers', localReceiversProxy);
   registry.registerLegacy('adsb-lol', adsbLolProxy);
   registry.registerLegacy('track-backfill', trackBackfillProxies);
   registry.registerLegacy('openai-realtime', openAiRealtimeProxy);

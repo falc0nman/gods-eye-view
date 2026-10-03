@@ -130,7 +130,6 @@ const schemas = [
             'traffic',
             'cctv',
             'radio',
-            'local-adsb',
             'weather-radar',
             'nexrad',
             'nws-warnings',

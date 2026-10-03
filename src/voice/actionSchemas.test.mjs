@@ -33,7 +33,7 @@ test('the complete Realtime tool payload pins the additive analyst, satellite, L
     // team-chasers) and their common-name mapping.
     // Re-derived for each GW-57 removal: the removed layers leave the layer
     // enums, common-name mappings and analyst fields.
-    '7a0b9720cdf5c53f0fa2b21bc077201af0650b602a329c2e85af9cfe2a9ecfab',
+    'f12db7f6d615c49370107c6ef2373b06baf7bd8e4f5a5aa335311d7428dbe322',
   );
 });
 

@@ -4,7 +4,6 @@ const CONTROL_LAYER_IDS = Object.freeze({
   militaryFlightsLayer: 'military',
   cctvLayer: 'cctv',
   radioLayer: 'radio',
-  localAdsbLayer: 'local-adsb',
 });
 
 /** Capture the ordered application instances and their serialization metadata. */

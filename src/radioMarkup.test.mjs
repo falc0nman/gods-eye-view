@@ -176,7 +176,7 @@ test('no unchanged Realtime tool definition drifts silently', () => {
 });
 
 test('Radio volume shares the Sharpen slider visual language', () => {
-  for (const id of ['context-radio-mini-volume', 'radio-volume', 'sdr-volume']) {
+  for (const id of ['context-radio-mini-volume', 'radio-volume']) {
     assert.match(
       html,
       new RegExp(`id="${id}"[^>]*class="gev-quantitative-slider"[^>]*type="range"`),

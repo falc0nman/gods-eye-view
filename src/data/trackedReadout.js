@@ -35,9 +35,6 @@ const DEFAULT_TRACKED_OVERLAY_HOST = Object.freeze({
 
 let _viewer = null;
 let _trackedEntityChangedRemove = null;
-let _selectedContext = null;
-let _contextSelectedHandler = null;
-let _contextClearedHandler = null;
 let _aircraftSelectedHandler = null;
 let _activeEntryId = null;
 let _overlayHost = DEFAULT_TRACKED_OVERLAY_HOST;
@@ -123,7 +120,7 @@ function entryIdFor(entity) {
 }
 
 function activeEntity() {
-  return _viewer?.trackedEntity || _selectedContext?.entity || null;
+  return _viewer?.trackedEntity || null;
 }
 
 /**
@@ -218,9 +215,6 @@ export function getActiveTrackedReadoutId() {
   return _activeEntryId;
 }
 
-/** Static-context layers whose click selection publishes the readout card. */
-const READOUT_CONTEXT_LAYERS = new Set(['local-adsb']);
-
 /**
  * Initialize the model bridge and selection listeners. No render listener is
  * installed; the already-initialized world-overlay host owns the frame lane.
@@ -233,39 +227,11 @@ export function initTrackedReadout(viewer) {
   _overlayHost.setVisible(TRACKED_OVERLAY_SOURCE_ID, true);
   _trackedEntityChangedRemove =
     viewer.trackedEntityChanged?.addEventListener?.(() => {
-      if (viewer.trackedEntity) _selectedContext = null;
       syncActiveEntity();
     }) || null;
-  _contextSelectedHandler = (event) => {
-    const record = event.detail;
-    if (READOUT_CONTEXT_LAYERS.has(record?.layerId)) {
-      _selectedContext = record;
-      publishEntity(record.entity);
-      return;
-    }
-    if (_selectedContext) {
-      _selectedContext = null;
-      syncActiveEntity();
-    }
-  };
-  _contextClearedHandler = (event) => {
-    if (
-      !_selectedContext ||
-      event.detail?.layerId === _selectedContext.layerId
-    ) {
-      _selectedContext = null;
-      syncActiveEntity();
-    }
-  };
   _aircraftSelectedHandler = () => {
-    _selectedContext = null;
     if (!_viewer?.trackedEntity) clearTrackedSource();
   };
-  window.addEventListener('gev:entity-selected', _contextSelectedHandler);
-  window.addEventListener(
-    'gev:entity-selection-cleared',
-    _contextClearedHandler,
-  );
   window.addEventListener(
     'gev:awareness-subject-selected',
     _aircraftSelectedHandler,
@@ -280,22 +246,12 @@ export function initTrackedReadout(viewer) {
 export function destroyTrackedReadout() {
   _trackedEntityChangedRemove?.();
   _trackedEntityChangedRemove = null;
-  if (_contextSelectedHandler)
-    window.removeEventListener('gev:entity-selected', _contextSelectedHandler);
-  if (_contextClearedHandler)
-    window.removeEventListener(
-      'gev:entity-selection-cleared',
-      _contextClearedHandler,
-    );
   if (_aircraftSelectedHandler)
     window.removeEventListener(
       'gev:awareness-subject-selected',
       _aircraftSelectedHandler,
     );
-  _contextSelectedHandler = null;
-  _contextClearedHandler = null;
   _aircraftSelectedHandler = null;
-  _selectedContext = null;
   clearTrackedSource();
   _overlayHost.setVisible(TRACKED_OVERLAY_SOURCE_ID, false);
   _viewer = null;

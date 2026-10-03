@@ -119,12 +119,6 @@ const LAYER_ALIASES = new Map([
   ['radio', 'radio'],
   ['internet radio', 'radio'],
   ['radio stations', 'radio'],
-  ['local-adsb', 'local-adsb'],
-  ['local adsb', 'local-adsb'],
-  ['local ads-b', 'local-adsb'],
-  ['my receiver', 'local-adsb'],
-  ['my antenna', 'local-adsb'],
-  ['my sdr', 'local-adsb'],
 ]);
 
 const CITY_ALIASES = new Map([

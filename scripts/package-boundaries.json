@@ -449,9 +449,6 @@
       "src/ui/layerBindings.js",
       "src/ui/displayBindings.js",
       "src/ui/shellFacade.js",
-      "src/ui/localSdrControls.js",
-      "src/layers/localAdsb/feedNames.js",
-      "src/ui/localSdrPresentation.js",
       "src/data/cameraArrival.js"
     ],
     "external": ["cesium"]
@@ -1350,23 +1347,6 @@
       "src/layers/teamChasers/index.js",
       "src/layers/teamChasers/picker.js",
       "src/layers/teamChasers/source.js",
-      "src/app/layers/localAdsb.js",
-      "src/layers/localAdsb/index.js",
-      "src/layers/localAdsb/policy.js",
-      "src/layers/localAdsb/card.js",
-      "src/layers/localAdsb/feeds.js",
-      "src/layers/localAdsb/status.js",
-      "src/layers/localAdsb/feedNames.js",
-      "src/layers/localAdsb/motion.js",
-      "src/layers/localAdsb/models.js",
-      "src/layers/localAdsb/enrichment.js",
-      "src/sources/adsbRecords.js",
-      "src/sdr/controller.js",
-      "src/sdr/spectrum.js",
-      "src/sdr/gain.js",
-      "src/sdr/usbDevices.js",
-      "src/ui/localSdrControls.js",
-      "src/ui/localSdrPresentation.js",
       "src/app/layers/recentImagery.js",
       "src/layers/recentImagery/index.js",
       "src/layers/recentImagery/model.js",
@@ -1391,8 +1371,7 @@
       "cesium",
       "egm96-universal",
       "mgrs",
-      "pbf",
-      "@jtarrio/webrtlsdr"
+      "pbf"
     ]
   },
   "application-catalog": {
@@ -1655,21 +1634,6 @@
       "src/layers/teamChasers/index.js",
       "src/layers/teamChasers/picker.js",
       "src/layers/teamChasers/source.js",
-      "src/app/layers/localAdsb.js",
-      "src/layers/localAdsb/index.js",
-      "src/layers/localAdsb/policy.js",
-      "src/layers/localAdsb/card.js",
-      "src/layers/localAdsb/feeds.js",
-      "src/layers/localAdsb/status.js",
-      "src/layers/localAdsb/feedNames.js",
-      "src/layers/localAdsb/motion.js",
-      "src/layers/localAdsb/models.js",
-      "src/layers/localAdsb/enrichment.js",
-      "src/sources/adsbRecords.js",
-      "src/sdr/controller.js",
-      "src/sdr/spectrum.js",
-      "src/sdr/gain.js",
-      "src/sdr/usbDevices.js",
       "src/data/detection.js",
       "src/data/detectionRenderDemand.js",
       "src/data/detectionPresentation.js",
@@ -1696,8 +1660,7 @@
       "egm96-universal",
       "@mapbox/vector-tile",
       "pbf",
-      "mgrs",
-      "@jtarrio/webrtlsdr"
+      "mgrs"
     ]
   },
   "application-operations": {
