@@ -36,7 +36,6 @@ import { isCalibratedAllocationRuntime } from '../../scripts/run-unit-tests.mjs'
  *   Phase 5 pre-missions |     591 |        591 |     353 |         127815 |       216.3 |     132,000
  *   Phase 5 final        |     639 |        639 |     353 |         133769 |       209.3 |     142,000
  *   all-live (pre-GW-57) |     864 |        864 |     398 |         164711 |       190.6 |     182,000
- *   Phase 6 detection    |    5000 |       5000 |    5000 |  524191/600729 | 104.8/120.1 |     700,000
  *
  * The FIRMS/placement fixes traded the all-sources-live rows up (vessels
  * 24,975→67,252 and tracked 20,240→66,642 B/frame), still below the ~77–87 KB
@@ -103,15 +102,7 @@ import { isCalibratedAllocationRuntime } from '../../scripts/run-unit-tests.mjs'
  * Their image-inclusive per-candidate ceilings (210 / 225) are kept as upper
  * bounds; every row now also sits under the shared 154 ceiling.
  *
- * The Phase-6 row activates the production detection lane at Dense/100 over a
- * deterministic 5,000-observation, 2,500 km scene. All observations exercise
- * manual projection and batched bracket paint; the shipped global-view label
- * budget keeps the rich-callout cohort bounded. Repeated clean-process probes
- * expose two stable V8/GC regimes at 524,191 and 600,729 B/frame (104.8 and
- * 120.1 B/observation/frame). The slower regime remains below the unchanged
- * 154 ceiling with 28.2% headroom, while the 700 KB frame budget carries 16.5%
- * headroom. No detection exception is taken: the larger absolute frame budget
- * is the honest cost of preserving broad reticles for 5,000 live observations.
+ * GW-57 removed the detection overlay and with it the Phase-6 detection row.
  *
  * History: the FIRMS migration introduced `anchor +/- leaderOffset` writes on
  * every pooled placement. Those computed doubles were boxed on the shared
@@ -168,15 +159,6 @@ const WORKLOADS = [
     maxBytesPerCandidatePerFrame: 225,
     saturated: true,
     ambientCardCapacity: AMBIENT_CARD_COLLISION_CAPACITY,
-  },
-  {
-    name: 'with the Dense detection lane active over 5,000 observations',
-    profile: 'phase6-detection',
-    entries: 5_000,
-    candidates: 5_000,
-    maxBytesPerFrame: 700_000,
-    detectionLabelBudget: 56,
-    saturated: false,
   },
 ];
 
@@ -236,10 +218,6 @@ for (const workload of WORKLOADS) {
     assert.equal(payload.profile, workload.profile || 'generic');
     if (workload.ambientCardCapacity != null) {
       assert.equal(payload.ambientCardCapacity, workload.ambientCardCapacity);
-    }
-    if (workload.detectionLabelBudget != null) {
-      assert.equal(payload.detectionCollectiveLabelBudget, workload.detectionLabelBudget);
-      assert.equal(payload.detectionSelectedCount, workload.detectionLabelBudget);
     }
     assert.ok(payload.paintedCount > 0, 'probe painted nothing');
     assert.ok(payload.solveCount > 0, 'probe never exercised an arbiter solve');

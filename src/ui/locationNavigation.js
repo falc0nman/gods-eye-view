@@ -147,20 +147,18 @@ export class LocationNavigation {
   }
 
   _beginWorldJumpTransition() {
-    const { suspendDetection, trafficLayer } = this.services;
+    const { trafficLayer } = this.services;
     clearTimeout(this._trafficTransitionTimer);
     this._worldJumpActive = true;
     trafficLayer.beginWorldJump?.();
-    suspendDetection('intercity');
   }
 
   _endWorldJumpTransition() {
-    const { resumeDetection, trafficLayer } = this.services;
+    const { trafficLayer } = this.services;
     clearTimeout(this._trafficTransitionTimer);
     this._worldJumpActive = false;
     this._trafficTransitionTimer = null;
     trafficLayer.endWorldJump?.();
-    resumeDetection();
     this._updateTrafficSyncChip(true);
   }
 

@@ -18,45 +18,14 @@ export const STYLES = {
   snow: snowShader,
 };
 
-/**
- * The tactical detection look: Dense at 75%.
- *
- * Owner playtest 2026-08-18: "detection mode… 75% weighted, with the 16% fade
- * and 5% outside, whatever we had. I want that as the default. It should just
- * happen." Fade and outside opacity live in GLOBAL_POST_DEFAULTS, so "whatever
- * we had" still needs nothing here — but they are 7% and 1% now, the outside
- * default having moved 5 → 3 → 1 as the owner locked final tuning after field trials (2026-08-24). What the quote asked for is the
- * baseline of the day, not the two numbers it happened to name.
- *
- * ONE object, shared by the first-load baseline below and by every military
- * style. Declared ahead of GLOBAL_POST_DEFAULTS because that baseline now reads
- * from it.
- */
-export const MILITARY_DETECTION_PRESET = Object.freeze({
-  mode: 'dense',
-  densityPct: 75,
-});
-
 /** Baseline post-processing settings applied on first load (before share-link restore). */
 export const GLOBAL_POST_DEFAULTS = {
   bloom: { enabled: false, intensity: BLOOM_INTENSITY_DEFAULT },
   sharpen: { enabled: true, intensity: 49 },
   hudVariant: 'tactical',
   hudVisible: true,
-  // Detection is ON for EVERY style on a first run, Normal included (owner
-  // directive 2026-08-22: "detect should also be on by default"). It is the
-  // same preset object the military styles and Contacts already apply, so there
-  // is one tactical look, not several that can drift.
-  //
-  // This is a first-LOAD baseline, not an override: `_applyGlobalPostDefaults`
-  // runs before any share-link restore, so a link's `dm`/`dd` still lands on top
-  // of it. It also deliberately leaves `_detectionUserOverridden` alone — the
-  // flag means the OPERATOR hand-edited detection, and a factory default is not
-  // that. Turning detection off by hand therefore still sets the flag and still
-  // suppresses the military-style auto-enable for the rest of the session.
-  detectionMode: MILITARY_DETECTION_PRESET.mode.toUpperCase(),
-  detectionDensity: MILITARY_DETECTION_PRESET.densityPct,
-  detectionAllocation: 'ELASTIC',
+  // Keyhole fade (the world-overlay fade beyond the style's keyhole). The
+  // `detection` prefix is historical; share links keep it as kf/ko.
   detectionFadePct: 7,
   detectionOutsideOpacityPct: 1,
   celestialRing: false,
@@ -76,7 +45,6 @@ export const STYLE_PRESET_DEFAULTS = {
     },
     hudVariant: 'tactical',
     hudVisible: true,
-    detection: MILITARY_DETECTION_PRESET,
   },
   surveillance: {
     bloom: { enabled: false, intensity: BLOOM_INTENSITY_DEFAULT },
@@ -91,7 +59,6 @@ export const STYLE_PRESET_DEFAULTS = {
     },
     hudVariant: 'tactical',
     hudVisible: true,
-    detection: MILITARY_DETECTION_PRESET,
   },
   thermal: {
     bloom: { enabled: false, intensity: BLOOM_INTENSITY_DEFAULT },
@@ -106,7 +73,6 @@ export const STYLE_PRESET_DEFAULTS = {
     },
     hudVariant: 'tactical',
     hudVisible: true,
-    detection: MILITARY_DETECTION_PRESET,
   },
 };
 

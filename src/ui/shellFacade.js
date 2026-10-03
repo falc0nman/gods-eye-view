@@ -374,14 +374,6 @@ export class ShellFacade {
     this._visualSettings.activeStyle = value;
   }
 
-  get _detectionUserOverridden() {
-    return this._visualSettings._detectionUserOverridden;
-  }
-
-  set _detectionUserOverridden(value) {
-    this._visualSettings._detectionUserOverridden = value;
-  }
-
   get _cockpitVisionMode() {
     return this._visualSettings._cockpitVisionMode;
   }
@@ -396,22 +388,6 @@ export class ShellFacade {
 
   set _cockpitVisionRestore(value) {
     this._visualSettings._cockpitVisionRestore = value;
-  }
-
-  get _detectionAllocationBtns() {
-    return this._visualSettings._detectionAllocationBtns;
-  }
-
-  set _detectionAllocationBtns(value) {
-    this._visualSettings._detectionAllocationBtns = value;
-  }
-
-  get _detectionAllocationPreference() {
-    return this._visualSettings._detectionAllocationPreference;
-  }
-
-  set _detectionAllocationPreference(value) {
-    this._visualSettings._detectionAllocationPreference = value;
   }
 
   get _styleParameters() {
@@ -674,31 +650,9 @@ export class ShellFacade {
     return this._visualSettings._setSharpenEnabled(...arguments);
   }
 
-  /**
-   * Reads and canonicalizes the five-stop density control. The engine derives
-   * Sparse/Balanced/Dense from the same stop.
-   * @returns {void}
-   */
-  _applyDetectionDensityFromUi() {
-    return this._visualSettings._applyDetectionDensityFromUi(...arguments);
-  }
-
   /** Apply responsive keyhole fade controls from normalized UI percentages. */
   _applyDetectionFadeFromUi() {
     return this._visualSettings._applyDetectionFadeFromUi(...arguments);
-  }
-
-  _syncDetectionUiFromEngine() {
-    return this._visualSettings._syncDetectionUiFromEngine(...arguments);
-  }
-
-  /**
-   * Activates a detection overlay mode by label (e.g. 'OFF', 'SPARSE', 'PANOPTIC').
-   * @param {string} modeLabel - Detection mode label to set.
-   * @returns {void}
-   */
-  _setDetectionMode(modeLabel) {
-    return this._visualSettings._setDetectionMode(...arguments);
   }
 
   /**
@@ -742,32 +696,13 @@ export class ShellFacade {
   }
 
   /**
-   * Apply a detection preset's density and mode through the real UI path.
-   *
-   * Deliberately does NOT consult `_detectionUserOverridden` — the CALLER owns
-   * that decision. The style path checks it (an explicit Sparse/Off must
-   * survive a style switch); Cockpit entry does not (owner: detection is on in
-   * the cockpit "regardless").
-   * @param {{mode?: string, densityPct?: number}} det Preset detection config.
-   * @returns {void}
-   */
-  _applyDetectionPreset(det) {
-    return this._visualSettings._applyDetectionPreset(...arguments);
-  }
-
-  /**
    * Applies the global post-processing baseline (GLOBAL_POST_DEFAULTS) at
    * startup before any share-link restore runs. Sets bloom, sharpen, HUD,
-   * and detection to their factory defaults.
+   * and the keyhole fade to their factory defaults.
    * @returns {void}
    */
   _applyGlobalPostDefaults() {
     return this._visualSettings._applyGlobalPostDefaults(...arguments);
-  }
-
-  /** Detection as a durable preference, for serialization into a share link. */
-  _shareableDetectionState() {
-    return this._visualSettings._shareableDetectionState(...arguments);
   }
 
   /** Current shareable visual preferences; subscriptions include an initial snapshot. */
@@ -1070,19 +1005,6 @@ export class ShellFacade {
     return this._panelChrome._restorePanelState(...arguments);
   }
 
-  /**
-   * Reads current detection overlay state (engine mode + UI density percent).
-   * @returns {{detectionMode: string, densityPct: number|null, allocationStrategy:string, fadePct:number, outsideOpacityPct:number}}
-   */
-  getDetectionState() {
-    return this._visualSettings.getDetectionState(...arguments);
-  }
-
-  /** Read-only overlay diagnostics used by browser QA and regression harnesses. */
-  getDetectionDiagnostics() {
-    return this._visualSettings.getDetectionDiagnostics(...arguments);
-  }
-
   /** Whether the full-globe celestial overlay is enabled by user preference. */
   get celestialRingEnabled() {
     return this._visualSettings.celestialRingEnabled;
@@ -1093,7 +1015,7 @@ export class ShellFacade {
   }
 
   /**
-   * Snapshots the full visual state (active style, bloom, sharpen, HUD, detection,
+   * Snapshots the full visual state (active style, bloom, sharpen, HUD, keyhole fade,
    * per-style shader uniform values) for serialization or scene recipe capture.
    * @returns {object} Serializable visual state object.
    */
@@ -1303,7 +1225,7 @@ export class ShellFacade {
   }
 
   /**
-   * Moves the shared HUD, Detection, Parameters, and 3D controls into or out
+   * Moves the shared HUD and Parameters controls into or out
    * of Cockpit.
    * @param {boolean} active Whether Cockpit owns the Display control groups.
    * @returns {void}
@@ -1331,17 +1253,6 @@ export class ShellFacade {
    */
   _updateHudButtonState() {
     return this._visualSettings._updateHudButtonState(...arguments);
-  }
-
-  /**
-   * Updates the detection toggle button label and CSS classes to reflect
-   * the current density-derived profile. Also toggles the density and
-   * allocation controls together.
-   * @param {string} modeLabel - Current detection mode label.
-   * @returns {void}
-   */
-  _updateDetectionButton(modeLabel) {
-    return this._visualSettings._updateDetectionButton(...arguments);
   }
 
   /**

@@ -32,8 +32,6 @@ function location(t) {
         beginWorldJump() { calls.push('begin'); },
         endWorldJump() { calls.push('end'); },
       },
-      suspendDetection() { calls.push('suspend'); },
-      resumeDetection() { calls.push('resume'); },
     },
     elements: {}, navigation: {}, readCockpit: () => null,
     operations: {
@@ -55,7 +53,7 @@ test('shell disposal settles a pending globe reset once and revokes its timeout'
   t.mock.timers.tick(10000);
   owner.destroy();
   assert.deepEqual(calls, after);
-  assert.equal(calls.filter(c => c === 'resume').length, 1);
+  assert.equal(calls.filter(c => c === 'end').length, 1);
   assert.equal((await owner.resetToGlobeView()).cancelled, true);
 });
 
@@ -70,7 +68,7 @@ test('world jump completion cannot revive navigation after shell disposal', (t) 
   complete();
   t.mock.timers.tick(10000);
   assert.deepEqual(calls, after);
-  assert.equal(calls.filter(c => c === 'resume').length, 1);
+  assert.equal(calls.filter(c => c === 'end').length, 1);
 });
 
 function bindings(t) {

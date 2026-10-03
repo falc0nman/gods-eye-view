@@ -112,24 +112,16 @@ test('the Cyber sonar control is an optional owned display action', () => {
   assert.equal(calls.length, 6);
 });
 
-test('style and allocation choices retain their current data attributes', () => {
+test('style choices retain their current data attributes', () => {
   const style = element();
-  const allocation = element();
   style.dataset.style = 'thermal';
-  allocation.dataset.allocation = 'balanced';
   const calls = [];
   const control = bindDisplayControls({
-    elements: {
-      styleButtons: [style],
-      allocationButtons: [allocation],
-    },
-    actions: {
-      setStyle: (value) => calls.push(value),
-      setAllocation: (value) => calls.push(value),
-    },
+    elements: { styleButtons: [style] },
+    actions: { setStyle: (value) => calls.push(value) },
   });
-  for (const el of [style, allocation]) el.dispatchEvent(new Event('click'));
-  assert.deepEqual(calls, ['thermal', 'balanced']);
+  style.dispatchEvent(new Event('click'));
+  assert.deepEqual(calls, ['thermal']);
   control.destroy();
 });
 

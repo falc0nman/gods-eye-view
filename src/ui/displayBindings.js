@@ -1,24 +1,11 @@
 import { createFrameRateMonitor } from './frameRateMonitor.js';
 import { bindApplicationShortcuts } from './visualInput.js';
 import { bindDisplayControls } from './displayControls.js';
-import { canonicalizeDensity } from '../data/detectionPolicy.js';
 
 /** Own keyboard/display event subscriptions; settings remain with their state owners. */
 export class DisplayBindings {
-  constructor({
-    viewer,
-    services,
-    elements,
-    operations,
-    readState,
-    claimDetection,
-  }) {
-    Object.assign(
-      this,
-      { viewer, services, readState, claimDetection },
-      elements,
-      operations,
-    );
+  constructor({ viewer, services, elements, operations, readState }) {
+    Object.assign(this, { viewer, services, readState }, elements, operations);
   }
   get shareLinkManager() {
     return this.readState().shareLinkManager;
@@ -38,16 +25,9 @@ export class DisplayBindings {
   get celestialRingEnabled() {
     return this.readState().celestialRingEnabled;
   }
-  get _detectionAllocationBtns() {
-    return this.readState()._detectionAllocationBtns;
-  }
   _initUI() {
-    const {
-      cycleDetectionMode,
-      setScopeMaskEnabled,
-      isScopeMaskEnabled,
-      setScopeMaskFeather,
-    } = this.services;
+    const { setScopeMaskEnabled, isScopeMaskEnabled, setScopeMaskFeather } =
+      this.services;
     this._applicationShortcuts?.destroy();
     this._frameRateMonitor?.destroy();
     this._frameRateMonitor = createFrameRateMonitor({
@@ -76,12 +56,6 @@ export class DisplayBindings {
         toggleCleanView: () => this.toggleCleanView(),
         toggleLayers: () =>
           document.getElementById('data-panel').classList.toggle('active'),
-        cycleDetection: () => {
-          this.shareLinkManager?.claimRestoreLane?.('visual');
-          this.claimDetection();
-          cycleDetectionMode();
-          this._syncShareState();
-        },
         toggleCctv: () => this._toggleCctvEnabled(),
       },
     });
@@ -106,9 +80,6 @@ export class DisplayBindings {
         sonarSectorSlider: this._cyberSonarSector,
         cleanViewButton: this._cleanViewBtn,
         cleanViewExitButton: this._cleanViewExitBtn,
-        densitySlider: this._detectionDensitySlider,
-        detectionButton: this._detectionBtn,
-        allocationButtons: this._detectionAllocationBtns,
         fadeSliders: [this._detectionFadeSlider, this._detectionOpacitySlider],
         celestialButton: this._celestialBtn,
       },
@@ -157,21 +128,6 @@ export class DisplayBindings {
         },
         toggleCleanView: () => this.toggleCleanView(),
         exitCleanView: () => this.toggleCleanView(false),
-        setDensity: (value) => {
-          this.shareLinkManager?.claimRestoreLane?.('visual');
-          this.claimDetection();
-          const pct = canonicalizeDensity(value);
-          this._detectionDensitySlider.value = String(pct);
-          if (this._detectionDensityValue)
-            this._detectionDensityValue.textContent = `${pct}%`;
-          this._applyDetectionDensityFromUi();
-          this._syncShareState();
-        },
-        setAllocation: (value) => {
-          this.shareLinkManager?.claimRestoreLane?.('visual');
-          this.claimDetection();
-          this._setDetectionAllocation(value);
-        },
         setFade: () => {
           this.shareLinkManager?.claimRestoreLane?.('visual');
           this._applyDetectionFadeFromUi();
@@ -199,12 +155,6 @@ export class DisplayBindings {
         setSonarOpacity: (value) =>
           this._setCyberSonarSetting('opacity', value),
         setSonarSector: (value) => this._setCyberSonarSetting('sector', value),
-        cycleDetection: () => {
-          this.shareLinkManager?.claimRestoreLane?.('visual');
-          this.claimDetection();
-          cycleDetectionMode();
-          this._syncShareState();
-        },
       },
     });
   }

@@ -46,7 +46,6 @@ import { runCctvLayerEnableTransition } from '../cctvFocusPolicy.js';
  * - Orbit controller integration for POI fly-around.
  * - Recording mode with safe-frame overlay and HUD mode switching.
  * - Share link encoding/decoding (delegates to ShareLinkManager).
- * - Detection overlay mode cycling and density tuning.
  * - Toast notification system.
  * - Intel HUD lifecycle and variant switching.
  */
@@ -67,10 +66,6 @@ export class StyleManager extends ShellFacade {
       CelestialRing,
       initTrackedReadout,
       initWorldOverlay,
-      initDetection,
-      setDetectionStyle,
-      trafficLayer,
-      cctvLayer,
     } = services;
     this.services = services;
     this._lifetime = new UiLifetime();
@@ -137,8 +132,6 @@ export class StyleManager extends ShellFacade {
       services: {
         setScopeTerminusOverride: services.setScopeTerminusOverride,
         clampScopeTerminusPct: services.clampScopeTerminusPct,
-        getDetectionMode: services.getDetectionMode,
-        getDetectionTuning: services.getDetectionTuning,
         getKeyholeFadeTuning: services.getKeyholeFadeTuning,
         getScopeMaskFeather: services.getScopeMaskFeather,
         getScopeTerminusOverride: services.getScopeTerminusOverride,
@@ -146,11 +139,7 @@ export class StyleManager extends ShellFacade {
         holdContinuousRender: services.holdContinuousRender,
         isCelestialRingStyleSupported: services.isCelestialRingStyleSupported,
         isScopeMaskEnabled: services.isScopeMaskEnabled,
-        readDetectionDiagnostics: services.readDetectionDiagnostics,
         releaseContinuousRender: services.releaseContinuousRender,
-        setDetectionModeByLabel: services.setDetectionModeByLabel,
-        setDetectionStyle: services.setDetectionStyle,
-        setDetectionTuning: services.setDetectionTuning,
         setKeyholeFadeTuning: services.setKeyholeFadeTuning,
         setScopeMaskEnabled: services.setScopeMaskEnabled,
         setScopeMaskFeather: services.setScopeMaskFeather,
@@ -162,17 +151,12 @@ export class StyleManager extends ShellFacade {
         _bloomSliderValue: this._bloomSliderValue,
         _celestialBtn: this._celestialBtn,
         _cockpitDisplayToggleBtn: this._cockpitDisplayToggleBtn,
-        _detectionAllocationRow: this._detectionAllocationRow,
-        _detectionBtn: this._detectionBtn,
-        _detectionDensitySlider: this._detectionDensitySlider,
-        _detectionDensityValue: this._detectionDensityValue,
         _detectionFadeRow: this._detectionFadeRow,
         _detectionFadeSlider: this._detectionFadeSlider,
         _detectionFadeValue: this._detectionFadeValue,
         _detectionOpacityRow: this._detectionOpacityRow,
         _detectionOpacitySlider: this._detectionOpacitySlider,
         _detectionOpacityValue: this._detectionOpacityValue,
-        _detectionSliderRow: this._detectionSliderRow,
         _hudBtn: this._hudBtn,
         _cyberSonarBtn: this._cyberSonarBtn,
         _cyberSonarRings: this._cyberSonarRings,
@@ -274,8 +258,6 @@ export class StyleManager extends ShellFacade {
         searchAndFlyTo: services.searchAndFlyTo,
         LocationSearch: services.LocationSearch,
         OrbitController: services.OrbitController,
-        suspendDetection: services.suspendDetection,
-        resumeDetection: services.resumeDetection,
         trafficLayer: services.trafficLayer,
         flyToPresetLocation: services.flyToPresetLocation,
         flyToPOI: services.flyToPOI,
@@ -319,7 +301,7 @@ export class StyleManager extends ShellFacade {
     this._recording.hud = this.hud;
 
     // Full-globe sun/moon ring. It is a crisp screen-space overlay above the
-    // Cesium canvas but below the HUD/detection/readout z ladder.
+    // Cesium canvas but below the HUD/readout z ladder.
     this.celestialRing = new CelestialRing(viewer, {
       enabled: false,
       onAutoDisable: () =>
@@ -369,29 +351,17 @@ export class StyleManager extends ShellFacade {
     this._shareRestoration.attachLinks(this.shareLinkManager);
 
     // The shared world-overlay host must own its one postRender lane before
-    // detection and tracked-readout initialize. It stays transparent until a
+    // the tracked readout initializes. It stays transparent until a
     // production source explicitly registers entries.
     initWorldOverlay(viewer);
 
-    // Initialize detection overlay BEFORE style stages so the composite
-    // stage is first in the post-process pipeline
-    initDetection(
-      viewer,
-      [trafficLayer, cctvLayer].filter(Boolean),
-      (modeLabel) => {
-        this._updateDetectionButton(modeLabel);
-      },
-    );
     initTrackedReadout(viewer);
-    setDetectionStyle(this.activeStyle);
-    this._applyDetectionDensityFromUi();
 
     this._initStages();
     this._initBloomSharpen();
     this._displayBindings = new DisplayBindings({
       viewer,
       services: {
-        cycleDetectionMode: services.cycleDetectionMode,
         setScopeMaskEnabled: services.setScopeMaskEnabled,
         isScopeMaskEnabled: services.isScopeMaskEnabled,
         setScopeMaskFeather: services.setScopeMaskFeather,
@@ -414,14 +384,11 @@ export class StyleManager extends ShellFacade {
         _cyberSonarSector: this._cyberSonarSector,
         _cleanViewBtn: this._cleanViewBtn,
         _cleanViewExitBtn: this._cleanViewExitBtn,
-        _detectionDensitySlider: this._detectionDensitySlider,
-        _detectionBtn: this._detectionBtn,
         _detectionFadeSlider: this._detectionFadeSlider,
         _detectionOpacitySlider: this._detectionOpacitySlider,
         _celestialBtn: this._celestialBtn,
         _scopeFeatherValue: this._scopeFeatherValue,
         _sharpenSliderValue: this._sharpenSliderValue,
-        _detectionDensityValue: this._detectionDensityValue,
       },
       operations: {
         setStyle: (...args) => this.setStyle(...args),
@@ -438,10 +405,6 @@ export class StyleManager extends ShellFacade {
         _setHudVariant: (...args) => this._setHudVariant(...args),
         _setCyberSonarEnabled: (...args) => this._setCyberSonarEnabled(...args),
         _setCyberSonarSetting: (...args) => this._setCyberSonarSetting(...args),
-        _applyDetectionDensityFromUi: (...args) =>
-          this._applyDetectionDensityFromUi(...args),
-        _setDetectionAllocation: (...args) =>
-          this._setDetectionAllocation(...args),
         _applyDetectionFadeFromUi: (...args) =>
           this._applyDetectionFadeFromUi(...args),
         setCelestialRingEnabled: (...args) =>
@@ -454,11 +417,7 @@ export class StyleManager extends ShellFacade {
         sharpenEnabled: this.sharpenEnabled,
         celestialRing: this.celestialRing,
         celestialRingEnabled: this.celestialRingEnabled,
-        _detectionAllocationBtns: this._detectionAllocationBtns,
       }),
-      claimDetection: () => {
-        this._visualSettings._detectionUserOverridden = true;
-      },
     });
     this._initUI();
     this._initMapStackControl();
@@ -579,8 +538,8 @@ export class StyleManager extends ShellFacade {
 
   /**
    * Wires up all primary UI event listeners: style buttons, keyboard shortcuts
-   * (1-8 style keys, H/O/V/F/D/C hotkeys, Escape), AI prompt input with
-   * debounce, bloom/sharpen/HUD toggles, detection density slider, and
+   * (1-8 style keys, H/O/V/F/C hotkeys, Escape), AI prompt input with
+   * debounce, bloom/sharpen/HUD toggles, keyhole fade sliders, and
    * clean-view toggle.
    * @returns {void}
    */
@@ -635,12 +594,8 @@ export class StyleManager extends ShellFacade {
     this._mapSourceControls?.render(state);
   }
 
-  _setDetectionAllocation(strategy, { syncShare = true, persist = true } = {}) {
-    return this._visualSettings._setDetectionAllocation(...arguments);
-  }
-
   /**
-   * Pushes the current visual state (bloom, sharpen, HUD, detection) to
+   * Pushes the current visual state (bloom, sharpen, HUD, keyhole fade) to
    * the ShareLinkManager so the URL hash stays in sync.
    * @returns {void}
    */
@@ -964,30 +919,6 @@ export class StyleManager extends ShellFacade {
   }
 
   /**
-   * Controls the detection overlay: on/off, mode, and density percent.
-   * Density writes the slider AND the engine so share links and scene
-   * snapshots stay truthful.
-   * @param {object} [options]
-   * @param {boolean} [options.enabled] - false forces OFF; true restores the current density profile.
-   * @param {'sparse'|'balanced'|'dense'|'panoptic'} [options.mode] - Profile (legacy aliases accepted).
-   * @param {number} [options.densityPct] - 0-100 density percent.
-   * @param {'elastic'|'weighted'} [options.allocationStrategy] - Layer-capacity policy.
-   * @param {number} [options.fadePct] - Fade distance as 0-40% of the keyhole radius.
-   * @param {number} [options.outsideOpacityPct] - Opacity beyond the fade distance, 0-100%.
-   * @returns {{ok: boolean, detectionMode?: string, densityPct?: number|null, error?: string}}
-   */
-  setDetection({
-    enabled,
-    mode,
-    densityPct,
-    allocationStrategy,
-    fadePct,
-    outsideOpacityPct,
-  } = {}) {
-    return this._visualSettings.setDetection(...arguments);
-  }
-
-  /**
    * Switches the basemap stack and reports whether the switch landed.
    * @param {string} stackId - One of mapStackController.getStacks() ids.
    * @returns {Promise<{ok: boolean, activeStack?: string, error?: string|null, available?: string[]}>}
@@ -1079,7 +1010,7 @@ export class StyleManager extends ShellFacade {
   /**
    * Full control-state snapshot — single source for voice read-back so the
    * agent confirms from the same state it acted on.
-   * @returns {object} Current style/stack/HUD/detection/post-processing state.
+   * @returns {object} Current style/stack/HUD/post-processing state.
    */
   getControlState() {
     return {
@@ -1090,7 +1021,6 @@ export class StyleManager extends ShellFacade {
         layout: this.hud?.getVariant?.() || null,
         sonar: getCyberSonarControlState(),
       },
-      detection: this.getDetectionState(),
       bloom: {
         enabled: !!this.bloomEnabled,
         intensityPct: this._bloomSlider
@@ -1156,7 +1086,7 @@ export class StyleManager extends ShellFacade {
 
   /**
    * Restores a full visual state snapshot, applying style, bloom, sharpen,
-   * HUD, detection, and per-style shader uniforms. Used by scene recipes
+   * HUD, and per-style shader uniforms. Used by scene recipes
    * and share-link restore. Async so the map-stack switch resolves before
    * the share state is synced; callers may fire-and-forget.
    * @param {object} [state={}] - Visual state object (as returned by getVisualState).
@@ -1202,7 +1132,7 @@ export class StyleManager extends ShellFacade {
    * 1. Crossfades the previous shader stage intensity to 0.
    * 2. Crossfades the new shader stage intensity to 1.
    * 3. Applies style preset defaults (bloom/sharpen/HUD) if applyPreset is true.
-   * 4. Updates button highlights, style indicator, slider panel, HUD, and detection overlay.
+   * 4. Updates button highlights, style indicator, slider panel, and HUD.
    * @param {string} styleName - Target style ('normal'|'retro'|'surveillance'|'thermal'|'anime'|'noir'|'snow').
    * @param {object} [options]
    * @param {boolean} [options.applyPreset=true] - Whether to apply STYLE_PRESET_DEFAULTS for the new style.
@@ -1287,8 +1217,8 @@ export class StyleManager extends ShellFacade {
   // ── HUD Toggle ───────────────────────────────
 
   /**
-   * Wires the HUD toggle button, initializes the default HUD variant to 'tactical',
-   * and sets up the detection mode cycle button.
+   * Wires the HUD toggle button and initializes the default HUD variant to
+   * 'tactical'.
    * @returns {void}
    */
   _initHUDToggle() {
@@ -1348,8 +1278,7 @@ export class StyleManager extends ShellFacade {
    * @returns {Promise<void>} Resolves after focused-session state restoration.
    */
   async dispose() {
-    const { destroyTrackedReadout, destroyWorldOverlay, destroyDetection } =
-      this.services;
+    const { destroyTrackedReadout, destroyWorldOverlay } = this.services;
     if (this._disposed) return;
     this._shareRestoration.destroy();
     this._feedback._globalStatusNotice = null;
@@ -1383,7 +1312,6 @@ export class StyleManager extends ShellFacade {
       this._windowResizeHandler = null;
     }
     destroyTrackedReadout();
-    destroyDetection();
     destroyWorldOverlay();
     this.celestialRing?.destroy();
     this._visualSettings.destroy();

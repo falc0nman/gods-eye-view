@@ -228,29 +228,6 @@ const schemas = [
     },
   },
   {
-    name: 'set_detection',
-    parameters: {
-      type: 'object',
-      additionalProperties: false,
-      properties: {
-        enabled: {
-          type: 'boolean',
-        },
-        mode: {
-          type: 'string',
-          enum: ['sparse', 'balanced', 'dense'],
-        },
-        densityPct: {
-          type: 'number',
-        },
-        allocationStrategy: {
-          type: 'string',
-          enum: ['elastic', 'weighted'],
-        },
-      },
-    },
-  },
-  {
     name: 'set_map_stack',
     parameters: {
       type: 'object',

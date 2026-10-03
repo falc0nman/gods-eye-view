@@ -5,7 +5,7 @@
  *
  * Manages a persistent project of scenes, each containing an ordered shot list.
  * Each shot stores camera position, visual style, post-processing state, HUD mode,
- * detection overlay, and data-layer toggles. During playback the director sequences
+ * keyhole fade, and data-layer toggles. During playback the director sequences
  * through shots with timed camera flights, hold pauses, and visual-state transitions,
  * while recording telemetry events for post-run metadata export.
  *
@@ -75,7 +75,7 @@ const STORAGE_CHECKPOINT_KEY = 'godsEyeView.sceneProject.checkpoint.v1';
 export class SceneDirector {
   /**
    * @param {Cesium.Viewer} viewer - The Cesium viewer instance
-   * @param {Object} styleManager - Controls visual state (bloom, sharpen, HUD, detection, style presets)
+   * @param {Object} styleManager - Controls visual state (bloom, sharpen, HUD, style presets)
    * @param {Object} dataManager - Manages data layer enable/disable and per-layer params
    */
   constructor(
@@ -441,7 +441,7 @@ export class SceneDirector {
 
   /**
    * Rebuild the shot list DOM for the currently selected scene.
-   * Each shot row shows title, style/detection/duration metadata, and
+   * Each shot row shows title, style/duration metadata, and
    * LOAD/DEL action buttons. Supports click-to-select and double-click rename.
    */
   _renderShotList() {

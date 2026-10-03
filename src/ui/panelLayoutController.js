@@ -98,7 +98,7 @@ export class PanelLayoutController {
     this._weatherPanel = document.getElementById('weather-panel');
     this._recentImageryPanel = document.getElementById('recent-imagery-panel');
     this._sliderPanel = document.getElementById('param-slider-panel');
-    this._detectionBtn = document.getElementById('detection-toggle');
+    this._keyholeFadeRow = document.getElementById('detection-fade-row');
   }
   _scheduleAdaptivePanelLayout({ settle = false } = {}) {
     if (this.destroyed) return;
@@ -215,8 +215,8 @@ export class PanelLayoutController {
       this._sliderPanel.style.removeProperty('bottom');
       this._sliderPanel.style.removeProperty('left');
       this._sliderPanel.style.removeProperty('max-height');
-      const detectionGroup = this._detectionBtn?.closest('.pp-toggle-group');
-      if (detectionGroup) detectionGroup.after(this._sliderPanel);
+      const keyholeGroup = this._keyholeFadeRow?.closest('.pp-toggle-group');
+      if (keyholeGroup) keyholeGroup.after(this._sliderPanel);
       else this._ppToggles.append(this._sliderPanel);
     }
     if (typeof ResizeObserver !== 'undefined') {

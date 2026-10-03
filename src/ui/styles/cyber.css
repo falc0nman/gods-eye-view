@@ -443,27 +443,6 @@
   color: #f5f7f6;
 }
 
-:root[data-ui-theme='cyber'] #detection-toggle.active,
-:root[data-ui-theme='cyber'] #detection-toggle.panoptic,
-:root[data-ui-theme='cyber'] #detection-toggle.god {
-  border-color: var(--cyber-red);
-  background: rgba(64, 45, 46, 0.94);
-  box-shadow:
-    3px 0 0 var(--cyber-red) inset,
-    0 0 12px rgba(196, 84, 84, 0.14);
-}
-
-:root[data-ui-theme='cyber']
-  #detection-toggle.active
-  :where(.pp-label, .pp-icon),
-:root[data-ui-theme='cyber']
-  #detection-toggle.panoptic
-  :where(.pp-label, .pp-icon),
-:root[data-ui-theme='cyber'] #detection-toggle.god :where(.pp-label, .pp-icon) {
-  color: #f5f7f6;
-  text-shadow: none;
-}
-
 :root[data-ui-theme='cyber'] :where(.pp-select, select, input, textarea) {
   border-color: rgba(206, 222, 226, 0.24);
   background-color: rgba(26, 35, 39, 0.96);

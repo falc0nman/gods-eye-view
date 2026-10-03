@@ -29,13 +29,6 @@ import {
   RADIO_OVERLAY_SOURCE_ID,
   RADIO_OVERLAY_SOURCE_OPTIONS,
 } from '../data/radio.js';
-import {
-  destroyDetection,
-  getDetectionDiagnostics,
-  initDetection,
-  setDetectionTuning,
-  setMode as setDetectionMode,
-} from '../data/detection.js';
 
 /**
  * @module worldOverlayAllocation.worker
@@ -506,59 +499,6 @@ function buildAllLiveRadioWorkload(count) {
   return workload;
 }
 
-function buildPhase6DetectionWorkload(count) {
-  const random = makeRandom(0xd37ec710);
-  const positions = [];
-  const drifts = [];
-  const observations = [];
-  const columns = Math.max(1, Math.ceil(Math.sqrt((count * 16) / 9)));
-  const rows = Math.max(1, Math.ceil(count / columns));
-  const spanX = columns > 1 ? 1_400_000 / (columns - 1) : 0;
-  const spanY = rows > 1 ? 1_050_000 / (rows - 1) : 0;
-  const polarRadiusM = Cesium.Ellipsoid.WGS84.radii.z;
-  const equatorialRadiusM = Cesium.Ellipsoid.WGS84.radii.x;
-  for (let index = 0; index < count; index++) {
-    const column = index % columns;
-    const row = Math.floor(index / columns);
-    const baseX = -700_000 + column * spanX;
-    const baseY = -525_000 + row * spanY;
-    const normalizedHorizontal =
-      (baseX * baseX + baseY * baseY) / (equatorialRadiusM * equatorialRadiusM);
-    const z = polarRadiusM * Math.sqrt(Math.max(0, 1 - normalizedHorizontal));
-    const position = new Cesium.Cartesian3(baseX, baseY, z);
-    positions.push(position);
-    drifts.push({
-      baseX,
-      baseY,
-      phase: random() * Math.PI * 2,
-      rate: 0.3 + random() * 0.35,
-      amplitude: 3_000,
-    });
-    observations.push({
-      position,
-      sourceId: `detect-${index}`,
-      id: `D${String(index).padStart(4, '0')}`,
-      metric:
-        index % 5 === 0
-          ? ''
-          : `FL${String(180 + (index % 220)).padStart(3, '0')}`,
-      type: ['AIR', 'SAT', 'SEA', 'VEH'][index % 4],
-      tier: index % 17 === 0 ? 'military' : undefined,
-    });
-  }
-  return {
-    entries: [],
-    positions,
-    drifts,
-    detectionLayer: {
-      id: 'flights',
-      getDetectableObjects() {
-        return observations;
-      },
-    },
-  };
-}
-
 function advanceWorkload(positions, drifts, frame) {
   for (let index = 0; index < positions.length; index++) {
     const drift = drifts[index];
@@ -581,34 +521,22 @@ function main() {
   });
   initWorldOverlay(env.viewer);
   const workload =
-    PROFILE === 'phase6-detection'
-      ? buildPhase6DetectionWorkload(ENTRY_COUNT)
-      : PROFILE === 'phase3-tracked'
-        ? buildPhase3TrackedWorkload(ENTRY_COUNT)
-        : PROFILE === 'phase4-cctv'
-          ? buildPhase4CctvWorkload(ENTRY_COUNT)
-          : PROFILE === 'phase5-cctv-projection'
-            ? buildPhase5CctvProjectionWorkload(ENTRY_COUNT)
-            : PROFILE === 'phase5-civil'
-              ? buildPhase5CivilWorkload(ENTRY_COUNT)
-              : PROFILE === 'phase5-military'
-                ? buildPhase5MilitaryWorkload(ENTRY_COUNT)
-                : PROFILE === 'all-live-radio'
-                  ? buildAllLiveRadioWorkload(ENTRY_COUNT)
-                  : buildWorkload(ENTRY_COUNT);
+    PROFILE === 'phase3-tracked'
+      ? buildPhase3TrackedWorkload(ENTRY_COUNT)
+      : PROFILE === 'phase4-cctv'
+        ? buildPhase4CctvWorkload(ENTRY_COUNT)
+        : PROFILE === 'phase5-cctv-projection'
+          ? buildPhase5CctvProjectionWorkload(ENTRY_COUNT)
+          : PROFILE === 'phase5-civil'
+            ? buildPhase5CivilWorkload(ENTRY_COUNT)
+            : PROFILE === 'phase5-military'
+              ? buildPhase5MilitaryWorkload(ENTRY_COUNT)
+              : PROFILE === 'all-live-radio'
+                ? buildAllLiveRadioWorkload(ENTRY_COUNT)
+                : buildWorkload(ENTRY_COUNT);
   const { entries, positions, drifts } = workload;
   const solveIntervalMs = Number(process.env.GEV_ALLOC_SOLVE_MS) || 125;
-  const detectionActive = !!workload.detectionLayer;
-  if (detectionActive) {
-    // Spread polar ECEF x/y over the viewport while retaining a real WGS84
-    // horizon test and detection's manual matrix projection path.
-    env.viewer.camera.viewMatrix[0] = 1 / 800_000;
-    env.viewer.camera.viewMatrix[5] = 1 / 600_000;
-    env.viewer.camera.positionCartographic.height = 2_500_000;
-    initDetection(env.viewer, [workload.detectionLayer], () => {});
-    setDetectionTuning({ densityPct: 100, allocationStrategy: 'ELASTIC' });
-    setDetectionMode('DENSE');
-  } else if (workload.registrations) {
+  if (workload.registrations) {
     for (const registration of workload.registrations) {
       setOverlayEntries(registration.sourceId, registration.entries, {
         ...registration.options,
@@ -646,16 +574,9 @@ function main() {
     for (let i = 0; i < CHUNK_FRAMES; i++) tick();
   }
   const warm = getWorldOverlayDiagnostics();
-  const detectionWarm = detectionActive ? getDetectionDiagnostics() : null;
-  const painted = detectionActive
-    ? detectionWarm.visibleCount
-    : warm.paintedCount;
-  const candidates = detectionActive
-    ? detectionWarm.observationCount
-    : warm.candidateCount;
-  const solveRevisionBefore = detectionActive
-    ? detectionWarm.solveRevision
-    : warm.solveRevision;
+  const painted = warm.paintedCount;
+  const candidates = warm.candidateCount;
+  const solveRevisionBefore = warm.solveRevision;
 
   const chunkRates = [];
   for (let chunk = 0; chunk < CHUNK_COUNT; chunk++) {
@@ -666,9 +587,7 @@ function main() {
     const after = process.memoryUsage().heapUsed;
     chunkRates.push((after - before) / CHUNK_FRAMES);
   }
-  const solveRevisionAfter = detectionActive
-    ? getDetectionDiagnostics().solveRevision
-    : getWorldOverlayDiagnostics().solveRevision;
+  const solveRevisionAfter = getWorldOverlayDiagnostics().solveRevision;
   const sorted = chunkRates.slice().sort((a, b) => a - b);
   const maxBytesPerFrame = sorted[sorted.length - 1];
   const medianBytesPerFrame = sorted[Math.floor(sorted.length / 2)];
@@ -688,9 +607,6 @@ function main() {
       paintedCount: painted,
       paintedBySource: warm.paintedBySource,
       candidateCount: candidates,
-      detectionSelectedCount: detectionWarm?.selectedCount ?? null,
-      detectionCollectiveLabelBudget:
-        detectionWarm?.collectiveLabelBudget ?? null,
       solveCount: solveRevisionAfter - solveRevisionBefore,
       // Frame cost is the primary signal; the per-candidate rate is the
       // scale-invariant one. Neither is normalized by paintedCount, which
@@ -703,7 +619,6 @@ function main() {
     })}\n`,
   );
 
-  if (detectionActive) destroyDetection();
   destroyWorldOverlay();
 }
 

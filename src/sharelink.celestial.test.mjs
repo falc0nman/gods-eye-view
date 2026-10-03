@@ -371,38 +371,23 @@ test('clipboard rejection leaves both live URL and restore suppression untouched
   assert.equal(manager._initialRestorePending, true);
 });
 
-test('legacy Panoptic and Sparse hashes migrate to canonical profiles', () => {
-  const panoptic = makeManager(
-    '#lat=10&lon=20&dm=PANOPTIC&dd=0',
+test('retired detection params in old links are ignored and never written', () => {
+  const legacy = makeManager(
+    '#lat=10&lon=20&dm=PANOPTIC&dd=0&da=weighted',
   ).parseInitialHash();
-  assert.equal(panoptic.detectionMode, 'DENSE');
-  assert.equal(panoptic.detectionDensity, 75);
-  const sparse = makeManager(
-    '#lat=10&lon=20&dm=SPARSE&dd=100',
-  ).parseInitialHash();
-  assert.equal(sparse.detectionMode, 'SPARSE');
-  assert.equal(sparse.detectionDensity, 25);
-});
-
-test('allocation strategy defaults to Elastic and round-trips Weighted', () => {
-  assert.equal(
-    makeManager('#lat=10&lon=20').parseInitialHash().detectionAllocation,
-    'ELASTIC',
-  );
-  assert.equal(
-    makeManager('#lat=10&lon=20&da=weighted').parseInitialHash()
-      .detectionAllocation,
-    'WEIGHTED',
-  );
+  for (const key of [
+    'detectionMode',
+    'detectionDensity',
+    'detectionAllocation',
+  ])
+    assert.equal(Object.hasOwn(legacy, key), false, key);
 
   const manager = makeManager();
-  manager.onToggleChange(false, false, { detectionAllocation: 'WEIGHTED' });
+  manager.onToggleChange(false, false, {});
   clearTimeout(manager._debounceTimer);
   manager._updateHash();
-  assert.equal(
-    new URLSearchParams(window.location.hash.slice(1)).get('da'),
-    'weighted',
-  );
+  const params = new URLSearchParams(window.location.hash.slice(1));
+  for (const key of ['dm', 'dd', 'da']) assert.equal(params.has(key), false, key);
 });
 
 test('keyhole fade controls default and round-trip as normalized percentages', () => {
@@ -630,12 +615,6 @@ test('every explicit visual UI gesture claims restore authority before it mutate
       'HUD hotkey',
     ],
     [
-      'cycleDetection: () => {',
-      'toggleCctv: () =>',
-      'cycleDetectionMode()',
-      'detection hotkey',
-    ],
-    [
       'toggleBloom:',
       'setBloomIntensity:',
       'this._setBloomEnabled(',
@@ -678,18 +657,6 @@ test('every explicit visual UI gesture claims restore authority before it mutate
       'setHudLayout control',
     ],
     [
-      'setDensity:',
-      'setAllocation:',
-      'this._applyDetectionDensityFromUi()',
-      'setDensity control',
-    ],
-    [
-      'setAllocation:',
-      'setFade:',
-      'this._setDetectionAllocation(',
-      'setAllocation control',
-    ],
-    [
       'setFade:',
       'toggleCelestial:',
       'this._applyDetectionFadeFromUi()',
@@ -712,18 +679,10 @@ test('every explicit visual UI gesture claims restore authority before it mutate
   assertClaimsBefore(
     displayActions.slice(
       displayActions.indexOf('toggleHud:'),
-      displayActions.indexOf('cycleDetection:'),
+      displayActions.indexOf('toggleSonar:'),
     ),
     'this.hud.toggle()',
     'HUD button',
-  );
-  assertClaimsBefore(
-    displayActions.slice(
-      displayActions.indexOf('cycleDetection:'),
-      displayActions.indexOf('toggleModels:'),
-    ),
-    'cycleDetectionMode()',
-    'detection button',
   );
 });
 
@@ -737,15 +696,9 @@ test('every explicit visual control facade claims restore authority before mutat
     ],
     [
       '  setHudLayout(variantName) {',
-      '  getDetectionState() {',
+      '  async setMapStack(stackId) {',
       'this._setHudVariant(',
       'setHudLayout',
-    ],
-    [
-      '  setDetection({ enabled, mode, densityPct, allocationStrategy, fadePct, outsideOpacityPct } = {}) {',
-      '  async setMapStack(stackId) {',
-      'this._setDetectionAllocation(',
-      'setDetection',
     ],
     [
       '  setBloom({ enabled, intensityPct } = {}) {',
@@ -788,14 +741,6 @@ test('every explicit visual control facade claims restore authority before mutat
 
 test('public visual facades reject the complete invalid request before authority or mutation', () => {
   const cases = [
-    {
-      label: 'setDetection',
-      block: sourceBlock(
-        '  setDetection({ enabled, mode, densityPct, allocationStrategy, fadePct, outsideOpacityPct } = {}) {',
-        '  async setMapStack(stackId) {',
-      ),
-      validations: ['enabled !== undefined', 'Invalid outside opacity'],
-    },
     {
       label: 'setBloom',
       block: sourceBlock(

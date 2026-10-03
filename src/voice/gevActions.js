@@ -511,21 +511,6 @@ export function createGevActionRunner({
       return { action: 'set_cyber_sonar', ...styleManager.setCyberSonar(args) };
     }
 
-    if (name === 'set_detection') {
-      const result = styleManager.setDetection({
-        enabled: typeof args.enabled === 'boolean' ? args.enabled : undefined,
-        mode: typeof args.mode === 'string' ? args.mode : undefined,
-        densityPct: Number.isFinite(Number(args.densityPct))
-          ? Number(args.densityPct)
-          : undefined,
-        allocationStrategy:
-          typeof args.allocationStrategy === 'string'
-            ? args.allocationStrategy
-            : undefined,
-      });
-      return { action: 'set_detection', ...result };
-    }
-
     if (name === 'set_map_stack') {
       const stackId = normalizeStackId(args.stack);
       if (!stackId)

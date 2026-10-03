@@ -36,7 +36,6 @@ export function bindApplicationShortcuts({
     if (key === 'o') actions.toggleOrbit();
     if (key === 'v') actions.toggleCleanView();
     if (key === 'f') actions.toggleLayers();
-    if (key === 'd') actions.cycleDetection();
     if (key === 'c') actions.toggleCctv();
   };
   documentRef.addEventListener('keydown', onKeyDown);

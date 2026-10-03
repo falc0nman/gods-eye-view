@@ -52,30 +52,14 @@
       </div>
     </div>
     <div class="pp-toggle-group">
-      <button class="pp-toggle-btn" id="detection-toggle" title="Detection Overlay (D)" aria-label="Detection overlay" aria-pressed="false">
-        <span class="pp-icon">&#x25A3;</span>
-        <span class="pp-label">DETECT</span>
-      </button>
-      <div class="pp-slider-row detection-slider-row" id="detection-slider-row">
-        <label class="pp-slider-mini-label" for="detection-density-slider">Density</label>
-        <input type="range" class="pp-slider" id="detection-density-slider" min="0" max="100" step="25" value="50" aria-label="Detection label density" />
-        <span class="pp-slider-value" id="detection-density-value">50%</span>
-      </div>
-      <div class="pp-slider-row detection-allocation-row" id="detection-allocation-row">
-        <span class="pp-slider-mini-label">Allocation</span>
-        <div class="pp-mode-seg detection-allocation-seg" role="radiogroup" aria-label="Detection label allocation">
-          <button class="pp-mode-btn active" id="detection-allocation-elastic" data-allocation="ELASTIC" role="radio" aria-checked="true">Elastic</button>
-          <button class="pp-mode-btn" id="detection-allocation-weighted" data-allocation="WEIGHTED" role="radio" aria-checked="false">Weighted</button>
-        </div>
-      </div>
-      <div class="pp-slider-row detection-fade-row" id="detection-fade-row">
+      <div class="pp-slider-row detection-fade-row visible" id="detection-fade-row">
         <label class="pp-slider-mini-label" for="detection-fade-slider">Fade</label>
-        <input type="range" class="pp-slider" id="detection-fade-slider" min="0" max="40" step="1" value="7" aria-label="Detection fade distance" title="World-overlay fade distance outside the keyhole as a percentage of its radius" />
+        <input type="range" class="pp-slider" id="detection-fade-slider" min="0" max="40" step="1" value="7" aria-label="Keyhole fade distance" title="World-overlay fade distance outside the keyhole as a percentage of its radius" />
         <span class="pp-slider-value" id="detection-fade-value">7%</span>
       </div>
-      <div class="pp-slider-row detection-opacity-row" id="detection-opacity-row">
+      <div class="pp-slider-row detection-opacity-row visible" id="detection-opacity-row">
         <label class="pp-slider-mini-label" for="detection-opacity-slider">Outside</label>
-        <input type="range" class="pp-slider" id="detection-opacity-slider" min="0" max="100" step="1" value="1" aria-label="Detection opacity outside the keyhole" title="World-overlay label and card opacity beyond the fade distance" />
+        <input type="range" class="pp-slider" id="detection-opacity-slider" min="0" max="100" step="1" value="1" aria-label="Overlay opacity outside the keyhole" title="World-overlay label and card opacity beyond the fade distance" />
         <span class="pp-slider-value" id="detection-opacity-value">1%</span>
       </div>
     </div>

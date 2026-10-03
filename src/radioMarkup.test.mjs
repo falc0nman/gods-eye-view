@@ -24,11 +24,11 @@ const css = readStylesheet(new URL('../style.css', import.meta.url));
 
 function realtimeTools() { return GEV_REALTIME_TOOLS; }
 
-test('Realtime schema exposes the authoritative 21-tool inventory', () => {
+test('Realtime schema exposes the authoritative 20-tool inventory', () => {
   const tools = realtimeTools();
-  assert.equal(tools.length, 21);
+  assert.equal(tools.length, 20);
   const names = tools.map((tool) => tool.name);
-  assert.equal(new Set(names).size, 21, 'tool names are unique');
+  assert.equal(new Set(names).size, 20, 'tool names are unique');
   assert.equal(names.includes('set_context_mode'), false, 'GW-58 removed Contacts');
   assert.equal(names.includes('control_cockpit'), false, 'GW-58 removed Cockpit');
   for (const removed of [
@@ -37,6 +37,7 @@ test('Realtime schema exposes the authoritative 21-tool inventory', () => {
     'stop_tracking',
     'frame_overhead',
     'analyst_query',
+    'set_detection',
   ])
     assert.equal(names.includes(removed), false, `GW-57 removed ${removed}`);
   assert.ok(names.includes('control_radio'));
@@ -127,13 +128,13 @@ test('no unchanged Realtime tool definition drifts silently', () => {
   const hudLayout = unchanged.find((tool) => tool.name === 'set_hud').parameters.properties.layout;
   assert.deepEqual(hudLayout.enum, ['tactical', 'operator', 'minimal', 'cyber']);
   hudLayout.enum = hudLayout.enum.filter((layout) => layout !== 'cyber');
-  assert.equal(unchanged.length, 13);
+  assert.equal(unchanged.length, 12);
   const digest = createHash('sha256')
     .update(JSON.stringify(unchanged))
     .digest('hex')
     .slice(0, 16);
   // Analyst additions and ISS wording correction are explicitly excluded above; all other tool definitions retain their pin.
-  assert.equal(digest, 'a85f1a4f4a710368', 'an unchanged Realtime tool definition drifted');
+  assert.equal(digest, 'ba11d9c7fe50c483', 'an unchanged Realtime tool definition drifted');
 });
 
 test('Radio volume shares the Sharpen slider visual language', () => {

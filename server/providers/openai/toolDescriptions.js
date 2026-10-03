@@ -102,7 +102,7 @@ export const ACTION_DESCRIPTIONS = {
   },
   get_current_view_state: {
     description:
-      'Read the current camera, style, Context, HUD, detection, map stack, post-processing, scene-playback, tracked-entity, and layer state before choosing another action.',
+      'Read the current camera, style, Context, HUD, map stack, post-processing, scene-playback, tracked-entity, and layer state before choosing another action.',
     $position: 1,
   },
   set_hud: {
@@ -138,30 +138,6 @@ export const ACTION_DESCRIPTIONS = {
             'Contact opacity floor between passes, 35–100 percent; labels have a derived floor. Not whole-scene dimming.',
         },
         sectorDeg: { description: 'Sonar sweep sector width, 8–60 degrees.' },
-      },
-    },
-  },
-  set_detection: {
-    description:
-      'Control the detection overlay: on/off, density-derived Sparse/Balanced/Dense profile, and Elastic/Weighted layer allocation.',
-    $position: 1,
-    parameters: {
-      properties: {
-        enabled: {
-          description:
-            'false turns detection OFF; true restores the current density-derived profile.',
-          $position: 1,
-        },
-        densityPct: {
-          description:
-            'Density snaps to 0, 25, 50, 75, or 100 and derives the active profile.',
-          $position: 1,
-        },
-        allocationStrategy: {
-          description:
-            'Elastic splits evenly then lends unused slots; Weighted follows demand and semantic weight.',
-          $position: 2,
-        },
       },
     },
   },

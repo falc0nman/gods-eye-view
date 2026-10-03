@@ -32,14 +32,6 @@ export function readShellElements(document = globalThis.document) {
     ),
     _cyberSonarSector: document.getElementById('cyber-sonar-sector'),
     _cyberSonarSectorValue: document.getElementById('cyber-sonar-sector-value'),
-    _detectionSliderRow: document.getElementById('detection-slider-row'),
-    _detectionDensitySlider: document.getElementById(
-      'detection-density-slider',
-    ),
-    _detectionDensityValue: document.getElementById('detection-density-value'),
-    _detectionAllocationRow: document.getElementById(
-      'detection-allocation-row',
-    ),
     _detectionFadeRow: document.getElementById('detection-fade-row'),
     _detectionFadeSlider: document.getElementById('detection-fade-slider'),
     _detectionFadeValue: document.getElementById('detection-fade-value'),
@@ -176,6 +168,5 @@ export function readShellElements(document = globalThis.document) {
     _locationMiniPoi: document.getElementById('location-mini-poi'),
     _safeFrameOverlay: document.getElementById('safe-frame-overlay'),
     _safeFrameBox: document.getElementById('safe-frame-box'),
-    _detectionBtn: document.getElementById('detection-toggle'),
   };
 }
