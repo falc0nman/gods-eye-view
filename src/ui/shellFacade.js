@@ -651,8 +651,8 @@ export class ShellFacade {
   }
 
   /** Apply responsive keyhole fade controls from normalized UI percentages. */
-  _applyDetectionFadeFromUi() {
-    return this._visualSettings._applyDetectionFadeFromUi(...arguments);
+  _applyKeyholeFadeFromUi() {
+    return this._visualSettings._applyKeyholeFadeFromUi(...arguments);
   }
 
   /**

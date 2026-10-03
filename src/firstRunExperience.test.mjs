@@ -440,19 +440,11 @@ test('no mission writes a preference the visitor did not choose by picking it', 
   // they run at the same origin a click on those rows uses.
   assert.match(code, /setEnabled\(layerId, true, \{ origin: 'user' \}\)/);
 
-  // Detection is owned by the reasonable-defaults landing. A mission has no
-  // opinion on any of it.
+  // Display preferences belong to the reasonable-defaults landing; feather and
+  // the keyhole fade would persist a choice nobody made by picking a mission.
   for (const forbidden of [
-    '_detectionUserOverridden',
-    '_setDetectionMode',
-    '_applyDetectionPreset',
-    '_setDetectionAllocation',
-    'setDetectionTuning',
-    // 3D models and feather default to origin 'user' and would persist a choice
-    // nobody made by picking a mission.
-    '_setModels3dEnabled',
-    '_setModels3dMode',
-    '_setModels3dParams',
+    '_applyKeyholeFadeFromUi',
+    'setKeyholeFadeTuning',
     'setFeather',
   ]) {
     assert.doesNotMatch(code, new RegExp(forbidden), `a mission must never touch ${forbidden}`);

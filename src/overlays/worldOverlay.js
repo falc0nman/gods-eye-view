@@ -10,7 +10,7 @@ import {
   isKeyholeEdgeFadeEnabled,
   keyholeLabelAlphaFromGeometry,
 } from '../celestialRing.js';
-import { BoundedCohort, stableIdentityHash } from '../data/detectionCohort.js';
+import { BoundedCohort, stableIdentityHash } from '../data/overlayCohort.js';
 import { LabelArbiter, LABEL_ARBITER_TIMING } from '../data/labelArbiter.js';
 import {
   altitudeFade,
@@ -32,12 +32,9 @@ import { WORLD_OVERLAY_STYLE } from './worldOverlayTokens.js';
 
 const ROOT_ID = 'world-overlay-root';
 const CANVAS_ID = 'world-overlay-canvas';
-const DETECTION_SURFACE_ID = 'world-overlay-detection-surface';
 const ACCESSIBILITY_ROOT_ID = 'world-overlay-actions';
 const ACCESSIBILITY_LIST_ID = 'world-overlay-action-list';
 const ACCESSIBILITY_STATUS_ID = 'world-overlay-status';
-const PAINT_TARGET_SHARED = 'shared';
-const PAINT_TARGET_DETECTION = 'detection';
 const OCCLUDER_PADDING_PX = 6;
 const OCCLUDER_REFRESH_MS = 100;
 const DEFAULT_COHORT_LIMIT = 256;
@@ -62,7 +59,6 @@ const VALID_VARIANTS = new Set([
 
 /** Stable logical bottom-to-top paint order across the host-owned surfaces. */
 export const WORLD_OVERLAY_PAINT_LANES = Object.freeze([
-  'detection',
   'ambient-label',
   'ambient-track',
   'ambient-card',
@@ -161,10 +157,6 @@ let _accessibilityList = null;
 let _accessibilityStatus = null;
 let _accessibilitySignature = '';
 const _accessibleActivatorByKey = new Map();
-/** @type {HTMLCanvasElement|null} Host-owned detection blend-isolation surface. */
-let _detectionSurface = null;
-/** @type {CanvasRenderingContext2D|null} */
-let _detectionCtx = null;
 /** @type {Function|null} */
 let _removePostRender = null;
 /** @type {Function|null} */
@@ -189,7 +181,6 @@ let _resizeDirty = true;
 let _occludersDirty = true;
 let _solveDirty = true;
 let _canvasNeedsClear = true;
-let _detectionSurfaceNeedsClear = true;
 let _occludersUpdatedAt = Number.NEGATIVE_INFINITY;
 let _canvasWidth = 0;
 let _canvasHeight = 0;
@@ -866,13 +857,12 @@ function inertPaintLaneHandle() {
 
 /**
  * Register a source-owned painter behind one deterministic host lane. The
- * callback receives the host's already-sized/clipped Canvas2D target plus the
+ * callback receives the host's already-sized shared Canvas2D target plus the
  * frame's shared matrix, keyhole, occluder, and UI rectangles. It must not
- * clear or resize the target. The detection target is a host-owned sibling
- * surface used only to preserve element-level scene blending.
+ * clear or resize the target.
  * @param {string} laneId One of `WORLD_OVERLAY_PAINT_LANES`.
  * @param {function(object):void} painter Source-owned paint callback.
- * @param {{id?:string,active?:boolean,target?:'shared'|'detection',shouldPaint?:function(object):boolean}} [options]
+ * @param {{id?:string,active?:boolean,shouldPaint?:function(object):boolean}} [options]
  * @returns {{surface:HTMLCanvasElement|null,setActive:function(boolean):void,requestPaint:function():void,unregister:function():void}}
  */
 export function registerWorldOverlayPaintLane(laneId, painter, options = {}) {
@@ -896,10 +886,6 @@ export function registerWorldOverlayPaintLane(laneId, painter, options = {}) {
     lane: PAINT_LANE_INDEX.get(laneId),
     painter,
     active: options.active === true,
-    target:
-      options.target === PAINT_TARGET_DETECTION
-        ? PAINT_TARGET_DETECTION
-        : PAINT_TARGET_SHARED,
     shouldPaint:
       typeof options.shouldPaint === 'function' ? options.shouldPaint : null,
   };
@@ -917,9 +903,7 @@ export function registerWorldOverlayPaintLane(laneId, painter, options = {}) {
   };
   return {
     get surface() {
-      return record.target === PAINT_TARGET_DETECTION
-        ? _detectionSurface
-        : _canvas;
+      return _canvas;
     },
     setActive(active) {
       if (_destroyed || _customPaintLanes.get(id) !== record) return;
@@ -1237,29 +1221,8 @@ function ensureOverlayDom() {
     _canvas.id = CANVAS_ID;
     _root.appendChild(_canvas);
   }
-  // The detection surface is parented to the Cesium container, NOT to
-  // `#world-overlay-root`. Detection paints with `mix-blend-mode: screen`,
-  // which only reaches the WebGL scene while no ancestor between the surface
-  // and the Cesium canvas forms a stacking context (an isolated blending
-  // group). `#cesiumContainer` is `position:absolute; z-index:auto` and does
-  // not; `#world-overlay-root` is `z-index:6` and does — parenting here made
-  // the browser silently discard the blend while the CSS string stayed
-  // `'screen'`. Paint order is expressed purely by z-index: this surface is
-  // z5, the shared card canvas inside the root is z6.
-  const detectionParent = _viewer?.container || document.body;
-  _detectionSurface =
-    detectionParent.querySelector?.(`#${DETECTION_SURFACE_ID}`) ||
-    document.getElementById(DETECTION_SURFACE_ID);
-  if (!_detectionSurface) {
-    _detectionSurface = document.createElement('canvas');
-    _detectionSurface.id = DETECTION_SURFACE_ID;
-  }
-  if (_detectionSurface.parentElement !== detectionParent) {
-    detectionParent.appendChild(_detectionSurface);
-  }
   _root.setAttribute('aria-hidden', 'true');
   _canvas.setAttribute('aria-hidden', 'true');
-  _detectionSurface.setAttribute('aria-hidden', 'true');
   _accessibilityRoot = document.getElementById(ACCESSIBILITY_ROOT_ID);
   if (!_accessibilityRoot) {
     _accessibilityRoot = document.createElement('div');
@@ -1285,10 +1248,6 @@ function ensureOverlayDom() {
     _accessibilityRoot.appendChild(_accessibilityStatus);
   }
   _ctx = _canvas.getContext('2d', { alpha: true, desynchronized: true });
-  _detectionCtx = _detectionSurface.getContext('2d', {
-    alpha: true,
-    desynchronized: true,
-  });
 }
 
 function sizeCanvasSurface(canvas, ctx, width, height, dpr) {
@@ -1327,14 +1286,11 @@ function ensureCanvasSize() {
   const changed =
     _canvas.width !== Math.round(width * dpr) ||
     _canvas.height !== Math.round(height * dpr) ||
-    _detectionSurface?.width !== Math.round(width * dpr) ||
-    _detectionSurface?.height !== Math.round(height * dpr) ||
     _canvasWidth !== width ||
     _canvasHeight !== height ||
     _canvasDpr !== dpr;
   _resizeDirty = false;
   if (!changed) return false;
-  sizeCanvasSurface(_detectionSurface, _detectionCtx, width, height, dpr);
   sizeCanvasSurface(_canvas, _ctx, width, height, dpr);
   _canvasWidth = width;
   _canvasHeight = height;
@@ -1344,8 +1300,6 @@ function ensureCanvasSize() {
   _occludersDirty = true;
   _solveDirty = true;
   _canvasNeedsClear = true;
-  // Resizing a canvas clears its backing store by definition.
-  _detectionSurfaceNeedsClear = false;
   _layoutRevision++;
   return true;
 }
@@ -1385,7 +1339,7 @@ function elementIsVisible(element) {
 
 /**
  * Highest z-index the host paints at: the card canvas sits in `#world-overlay-root`
- * (z6) and the detection surface at z5. Chrome ABOVE this composites over host
+ * (z6). Chrome ABOVE this composites over host
  * paint; chrome at or below it is painted OVER by the host.
  */
 const HOST_TOP_Z_INDEX = 6;
@@ -1613,16 +1567,10 @@ function clearCanvasSurface(canvas, ctx) {
   ctx.setTransform?.(_canvasDpr, 0, 0, _canvasDpr, 0, 0);
 }
 
-/** Clear either or both host-owned surfaces through the single frame path. */
-function clearCanvas(clearMain = true, clearDetection = true) {
-  if (clearMain) {
-    clearCanvasSurface(_canvas, _ctx);
-    _canvasNeedsClear = false;
-  }
-  if (clearDetection) {
-    clearCanvasSurface(_detectionSurface, _detectionCtx);
-    _detectionSurfaceNeedsClear = false;
-  }
+/** Clear the host-owned surface through the single frame path. */
+function clearCanvas() {
+  clearCanvasSurface(_canvas, _ctx);
+  _canvasNeedsClear = false;
 }
 
 function activeEntryCount() {
@@ -1634,11 +1582,10 @@ function activeEntryCount() {
   return count;
 }
 
-function activeCustomPaintLaneCount(target = null) {
+function activeCustomPaintLaneCount() {
   let count = 0;
   for (let i = 0; i < _customPaintLaneList.length; i++) {
-    const record = _customPaintLaneList[i];
-    if (record.active && (target === null || record.target === target)) count++;
+    if (_customPaintLaneList[i].active) count++;
   }
   return count;
 }
@@ -2424,37 +2371,22 @@ function syncAccessibleActions() {
   }
 }
 
-let _detectionSurfacePrepared = false;
-
 function paintCustomLane(lane) {
+  if (!_canvas || !_ctx) return;
   for (let i = 0; i < _customPaintLaneList.length; i++) {
     const record = _customPaintLaneList[i];
     if (!record.active || record.lane !== lane) continue;
-    const detectionTarget = record.target === PAINT_TARGET_DETECTION;
-    const surface = detectionTarget ? _detectionSurface : _canvas;
-    const ctx = detectionTarget ? _detectionCtx : _ctx;
-    if (!surface || !ctx) continue;
-    _customPaintFrame.surface = surface;
-    _customPaintFrame.ctx = ctx;
+    _customPaintFrame.surface = _canvas;
+    _customPaintFrame.ctx = _ctx;
     if (record.shouldPaint && record.shouldPaint(_customPaintFrame) === false)
       continue;
-    if (detectionTarget && !_detectionSurfacePrepared) {
-      clearCanvas(false, true);
-      _detectionSurfacePrepared = true;
-    }
-    ctx.save();
+    _ctx.save();
     try {
-      // No UI clip. Detection paints edge to edge exactly as it shipped: it
-      // consumes `frame.uiRects` itself to keep its CALLOUT CARDS off solid
-      // chrome, while brackets, labels, the focus ring, the banner and the
-      // scanline wash cover the whole field. Clipping this surface punched
-      // hard-edged rectangular voids through the detection field, and in
-      // cockpit — where the exclusions coalesced to nearly the full viewport —
-      // blanked Panoptic entirely while it was still solving and painting.
+      // No UI clip: a painter consumes `frame.uiRects` itself when it needs to
+      // keep content off solid chrome.
       record.painter(_customPaintFrame);
-      if (detectionTarget) _detectionSurfaceNeedsClear = true;
     } finally {
-      ctx.restore();
+      _ctx.restore();
     }
   }
 }
@@ -2528,13 +2460,7 @@ function paintFrame(keyhole) {
   const sonar = isCyberSonarActive()
     ? createCyberSonarSampler(_canvasWidth, _canvasHeight, started)
     : null;
-  clearCanvas(true, false);
-  _detectionSurfacePrepared = false;
-  if (
-    activeCustomPaintLaneCount(PAINT_TARGET_DETECTION) === 0 &&
-    _detectionSurfaceNeedsClear
-  )
-    clearCanvas(false, true);
+  clearCanvas();
   _paintRectCount = 0;
   _hitRectCount = 0;
   sortPooledRange(_paintQueue, _paintCount, comparePaintItems);
@@ -2544,8 +2470,7 @@ function paintFrame(keyhole) {
   _ctx.save();
   let itemIndex = 0;
   for (let lane = 0; lane < WORLD_OVERLAY_PAINT_LANES.length; lane++) {
-    // Source-owned painters run first inside their lane. Detection therefore
-    // retains its former z5 position below every ordinary host entry at z6.
+    // Source-owned painters run first inside their lane.
     paintCustomLane(lane);
     while (itemIndex < _paintCount && _paintQueue[itemIndex].lane === lane) {
       paintEntryItem(_paintQueue[itemIndex], keyhole, sonar);
@@ -2559,8 +2484,7 @@ function paintFrame(keyhole) {
   _diagnostics.paintRectPoolSize = _paintRectPool.length;
   _diagnostics.paintMs = nowMs() - started;
   syncAccessibleActions();
-  _canvasNeedsClear =
-    _paintRectCount > 0 || activeCustomPaintLaneCount(PAINT_TARGET_SHARED) > 0;
+  _canvasNeedsClear = _paintRectCount > 0 || activeCustomPaintLaneCount() > 0;
 }
 
 function localizeScaledPlacement(placement, scale, out) {
@@ -2610,7 +2534,7 @@ function drawWorldOverlay() {
   if (!overlayHasPaintWork(timestamp)) {
     resetFrameDiagnostics();
     _solveDirty = false;
-    if (_canvasNeedsClear || _detectionSurfaceNeedsClear) clearCanvas();
+    if (_canvasNeedsClear) clearCanvas();
     if (_accessibilitySignature) {
       _hitRectCount = 0;
       syncAccessibleActions();
@@ -2646,7 +2570,7 @@ function drawWorldOverlay() {
   _diagnostics.projectionMs = nowMs() - projectionStarted;
   solveDomains(timestamp);
   paintFrame(keyhole);
-  // Labels-only layers need a bounded sweep refresh even with detection off.
+  // Labels-only layers need a bounded sweep refresh.
   // Empty/hidden hosts and teardown never retain scanner render demand.
   if (_paintRectCount > 0 && isCyberSonarActive()) {
     _sonarRenderTimer = setTimeout(() => {
@@ -2705,7 +2629,6 @@ export function initWorldOverlay(viewer) {
   _occludersDirty = true;
   _solveDirty = true;
   _canvasNeedsClear = true;
-  _detectionSurfaceNeedsClear = true;
   updateEntryDiagnostics();
   createDevFacade();
 }
@@ -2740,10 +2663,6 @@ export function destroyWorldOverlay() {
   _occluderRefreshTimer = null;
   _root?.remove?.();
   _accessibilityRoot?.remove?.();
-  // The detection surface is not a child of `_root` (it lives in the Cesium
-  // container so its `screen` blend reaches the scene), so it has to be torn
-  // down explicitly rather than by the root's removal.
-  _detectionSurface?.remove?.();
   if (
     typeof window !== 'undefined' &&
     window.__gevWorldOverlay?.getDiagnostics === getWorldOverlayDiagnostics
@@ -2790,8 +2709,6 @@ export function destroyWorldOverlay() {
   _accessibilityRoot = null;
   _accessibilityList = null;
   _accessibilityStatus = null;
-  _detectionSurface = null;
-  _detectionCtx = null;
   _occluder = null;
   _occluderCameraX = Number.NaN;
   _occluderCameraY = Number.NaN;
@@ -2806,8 +2723,6 @@ export function destroyWorldOverlay() {
   _occludersDirty = true;
   _solveDirty = true;
   _canvasNeedsClear = true;
-  _detectionSurfaceNeedsClear = true;
-  _detectionSurfacePrepared = false;
   _occludersUpdatedAt = Number.NEGATIVE_INFINITY;
   _canvasWidth = 0;
   _canvasHeight = 0;

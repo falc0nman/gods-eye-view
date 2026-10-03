@@ -235,8 +235,8 @@ test('destroying one instance does not remove another pipeline or clock', () => 
 test('the baseline keeps its keyhole fade and military presets carry no detection default', () => {
   assert.equal(GLOBAL_POST_DEFAULTS.detectionMode, undefined);
   assert.equal(GLOBAL_POST_DEFAULTS.sharpen.intensity, 49);
-  assert.equal(GLOBAL_POST_DEFAULTS.detectionFadePct, 7);
-  assert.equal(GLOBAL_POST_DEFAULTS.detectionOutsideOpacityPct, 1);
+  assert.equal(GLOBAL_POST_DEFAULTS.keyholeFadePct, 7);
+  assert.equal(GLOBAL_POST_DEFAULTS.keyholeOutsideOpacityPct, 1);
   for (const name of ['retro', 'surveillance', 'thermal']) {
     assert.equal(STYLE_PRESET_DEFAULTS[name].detection, undefined);
   }

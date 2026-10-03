@@ -80,7 +80,7 @@ export class DisplayBindings {
         sonarSectorSlider: this._cyberSonarSector,
         cleanViewButton: this._cleanViewBtn,
         cleanViewExitButton: this._cleanViewExitBtn,
-        fadeSliders: [this._detectionFadeSlider, this._detectionOpacitySlider],
+        fadeSliders: [this._keyholeFadeSlider, this._keyholeOpacitySlider],
         celestialButton: this._celestialBtn,
       },
       actions: {
@@ -130,7 +130,7 @@ export class DisplayBindings {
         exitCleanView: () => this.toggleCleanView(false),
         setFade: () => {
           this.shareLinkManager?.claimRestoreLane?.('visual');
-          this._applyDetectionFadeFromUi();
+          this._applyKeyholeFadeFromUi();
           this._syncShareState();
         },
         toggleCelestial: () => {

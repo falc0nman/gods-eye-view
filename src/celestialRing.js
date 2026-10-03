@@ -10,7 +10,7 @@ export const GLOBE_EXIT_CLEARANCE_PX = 12;
 /** Minimum stable length of a celestial direction projected into the camera plane. */
 export const CELESTIAL_PLANE_EPSILON = 0.045;
 /** Responsive radial fade band used by every keyhole-aligned text overlay —
- * this is the Detection FADE (label/card fading), NOT the scope-mask feather
+ * this is the keyhole FADE (label/card fading), NOT the scope-mask feather
  * in scopeMask.js. 0.07 since the 2026-08-24 owner final lock (was 0.16). */
 export const KEYHOLE_LABEL_FEATHER_RATIO = 0.07;
 export const KEYHOLE_LABEL_FEATHER_MAX_RATIO = 0.4;
@@ -18,9 +18,9 @@ export const KEYHOLE_LABEL_FEATHER_MAX_RATIO = 0.4;
  * First-run OUTSIDE opacity for keyhole-aligned world overlays.
  *
  * 0.01 since 2026-08-24 (owner final lock; 0.03 on 08-23, 0.05 before). Keep in lockstep with
- * `#detection-opacity-slider`'s markup value AND readout in index.html,
- * `_detectionOutsideOpacityPct` in sharelink.js,
- * and `GLOBAL_POST_DEFAULTS.detectionOutsideOpacityPct` in ui.js — a fresh boot applies
+ * `#keyhole-opacity-slider`'s markup value AND readout in index.html,
+ * `_keyholeOutsideOpacityPct` in sharelink.js,
+ * and `GLOBAL_POST_DEFAULTS.keyholeOutsideOpacityPct` in ui.js — a fresh boot applies
  * no restore, so those literals ARE the first-run state. NOT the `ko` PARSE
  * fallback, which stays at 5 on purpose: a link predating that field was
  * authored when 5 was what its author saw. Pinned in reasonableDefaults.test.mjs.

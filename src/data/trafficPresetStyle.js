@@ -4,7 +4,7 @@
  * dot treatment the shaders cannot destroy.
  *
  * Why: traffic dots are in-scene PointPrimitives, so they pass THROUGH the
- * post-FX shaders (unlike the detection/FIRMS canvases composited above
+ * post-FX shaders (unlike the world-overlay canvas composited above
  * them). NVG and FLIR reduce the scene to luminance (hue is discarded), and
  * the shipped bucket palette's Rec.601 luma ordering is free 0.58 / slow
  * 0.72 / jam 0.49 — under NVG a jam renders DIMMER than free flow. CRT
@@ -12,8 +12,9 @@
  *
  * Encoding per profile (owner verdict 2026-07-23 round 2: "just bright
  * dots" — a luminance RAMP failed in the field because dim free-flow dots
- * read as dark holes on NVG-bright roads; classification is the detection
- * brackets' job via `trafficBucketTier`, presence is the dots' job):
+ * read as dark holes on NVG-bright roads; the dots carry presence, and
+ * since GW-57 removed the detection brackets mono styles no longer encode
+ * congestion):
  *  - `mono` (surveillance/NVG, thermal/FLIR, noir): every colored dot is a
  *    bright white core with a thin black halo (local contrast survives any
  *    luma mapping, including Ironbow where white stays the hottest end);
@@ -125,26 +126,4 @@ export function presetSizeDelta(styleName, bucket) {
 export function presetDotOutline(styleName, bucket) {
   const entry = DOT_STYLE[trafficStyleProfile(styleName)]?.[bucket];
   return entry?.outline || null;
-}
-
-/**
- * Detection-overlay tier key for a traffic contact's flow bucket. The
- * detection canvas composites ABOVE the post-FX chain, so tier colors are
- * literal screen RGB in every preset — the brackets carry the congestion
- * classification the in-scene dots can no longer encode under mono
- * presets. Per-theme colors live in detection.js THEME_MAP `tiers`
- * (veh_jam / veh_slow / veh_free / veh_nodata).
- *
- * Callers pass 'sim' for LIVE-mode roads TomTom has no data for; in
- * keyless mode they must pass null so contacts keep the stock 'vehicle'
- * tier — the keyless experience stays byte-identical.
- *
- * @param {'free'|'slow'|'jam'|'sim'|null|undefined} bucket - Flow bucket.
- * @returns {string|null} Tier key, or null (no override → stock 'vehicle').
- */
-export function trafficBucketTier(bucket) {
-  if (bucket === 'free' || bucket === 'slow' || bucket === 'jam')
-    return `veh_${bucket}`;
-  if (bucket === 'sim') return 'veh_nodata';
-  return null;
 }

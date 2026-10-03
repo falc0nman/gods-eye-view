@@ -384,17 +384,17 @@ test('retired detection params in old links are ignored and never written', () =
 
 test('keyhole fade controls default and round-trip as normalized percentages', () => {
   const defaults = makeManager('#lat=10&lon=20').parseInitialHash();
-  assert.equal(defaults.detectionFadePct, 16);
-  assert.equal(defaults.detectionOutsideOpacityPct, 5);
+  assert.equal(defaults.keyholeFadePct, 16);
+  assert.equal(defaults.keyholeOutsideOpacityPct, 5);
 
   const restored = makeManager('#lat=10&lon=20&kf=28&ko=35').parseInitialHash();
-  assert.equal(restored.detectionFadePct, 28);
-  assert.equal(restored.detectionOutsideOpacityPct, 35);
+  assert.equal(restored.keyholeFadePct, 28);
+  assert.equal(restored.keyholeOutsideOpacityPct, 35);
 
   const manager = makeManager();
   manager.onToggleChange(false, false, {
-    detectionFadePct: 22,
-    detectionOutsideOpacityPct: 30,
+    keyholeFadePct: 22,
+    keyholeOutsideOpacityPct: 30,
   });
   clearTimeout(manager._debounceTimer);
   manager._updateHash();
@@ -651,7 +651,7 @@ test('every explicit visual UI gesture claims restore authority before it mutate
     [
       'setFade:',
       'toggleCelestial:',
-      'this._applyDetectionFadeFromUi()',
+      'this._applyKeyholeFadeFromUi()',
       'setFade control',
     ],
   ];

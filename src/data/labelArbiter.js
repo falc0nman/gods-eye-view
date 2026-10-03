@@ -2,7 +2,7 @@ import {
   ALLOCATION_ELASTIC,
   ALLOCATION_WEIGHTED,
   normalizeAllocationStrategy,
-} from './detectionPolicy.js';
+} from './labelAllocation.js';
 
 const CELL_SIZE_PX = 32;
 const EMPTY_CANDIDATES = Object.freeze([]);

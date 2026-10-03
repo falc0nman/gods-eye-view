@@ -44,8 +44,8 @@ export class VisualSettings {
       sharpenIntensity,
       hudVariant,
       hudVisible,
-      detectionFadePct,
-      detectionOutsideOpacityPct,
+      keyholeFadePct,
+      keyholeOutsideOpacityPct,
       celestialRing,
       scopeEnabled,
       scopeFeatherPct,
@@ -86,16 +86,16 @@ export class VisualSettings {
       this.hud.setMode(hudVisible ? 'on' : 'off');
       this._updateHudButtonState();
     }
-    if (typeof detectionFadePct === 'number' && this._detectionFadeSlider) {
-      this._detectionFadeSlider.value = String(detectionFadePct);
+    if (typeof keyholeFadePct === 'number' && this._keyholeFadeSlider) {
+      this._keyholeFadeSlider.value = String(keyholeFadePct);
     }
     if (
-      typeof detectionOutsideOpacityPct === 'number' &&
-      this._detectionOpacitySlider
+      typeof keyholeOutsideOpacityPct === 'number' &&
+      this._keyholeOpacitySlider
     ) {
-      this._detectionOpacitySlider.value = String(detectionOutsideOpacityPct);
+      this._keyholeOpacitySlider.value = String(keyholeOutsideOpacityPct);
     }
-    this._applyDetectionFadeFromUi();
+    this._applyKeyholeFadeFromUi();
     if (typeof celestialRing === 'boolean') {
       this.setCelestialRingEnabled(celestialRing, {
         syncShare: false,
@@ -391,13 +391,13 @@ export class VisualSettings {
     this._layoutRightPanels();
   }
 
-  _applyDetectionFadeFromUi() {
+  _applyKeyholeFadeFromUi() {
     const { setKeyholeFadeTuning } = this.services;
     const fadePct = Math.max(
       0,
-      Math.min(40, Math.round(Number(this._detectionFadeSlider?.value) || 0)),
+      Math.min(40, Math.round(Number(this._keyholeFadeSlider?.value) || 0)),
     );
-    const outsideOpacityValue = this._detectionOpacitySlider?.value;
+    const outsideOpacityValue = this._keyholeOpacitySlider?.value;
     const outsideOpacityPct = Math.max(
       0,
       Math.min(
@@ -407,14 +407,14 @@ export class VisualSettings {
         ),
       ),
     );
-    if (this._detectionFadeSlider)
-      this._detectionFadeSlider.value = String(fadePct);
-    if (this._detectionFadeValue)
-      this._detectionFadeValue.textContent = `${fadePct}%`;
-    if (this._detectionOpacitySlider)
-      this._detectionOpacitySlider.value = String(outsideOpacityPct);
-    if (this._detectionOpacityValue)
-      this._detectionOpacityValue.textContent = `${outsideOpacityPct}%`;
+    if (this._keyholeFadeSlider)
+      this._keyholeFadeSlider.value = String(fadePct);
+    if (this._keyholeFadeValue)
+      this._keyholeFadeValue.textContent = `${fadePct}%`;
+    if (this._keyholeOpacitySlider)
+      this._keyholeOpacitySlider.value = String(outsideOpacityPct);
+    if (this._keyholeOpacityValue)
+      this._keyholeOpacityValue.textContent = `${outsideOpacityPct}%`;
     setKeyholeFadeTuning({
       fadeRatio: fadePct / 100,
       outsideOpacity: outsideOpacityPct / 100,
@@ -590,15 +590,15 @@ export class VisualSettings {
       this._updateHudButtonState();
     }
 
-    if (this._detectionFadeSlider) {
-      this._detectionFadeSlider.value = String(defaults.detectionFadePct ?? 7);
+    if (this._keyholeFadeSlider) {
+      this._keyholeFadeSlider.value = String(defaults.keyholeFadePct ?? 7);
     }
-    if (this._detectionOpacitySlider) {
-      this._detectionOpacitySlider.value = String(
-        defaults.detectionOutsideOpacityPct ?? 1,
+    if (this._keyholeOpacitySlider) {
+      this._keyholeOpacitySlider.value = String(
+        defaults.keyholeOutsideOpacityPct ?? 1,
       );
     }
-    this._applyDetectionFadeFromUi();
+    this._applyKeyholeFadeFromUi();
     if (typeof defaults.celestialRing === 'boolean') {
       this.setCelestialRingEnabled(defaults.celestialRing, {
         syncShare: false,
@@ -622,9 +622,9 @@ export class VisualSettings {
         sharpenIntensity: parseInt(this._sharpenSlider?.value || '49', 10),
         hudVariant: this.hud.getVariant(),
         hudVisible: this.hud.visible,
-        detectionFadePct: parseInt(this._detectionFadeSlider?.value || '7', 10),
-        detectionOutsideOpacityPct: parseInt(
-          this._detectionOpacitySlider?.value || '1',
+        keyholeFadePct: parseInt(this._keyholeFadeSlider?.value || '7', 10),
+        keyholeOutsideOpacityPct: parseInt(
+          this._keyholeOpacitySlider?.value || '1',
           10,
         ),
         celestialRingEnabled: this.celestialRingEnabled,
@@ -812,9 +812,9 @@ export class VisualSettings {
       // The keyhole fade keeps its historical `detection` key so stored
       // scenes and share links keep restoring it.
       detection: {
-        fadePct: parseInt(this._detectionFadeSlider?.value || '7', 10),
+        fadePct: parseInt(this._keyholeFadeSlider?.value || '7', 10),
         outsideOpacityPct: parseInt(
-          this._detectionOpacitySlider?.value || '0',
+          this._keyholeOpacitySlider?.value || '0',
           10,
         ),
       },
@@ -886,21 +886,18 @@ export class VisualSettings {
     }
 
     const detectionState = state.detection || {};
-    if (
-      typeof detectionState.fadePct === 'number' &&
-      this._detectionFadeSlider
-    ) {
-      this._detectionFadeSlider.value = String(detectionState.fadePct);
+    if (typeof detectionState.fadePct === 'number' && this._keyholeFadeSlider) {
+      this._keyholeFadeSlider.value = String(detectionState.fadePct);
     }
     if (
       typeof detectionState.outsideOpacityPct === 'number' &&
-      this._detectionOpacitySlider
+      this._keyholeOpacitySlider
     ) {
-      this._detectionOpacitySlider.value = String(
+      this._keyholeOpacitySlider.value = String(
         detectionState.outsideOpacityPct,
       );
     }
-    this._applyDetectionFadeFromUi();
+    this._applyKeyholeFadeFromUi();
 
     if (state.mapStack) {
       // The stack switch is itself a MUTATION, not merely a suspension point,

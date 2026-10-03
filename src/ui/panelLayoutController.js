@@ -98,7 +98,7 @@ export class PanelLayoutController {
     this._weatherPanel = document.getElementById('weather-panel');
     this._recentImageryPanel = document.getElementById('recent-imagery-panel');
     this._sliderPanel = document.getElementById('param-slider-panel');
-    this._keyholeFadeRow = document.getElementById('detection-fade-row');
+    this._keyholeFadeRow = document.getElementById('keyhole-fade-row');
   }
   _scheduleAdaptivePanelLayout({ settle = false } = {}) {
     if (this.destroyed) return;

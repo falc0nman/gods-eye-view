@@ -4,7 +4,7 @@ import {
   BoundedCohort,
   cohortCapForQuota,
   stableIdentityHash,
-} from './detectionCohort.js';
+} from './overlayCohort.js';
 
 function observation(index, priority = 25, band = 8) {
   return {

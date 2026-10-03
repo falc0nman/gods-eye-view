@@ -198,40 +198,6 @@ export function createControls({ state: layerState, services, parts, source }) {
     },
 
     /**
-     * Returns a sampled list of camera positions for the detection overlay system.
-     * @param {Object} [options={}]
-     * @param {number} [options.maxCount] - Maximum number of objects to return.
-     * @param {number} [options.seed] - Offset seed for deterministic stride sampling.
-     * @returns {{ position: Cesium.Cartesian3, id: string, type: string }[]}
-     */
-    getDetectableObjects(options = {}) {
-      if (!layerState._enabled || layerState._records.length === 0) return [];
-      const maxCount = Number.isFinite(options.maxCount)
-        ? Math.max(1, Math.floor(options.maxCount))
-        : layerState._records.length;
-      const seed = Number.isFinite(options.seed) ? Math.floor(options.seed) : 0;
-      const stride = Math.max(
-        1,
-        Math.ceil(layerState._records.length / maxCount),
-      );
-      const start = seed % stride;
-
-      const objects = [];
-      for (let i = start; i < layerState._records.length; i += stride) {
-        const camera = layerState._records[i].camera;
-        objects.push({
-          position: layerState._records[i].position,
-          sourceId: camera.id,
-          // Short semantic code where the id is opaque (see cameraDisplayCode).
-          id: `CAM-${camera.code || camera.id}`,
-          type: 'CAM',
-        });
-        if (objects.length >= maxCount) break;
-      }
-      return objects;
-    },
-
-    /**
      * Returns basic layer statistics, including initial-load progress while
      * the staggered geometry queue is draining.
      * @returns {{ count: number, lastUpdate: number|null, error: string|null, loading: boolean, loadingLoaded: number, loadingTotal: number }}

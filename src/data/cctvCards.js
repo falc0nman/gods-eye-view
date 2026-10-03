@@ -31,7 +31,7 @@
  * - A failed fetch never clears a drawn frame (applyFrameResult persistence).
  *
  * Edge fade consistency (owner note): cards fade toward the screen edges via
- * the SAME radial keyhole ramp the detection overlay uses
+ * the SAME radial keyhole ramp every world-overlay label uses
  * (keyholeLabelAlphaFromGeometry — opaque inside the central keyhole, linear
  * feather outward), multiplied with the shared distance ramp (cardAlpha).
  */

@@ -151,13 +151,13 @@ test('the subtle default did not weaken the feather control, and 0 is still reac
 test('first run opens at 7% detection fade, at every surface that decides it', () => {
   assert.equal(KEYHOLE_LABEL_FEATHER_RATIO, 0.07,
     'celestialRing.js: the engine fade band opens at 7%');
-  assert.match(uiSource, /detectionFadePct: 7,/,
+  assert.match(uiSource, /keyholeFadePct: 7,/,
     'ui.js: the global post defaults apply the same value on first load');
-  assert.match(indexHtml, /id="detection-fade-slider"[^>]*\svalue="7"/,
+  assert.match(indexHtml, /id="keyhole-fade-slider"[^>]*\svalue="7"/,
     'index.html: the fade slider ships at 7');
-  assert.match(indexHtml, /id="detection-fade-value"[^>]*>7%</,
+  assert.match(indexHtml, /id="keyhole-fade-value"[^>]*>7%</,
     'index.html: the fade readout agrees with the slider');
-  assert.match(shareSource, /this\._detectionFadePct = 7;/,
+  assert.match(shareSource, /this\._keyholeFadePct = 7;/,
     'sharelink.js: the generator starts from the same value the overlay draws');
 });
 
@@ -172,29 +172,29 @@ test('first run opens at 1% OUTSIDE opacity, at every surface that decides it', 
   // above, the markup and its readout, ui.js's global post defaults, and the
   // share generator's starting state. Changing one alone ships a UI that
   // disagrees with its own engine.
-  assert.match(indexHtml, /id="detection-opacity-slider"[^>]*\svalue="1"/,
+  assert.match(indexHtml, /id="keyhole-opacity-slider"[^>]*\svalue="1"/,
     'index.html: the OUTSIDE slider ships at 1');
-  assert.match(indexHtml, /id="detection-opacity-value"[^>]*>1%</,
+  assert.match(indexHtml, /id="keyhole-opacity-value"[^>]*>1%</,
     'index.html: and its readout agrees with the handle');
-  assert.match(uiSource, /detectionOutsideOpacityPct: 1,/,
+  assert.match(uiSource, /keyholeOutsideOpacityPct: 1,/,
     'ui.js: the global post defaults apply the same value on first load');
-  assert.match(shareSource, /this\._detectionOutsideOpacityPct = 1;/,
+  assert.match(shareSource, /this\._keyholeOutsideOpacityPct = 1;/,
     'sharelink.js: the generator starts from the same value the overlay draws');
 
   // Reachability: the mapping was always continuous, but at the previous step
   // of 5 the whole sub-default range was one stop wide.
-  assert.match(indexHtml, /id="detection-opacity-slider"[^>]*\sstep="1"/,
+  assert.match(indexHtml, /id="keyhole-opacity-slider"[^>]*\sstep="1"/,
     'index.html: every integer percent is reachable from the handle');
 });
 
 test('an explicit OUTSIDE opacity still wins over the new default', () => {
-  assert.equal(managerForHash('#lat=10&lon=20&ko=5').parseInitialHash().detectionOutsideOpacityPct, 5);
-  assert.equal(managerForHash('#lat=10&lon=20&ko=40').parseInitialHash().detectionOutsideOpacityPct, 40);
-  assert.equal(managerForHash('#lat=10&lon=20&ko=0').parseInitialHash().detectionOutsideOpacityPct, 0,
+  assert.equal(managerForHash('#lat=10&lon=20&ko=5').parseInitialHash().keyholeOutsideOpacityPct, 5);
+  assert.equal(managerForHash('#lat=10&lon=20&ko=40').parseInitialHash().keyholeOutsideOpacityPct, 40);
+  assert.equal(managerForHash('#lat=10&lon=20&ko=0').parseInitialHash().keyholeOutsideOpacityPct, 0,
     'an explicit 0 is a choice too, not an absent field');
 
   // A link from before `ko` existed restores what ITS author saw. Every link
   // since carries the field explicitly, so the 5% era is unaffected either way.
-  assert.equal(managerForHash('#lat=10&lon=20&style=normal').parseInitialHash().detectionOutsideOpacityPct, 5,
+  assert.equal(managerForHash('#lat=10&lon=20&style=normal').parseInitialHash().keyholeOutsideOpacityPct, 5,
     'a pre-ko link restores the author\'s view, not the new default');
 });

@@ -39,17 +39,9 @@ export const FIRST_RUN_SESSION_KEY = 'gev:first-run-mission-session:v1';
  *                         `origin: 'user'` — identical to clicking those rows.
  *                         Choosing STORM CHASE *is* choosing those layers.
  *   TOUCHED, SESSION      the camera. Never persisted by anything.
- *   NOT TOUCHED           detection mode + density. The reasonable-defaults
- *                         landing owns the DENSE/75 start. A mission has no
- *                         opinion.
- *   NOT TOUCHED           `_detectionUserOverridden`. Setting it would mean "the
- *                         operator hand-edited detection" and would silently
- *                         kill the CRT/NVG/FLIR auto-preset contract for the
- *                         whole session. Missions run through
- *                         DataManager.setEnabled, which never writes it.
- *   NOT TOUCHED           detection allocation (`gev:detection-allocation:v1`),
- *                         3D aircraft models, scope feather. All are defaults or
- *                         separate durable prefs the visitor did not choose here.
+ *   NOT TOUCHED           scope feather and other display preferences. They
+ *                         are defaults or separate durable prefs the visitor
+ *                         did not choose here.
  *                         In particular nothing calls `_setModels3dEnabled` /
  *                         `_setModels3dMode`, which default to origin 'user' and
  *                         would persist a 3D choice nobody made.
@@ -462,7 +454,7 @@ export function initFirstRunExperience({
   for (const button of buttons) button.addEventListener('click', onChoice);
   suppressBox?.addEventListener('change', onSuppressChange);
   // Capture phase: the app binds its own global hotkeys (including bare letters
-  // that cycle detection and styles), and the launcher owns the keyboard first.
+  // that cycle styles and panels), and the launcher owns the keyboard first.
   keyboard.activate();
 
   // The scroll fade is an affordance, so it may only appear when the list really

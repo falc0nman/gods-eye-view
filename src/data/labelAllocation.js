@@ -1,8 +1,7 @@
 /**
- * @module detectionPolicy
+ * @module labelAllocation
  * @description Label-allocation strategies for the shared world-overlay label
- * arbiter. The module name is historical: the detection overlay that also used
- * it was removed in GW-57.
+ * arbiter.
  */
 
 export const ALLOCATION_ELASTIC = 'ELASTIC';

@@ -24,10 +24,10 @@ export const GLOBAL_POST_DEFAULTS = {
   sharpen: { enabled: true, intensity: 49 },
   hudVariant: 'tactical',
   hudVisible: true,
-  // Keyhole fade (the world-overlay fade beyond the style's keyhole). The
-  // `detection` prefix is historical; share links keep it as kf/ko.
-  detectionFadePct: 7,
-  detectionOutsideOpacityPct: 1,
+  // Keyhole fade (the world-overlay fade beyond the style's keyhole); share
+  // links carry it as kf/ko.
+  keyholeFadePct: 7,
+  keyholeOutsideOpacityPct: 1,
   celestialRing: false,
 };
 

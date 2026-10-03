@@ -87,7 +87,7 @@ function styleOwner(t, initialVariant = 'cyber') {
     '_syncCockpitInheritedStyle',
     '_syncCyberSonarControl',
     '_scheduleAdaptivePanelLayout',
-    '_applyDetectionFadeFromUi',
+    '_applyKeyholeFadeFromUi',
   ])
     owner[name] = () => {};
   return { owner, hud, root, calls };

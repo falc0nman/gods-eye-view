@@ -102,13 +102,13 @@ export class ShareLinkManager {
     this._sharpenIntensity = 49;
     this._hudVariant = 'tactical';
     this._hudVisible = false;
-    this._detectionFadePct = 7;
+    this._keyholeFadePct = 7;
     // Mirrors KEYHOLE_OUTSIDE_OPACITY_DEFAULT in celestialRing.js and the
     // slider's markup value (owner final lock 2026-08-24: 5 -> 3 -> 1). This is the
     // state the link THIS session generates starts from, so it must match what
     // the session actually renders; the `ko` PARSE fallback below is a separate
     // question and deliberately stays at 5.
-    this._detectionOutsideOpacityPct = 1;
+    this._keyholeOutsideOpacityPct = 1;
     this._celestialRingEnabled = false;
     // Full screen by default (scope OFF) — mirrors `_enabled` in scopeMask.js.
     // The `sc` PARSE fallback stays `true`: a link without `sc` predates the
@@ -191,7 +191,7 @@ export class ShareLinkManager {
       sharpenIntensity: parseOr(params.get('si'), 49),
       hudVariant: params.get('hud') || 'tactical',
       hudVisible: params.get('hv') === '1',
-      detectionFadePct: Math.max(
+      keyholeFadePct: Math.max(
         0,
         Math.min(40, Math.round(parseOr(params.get('kf'), 16))),
       ),
@@ -202,7 +202,7 @@ export class ShareLinkManager {
       // the field — so nothing from the 5 % era depends on this number either
       // way. The first-run default is a different question, answered in
       // celestialRing.js.
-      detectionOutsideOpacityPct: Math.max(
+      keyholeOutsideOpacityPct: Math.max(
         0,
         Math.min(100, Math.round(parseOr(params.get('ko'), 5))),
       ),
@@ -337,9 +337,9 @@ export class ShareLinkManager {
         sharpenIntensity: visualCurrent ? state.sharpenIntensity : undefined,
         hudVariant: visualCurrent ? state.hudVariant : undefined,
         hudVisible: visualCurrent ? state.hudVisible : undefined,
-        detectionFadePct: visualCurrent ? state.detectionFadePct : undefined,
-        detectionOutsideOpacityPct: visualCurrent
-          ? state.detectionOutsideOpacityPct
+        keyholeFadePct: visualCurrent ? state.keyholeFadePct : undefined,
+        keyholeOutsideOpacityPct: visualCurrent
+          ? state.keyholeOutsideOpacityPct
           : undefined,
         celestialRing: visualCurrent ? state.celestialRing : undefined,
         scopeEnabled: visualCurrent ? state.scopeEnabled : undefined,
@@ -454,16 +454,16 @@ export class ShareLinkManager {
       this._hudVariant = extras.hudVariant;
     if (typeof extras.hudVisible === 'boolean')
       this._hudVisible = extras.hudVisible;
-    if (typeof extras.detectionFadePct === 'number') {
-      this._detectionFadePct = Math.max(
+    if (typeof extras.keyholeFadePct === 'number') {
+      this._keyholeFadePct = Math.max(
         0,
-        Math.min(40, Math.round(extras.detectionFadePct)),
+        Math.min(40, Math.round(extras.keyholeFadePct)),
       );
     }
-    if (typeof extras.detectionOutsideOpacityPct === 'number') {
-      this._detectionOutsideOpacityPct = Math.max(
+    if (typeof extras.keyholeOutsideOpacityPct === 'number') {
+      this._keyholeOutsideOpacityPct = Math.max(
         0,
-        Math.min(100, Math.round(extras.detectionOutsideOpacityPct)),
+        Math.min(100, Math.round(extras.keyholeOutsideOpacityPct)),
       );
     }
     if (typeof extras.celestialRingEnabled === 'boolean')
@@ -544,8 +544,8 @@ export class ShareLinkManager {
     params.set('si', Math.round(this._sharpenIntensity).toString());
     params.set('hud', this._hudVariant);
     params.set('hv', this._hudVisible ? '1' : '0');
-    params.set('kf', Math.round(this._detectionFadePct).toString());
-    params.set('ko', Math.round(this._detectionOutsideOpacityPct).toString());
+    params.set('kf', Math.round(this._keyholeFadePct).toString());
+    params.set('ko', Math.round(this._keyholeOutsideOpacityPct).toString());
     params.set('cr', this._celestialRingEnabled ? '1' : '0');
     params.set('sc', this._scopeEnabled ? '1' : '0');
     params.set('scf', Math.round(this._scopeFeatherPct).toString());

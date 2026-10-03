@@ -661,8 +661,8 @@
   white-space: nowrap;
 }
 
-.detection-fade-row,
-.detection-opacity-row {
+.keyhole-fade-row,
+.keyhole-opacity-row {
   min-width: 170px;
   padding: 5px 8px 6px;
 }

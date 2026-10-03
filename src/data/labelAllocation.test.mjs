@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeAllocationStrategy } from './detectionPolicy.js';
+import { normalizeAllocationStrategy } from './labelAllocation.js';
 
 test('allocation strategy defaults safely to Elastic', () => {
   assert.equal(normalizeAllocationStrategy('weighted'), 'WEIGHTED');
