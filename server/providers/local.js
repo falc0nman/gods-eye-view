@@ -5,9 +5,7 @@ import { terrainHeightsProxy } from './terrain.js';
 import { adsbdbProxy } from './aircraft/enrichment.js';
 import { overpassProxy } from './overpass.js';
 import { militaryInstallationsProxy } from './military-installations.js';
-import { regionalBriefProxy } from './regional/briefing.js';
 import { geocodeProxy } from './regional/place.js';
-import { weatherEffectsProxy } from './regional/weather-effects.js';
 import { cctvProxy } from './cctv.js';
 import { defaultSourceRoot } from './common/source-root.js';
 import { localReceiversProxy } from './local-receivers.js';
@@ -44,9 +42,7 @@ function localProviderRegistry({ notificationTransport } = {}) {
   registry.registerLegacy('adsbdb', adsbdbProxy);
   registry.registerLegacy('overpass', overpassProxy);
   registry.registerLegacy('military-installations', militaryInstallationsProxy);
-  registry.registerLegacy('regional-brief', regionalBriefProxy);
   registry.registerLegacy('geocode', geocodeProxy);
-  registry.registerLegacy('weather-effects', weatherEffectsProxy);
   registry.registerLegacy('cctv', () =>
     cctvProxy({ sourceRoot: defaultSourceRoot }),
   );
@@ -107,4 +103,3 @@ export { writeMilitaryInstallationDisk } from './military-installations/cache.js
 export { validMilitaryInstallationBox } from './military-installations/query.js';
 export { militaryInstallationFailureReason } from './military-installations/query.js';
 export { validRegionalPoint } from './regional/query.js';
-export { regionalBriefHasAnySource } from './regional/briefing.js';

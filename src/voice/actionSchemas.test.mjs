@@ -33,7 +33,7 @@ test('the complete Realtime tool payload pins the additive analyst, satellite, L
     // team-chasers) and their common-name mapping.
     // Re-derived for each GW-57 removal: the removed layers leave the layer
     // enums, common-name mappings and analyst fields.
-    '71fa783243d6942be9929eec74876ba7e601a537816ba0745bf66564dd281d64',
+    '7dd2e93041c9bdc866717c24ede56d600110d85c9227342ece0ce49a413542b5',
   );
 });
 
@@ -133,6 +133,6 @@ test('all legacy action arguments are byte-identical after removing the delibera
   hud.enum = hud.enum.filter((layout) => layout !== 'cyber');
   assert.equal(
     createHash('sha256').update(JSON.stringify(legacy)).digest('hex'),
-    '7d6dddfe725a27d17558aacecc747ea7d82c0dfb870edf607150139900476bad',
+    'ca823a3dc892e5d9e8bddfbdc716ec2fd3136bc397134b3744e8d425aea4bf70',
   );
 });

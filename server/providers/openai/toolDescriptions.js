@@ -35,7 +35,7 @@ export const ACTION_DESCRIPTIONS = {
   },
   select_nearest_aircraft: {
     description:
-      'Atomically fly to a place, wait for arrival, enable and load Flights or Military Flights in that viewport, exclude on-ground records, and select/follow the nearest airborne aircraft. Healthy fallback feeds remain usable and are reported in the result. This does not open Contacts or Cockpit.',
+      'Atomically fly to a place, wait for arrival, enable and load Flights or Military Flights in that viewport, exclude on-ground records, and select/follow the nearest airborne aircraft. Healthy fallback feeds remain usable and are reported in the result. This does not open Contacts.',
     $position: 1,
     parameters: {
       properties: {
@@ -118,30 +118,6 @@ export const ACTION_DESCRIPTIONS = {
       },
     },
   },
-  control_cockpit: {
-    description:
-      'Read or control Cockpit when the user explicitly requests Cockpit: establish Contacts and enter from a selected or tracked aircraft; exit; or navigate nearby Contacts with optional filters. Selecting or viewing an aircraft alone must not enter Cockpit.',
-    $position: 1,
-    parameters: {
-      properties: {
-        action: {
-          description:
-            'previous/next (or prev) navigates through nearby contacts in Cockpit context.',
-          $position: 2,
-        },
-        targetLayer: {
-          description:
-            'Optional contact layer filter for next/previous (for example military for a military-only cycle).',
-          $position: 2,
-        },
-        aircraftClass: {
-          description:
-            'Optional aircraft class filter (for example helicopter) when using next/previous navigation.',
-          $position: 1,
-        },
-      },
-    },
-  },
   set_visual_style: {
     description: "Set the active God's Eye View visual filter/style.",
     $position: 1,
@@ -162,7 +138,7 @@ export const ACTION_DESCRIPTIONS = {
   },
   get_current_view_state: {
     description:
-      'Read the current camera, style, Context, Cockpit, HUD, detection, map stack, post-processing, scene-playback, tracked-entity, and layer state before choosing another action.',
+      'Read the current camera, style, Context, HUD, detection, map stack, post-processing, scene-playback, tracked-entity, and layer state before choosing another action.',
     $position: 1,
   },
   set_hud: {

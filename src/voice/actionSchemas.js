@@ -213,32 +213,6 @@ const schemas = [
     },
   },
   {
-    name: 'control_cockpit',
-    parameters: {
-      type: 'object',
-      additionalProperties: false,
-      properties: {
-        action: {
-          type: 'string',
-          enum: ['enter', 'exit', 'previous', 'next', 'prev', 'status'],
-        },
-        targetLayer: {
-          type: 'string',
-          enum: [
-            'flights',
-            'military',
-            'ais-live-vessels',
-            'military-installations',
-          ],
-        },
-        aircraftClass: {
-          type: 'string',
-        },
-      },
-      required: ['action'],
-    },
-  },
-  {
     name: 'set_visual_style',
     parameters: {
       type: 'object',

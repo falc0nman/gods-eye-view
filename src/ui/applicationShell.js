@@ -12,7 +12,6 @@ import { setSplitFlapText } from '../splitFlap.js';
 import { UiLifetime } from './uiLifetime.js';
 import { RecordingControls } from './recordingControls.js';
 import { readShellElements } from './shellElements.js';
-import { CockpitCoordinator } from './cockpitCoordinator.js';
 import { ContextControls } from './context.js';
 import { CctvControls } from './cctv.js';
 import { RadioControls } from './radio.js';
@@ -347,51 +346,6 @@ export class StyleManager extends ShellFacade {
       summaryService: requestServices?.summary,
     });
     this._recording.hud = this.hud;
-    this._cockpitCoordinator = new CockpitCoordinator({
-      viewer,
-      services: {
-        flightsLayer: services.flightsLayer,
-        militaryFlightsLayer: services.militaryFlightsLayer,
-        isTr3b: services.isTr3b,
-        toggleTr3b: services.toggleTr3b,
-        militaryAwarenessLayer: services.militaryAwarenessLayer,
-        cachedGroundFloor: services.cachedGroundFloor,
-        cachedMeshFloor: services.cachedMeshFloor,
-        GROUND_FLOOR_LIFT_M: services.GROUND_FLOOR_LIFT_M,
-        meshFloorPreferred: services.meshFloorPreferred,
-        warmGroundFloor: services.warmGroundFloor,
-        sampleMeshFloorCells: services.sampleMeshFloorCells,
-        holdContinuousRender: services.holdContinuousRender,
-        releaseContinuousRender: services.releaseContinuousRender,
-        fetchRegionalBrief: services.fetchRegionalBrief,
-        regionalDistanceM: services.regionalDistanceM,
-        weatherCodeLabel: services.weatherCodeLabel,
-      },
-      elements: {
-        _ppToggles: this._ppToggles,
-        _cockpitDisplayPanel: this._cockpitDisplayPanel,
-        _hudBtn: this._hudBtn,
-        _detectionBtn: this._detectionBtn,
-        _sliderPanel: this._sliderPanel,
-        _models3dBtn: this._models3dBtn,
-      },
-      operations: {
-        _layoutRightPanels: (...args) => this._layoutRightPanels(...args),
-        _setCockpitVision: (...args) => this._setCockpitVision(...args),
-        _stampNavigation: (...args) => this._stampNavigation(...args),
-        getAircraftTrackingTarget: (...args) =>
-          this.getAircraftTrackingTarget(...args),
-        _scheduleRightPanelLayout: (...args) =>
-          this._scheduleRightPanelLayout(...args),
-        _syncContextRadioLauncherState: (...args) =>
-          this._syncContextRadioLauncherState(...args),
-      },
-      readDataManager: () => this._dataManager,
-      readContext: () => this.getContextModeState(),
-      readActiveStyle: () => this.activeStyle,
-      enterPanels: () => this._panelChrome.enterCockpit(),
-      exitPanels: () => this._panelChrome.exitCockpit(),
-    });
 
     // Full-globe sun/moon ring. It is a crisp screen-space overlay above the
     // Cesium canvas but below the HUD/detection/readout z ladder.
@@ -1464,7 +1418,6 @@ export class StyleManager extends ShellFacade {
         this._cockpitDisplayToggleBtn.getAttribute('aria-expanded') === 'true';
       this._setCockpitDisclosure?.('display', !open);
     });
-    this._initCockpitDisplayPortal();
   }
 
   /**
@@ -1531,7 +1484,6 @@ export class StyleManager extends ShellFacade {
     this._cctvControls?.destroy();
     this._radioControls?.destroy();
     this._localSdrControls?.destroy();
-    this._cockpitCoordinator.stop();
     this._visualSettings.stop();
     this.shareLinkManager?.destroy();
     this._layerBindings.stop();
@@ -1550,7 +1502,6 @@ export class StyleManager extends ShellFacade {
     // un-boost both aircraft layers so a surviving viewer or replacement
     // manager doesn't inherit sensor state (review P2, 2026-08-16).
     this._visualSettings.releaseIrBoost();
-    this._cockpitCoordinator.destroy();
     this._contextControls.disconnect();
     this._layerBindings.disconnect();
 

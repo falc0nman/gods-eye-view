@@ -7,7 +7,6 @@ import createViteConfig, {
   keylessGooglePlacesResponse,
   LL2_CACHE_TTL_MS,
   readResponseJsonCapped,
-  regionalBriefHasAnySource,
   validMilitaryInstallationBox,
   validRegionalPoint,
 } from '../../vite.config.js';
@@ -49,8 +48,6 @@ test('new data proxies install the same routes in dev and preview servers', () =
   for (const name of [
     'rocket-launches-proxy',
     'military-installations-proxy',
-    'regional-brief-proxy',
-    'weather-effects-proxy',
   ]) {
     assert.equal(typeof byName.get(name)?.configureServer, 'function', `${name} dev hook`);
     assert.equal(typeof byName.get(name)?.configurePreviewServer, 'function', `${name} preview hook`);
@@ -95,17 +92,4 @@ test('bounded JSON reader rejects oversized upstream bodies', async () => {
     readResponseJsonCapped(new Response(JSON.stringify({ value: 'x'.repeat(64) })), 32),
     (error) => error?.code === 'RESPONSE_TOO_LARGE',
   );
-});
-
-test('regional brief treats an all-source outage as total failure', () => {
-  assert.equal(regionalBriefHasAnySource({
-    place: null,
-    weather: null,
-    news: { status: 'unavailable' },
-  }), false);
-  assert.equal(regionalBriefHasAnySource({
-    place: { country: 'United States' },
-    weather: null,
-    news: { status: 'unavailable' },
-  }), true);
 });

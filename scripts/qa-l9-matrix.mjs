@@ -1125,7 +1125,7 @@ check({
 // ─── M · OWNER-EYES (never automated; steps in the runbook) ───────────────
 const MANUAL = [
   ['M1', 'Voice mic round trip 1/3 — "when is the next ISS pass?" (next_iss_pass)'],
-  ['M2', 'Voice mic round trip 2/3 — connect/disconnect twice in one tab + keyed set_context_mode and control_cockpit'],
+  ['M2', 'Voice mic round trip 2/3 — connect/disconnect twice in one tab + keyed set_context_mode'],
   ['M3', 'Voice mic round trip 3/3 — adsbdb enrichment readout on a live tracked flight'],
   ['M4', 'LAN warning path — HOST=0.0.0.0 banner, LAN URL, and a throttled response'],
   ['M5', 'Live AIS vessel one-click camera transfer — requires status=live, not cached rows (never verified against a live feed)'],

@@ -25,13 +25,13 @@ const css = readStylesheet(new URL('../style.css', import.meta.url));
 
 function realtimeTools() { return GEV_REALTIME_TOOLS; }
 
-test('Realtime schema exposes the authoritative 30-tool inventory', () => {
+test('Realtime schema exposes the authoritative 29-tool inventory', () => {
   const tools = realtimeTools();
-  assert.equal(tools.length, 30);
+  assert.equal(tools.length, 29);
   const names = tools.map((tool) => tool.name);
-  assert.equal(new Set(names).size, 30, 'tool names are unique');
+  assert.equal(new Set(names).size, 29, 'tool names are unique');
   assert.ok(names.includes('set_context_mode'));
-  assert.ok(names.includes('control_cockpit'));
+  assert.equal(names.includes('control_cockpit'), false, 'GW-58 removed Cockpit');
   assert.ok(names.includes('select_nearest_aircraft'));
   assert.ok(names.includes('control_radio'));
   assert.ok(names.includes('next_satellite_pass'));
@@ -80,7 +80,7 @@ test('Context panel opening stays distinct from Contacts activation', () => {
   assert.match(text, /expands the parent Context panel before activating Contacts/);
 });
 
-test('nearest-aircraft selection stays out of Contacts and Cockpit', () => {
+test('nearest-aircraft selection stays out of Contacts', () => {
   const start = voice.indexOf("'For a request to enable an aircraft layer and SELECT or FIND");
   assert.ok(start >= 0, 'nearest-aircraft selection routing instruction is missing');
   const text = voice.slice(start, voice.indexOf('\n', start));
@@ -93,14 +93,12 @@ test('nearest-aircraft selection stays out of Contacts and Cockpit', () => {
   assert.match(text, /nearest airborne result/);
   assert.match(text, /healthy fallback feed is valid data/i);
   assert.match(text, /Do not also call fly_to_location, set_layer_visibility, analyst_query, track_entity/);
-  assert.match(text, /SELECT\/FIND never implies Contacts or Cockpit/);
-  assert.match(text, /set_context_mode, or control_cockpit/);
+  assert.match(text, /SELECT\/FIND never implies Contacts/);
+  assert.match(text, /track_entity, or set_context_mode/);
 
   const byName = new Map(realtimeTools().map((tool) => [tool.name, tool]));
   assert.match(byName.get('set_context_mode').description, /explicitly requests/);
   assert.match(byName.get('set_context_mode').description, /selecting an aircraft does not imply Context/i);
-  assert.match(byName.get('control_cockpit').description, /explicitly requests Cockpit/);
-  assert.match(byName.get('control_cockpit').description, /must not enter Cockpit/);
   assert.equal(
     byName.get('fly_to_location').parameters.properties.waitForArrival.type,
     'boolean',
@@ -111,10 +109,10 @@ test('nearest-aircraft selection stays out of Contacts and Cockpit', () => {
   assert.match(nearest.description, /Atomically/);
   assert.match(nearest.description, /exclude on-ground records/);
   assert.match(nearest.description, /fallback feeds remain usable/);
-  assert.match(nearest.description, /does not open Contacts or Cockpit/);
+  assert.match(nearest.description, /does not open Contacts/);
 });
 
-test('the two Context/Cockpit tools pin their enums and required arguments', () => {
+test('the Context tool pins its enums and required arguments', () => {
   const byName = new Map(realtimeTools().map((tool) => [tool.name, tool]));
 
   const contextMode = byName.get('set_context_mode');
@@ -123,21 +121,6 @@ test('the two Context/Cockpit tools pin their enums and required arguments', () 
     contextMode.parameters.properties.mode.enum,
     ['off', 'contacts', 'flights', 'space-missions', 'missions'],
   );
-
-  const cockpit = byName.get('control_cockpit');
-  assert.deepEqual(cockpit.parameters.required, ['action']);
-  assert.deepEqual(
-    cockpit.parameters.properties.action.enum,
-    ['enter', 'exit', 'previous', 'next', 'prev', 'status'],
-  );
-  assert.deepEqual(
-    cockpit.parameters.properties.targetLayer.enum,
-    ['flights', 'military', 'ais-live-vessels', 'military-installations'],
-    'the layer filter must match the four Context cohorts exactly',
-  );
-  // aircraftClass is deliberately open (free-form class names), but still typed.
-  assert.equal(cockpit.parameters.properties.aircraftClass.type, 'string');
-  assert.equal(cockpit.parameters.properties.aircraftClass.enum, undefined);
 });
 
 test('the edited existing tools changed exactly as intended', () => {
@@ -151,9 +134,9 @@ test('the edited existing tools changed exactly as intended', () => {
   );
   assert.deepEqual(panel.parameters.required, ['panelId', 'open']);
 
-  // Edit 2: description only — the view state now reports Context and Cockpit.
+  // Edit 2: description only — the view state reports Context.
   const viewState = byName.get('get_current_view_state');
-  assert.match(viewState.description, /Context, Cockpit/);
+  assert.match(viewState.description, /Context, HUD/);
   assert.deepEqual(viewState.parameters.properties, {});
 
   // Edit 3: dependent multi-tool navigation can wait for the destination view.
@@ -210,7 +193,7 @@ test('no unchanged Realtime tool definition drifts silently', () => {
 });
 
 test('Radio volume and mission speed share the Sharpen slider visual language', () => {
-  for (const id of ['cockpit-radio-volume', 'context-radio-mini-volume', 'radio-volume', 'sdr-volume']) {
+  for (const id of ['context-radio-mini-volume', 'radio-volume', 'sdr-volume']) {
     assert.match(
       html,
       new RegExp(`id="${id}"[^>]*class="gev-quantitative-slider"[^>]*type="range"`),
@@ -246,10 +229,6 @@ test('Radio is nested inside Context with separate disclosure and power controls
   assert.match(html, /id="context-radio-mini-close-btn"[^>]*aria-label="Close compact Radio controls"/);
   assert.match(html, /id="context-radio-mini-(?:prev|play|next)-btn"/);
   assert.match(html, /id="context-radio-mini-volume"/);
-  assert.match(html, /id="cockpit-radio-panel"[^>]*aria-label="Cockpit compact Radio controls"[^>]*hidden/);
-  assert.match(html, /id="cockpit-radio-enable-btn"[^>]*aria-pressed="false"/);
-  assert.match(html, /id="cockpit-radio-(?:prev|play|next)-btn"/);
-  assert.match(html, /id="cockpit-radio-volume"/);
   assert.match(html, /id="radio-tuner"[^>]*hidden/);
   assert.match(html, /id="radio-tuner-band-label">DIRECTORY BAND/);
   assert.match(html, /id="radio-tuner-slider"[^>]*type="range"/);

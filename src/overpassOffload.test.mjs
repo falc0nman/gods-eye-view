@@ -4,7 +4,6 @@ import { Readable } from 'node:stream';
 import { randomUUID } from 'node:crypto';
 import { overpassProxy } from '../server/providers/overpass.js';
 import { militaryInstallationsProxy } from '../server/providers/military-installations.js';
-import { regionalBriefProxy } from '../server/providers/regional/briefing.js';
 import {
   parseOverpassUpstreams,
   resolveOverpassUpstreams,
@@ -99,18 +98,14 @@ test('the shared transport refuses an unset chain without calling fetch', async 
   });
 });
 
-test('zero egress: every Overpass consumer reaches real default handlers, and regional context never calls Nominatim', async (t) => {
+test('zero egress: every Overpass consumer reaches real default handlers', async (t) => {
   env(t);
   const seen = [];
   t.mock.method(globalThis, 'fetch', async (url) => {
     seen.push(String(url));
     throw new Error('Network unavailable');
   });
-  const handlers = routes(
-    overpassProxy(),
-    militaryInstallationsProxy(),
-    regionalBriefProxy(),
-  );
+  const handlers = routes(overpassProxy(), militaryInstallationsProxy());
   const queries = [
     '[out:json];way["highway"="primary"](30.2,-97.8,30.3,-97.7);out geom;',
   ];
@@ -152,12 +147,6 @@ test('zero egress: every Overpass consumer reaches real default handlers, and re
   );
   assert.equal(installations.status, 200);
   assert.equal((await installations.json()).code, 'OVERPASS_NOT_CONFIGURED');
-  const regional = await call(
-    handlers,
-    '/api/regional-brief?latitude=30.2672&longitude=-97.7431',
-  );
-  assert.equal(regional.status, 200);
-  assert.equal((await regional.json()).place.source, 'Natural Earth');
   assert.ok(
     seen.every((url) => !/overpass|nominatim/i.test(new URL(url).hostname)),
     JSON.stringify(seen),

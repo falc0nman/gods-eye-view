@@ -21,8 +21,6 @@ export function createApplicationRequestServices({
   const urls = {
     boundaries: '/api/overpass',
     terrain: '/api/terrain/heights',
-    regional: '/api/regional-brief',
-    weather: '/api/weather-effects',
     summary: '/api/openai/hud-summary',
     ...endpoints,
   };
@@ -48,18 +46,6 @@ export function createApplicationRequestServices({
       headers: response.headers,
       data,
     };
-  }
-  function pointUrl(endpoint, latitude, longitude) {
-    if (
-      !Number.isFinite(latitude) ||
-      latitude < -90 ||
-      latitude > 90 ||
-      !Number.isFinite(longitude) ||
-      longitude < -180 ||
-      longitude > 180
-    )
-      throw new TypeError('Valid coordinates are required');
-    return `${endpoint}?${new URLSearchParams({ latitude: latitude.toFixed(5), longitude: longitude.toFixed(5) })}`;
   }
   function requireOk(response, label) {
     if (!response.ok)
@@ -153,22 +139,6 @@ export function createApplicationRequestServices({
           }),
           'Terrain heights',
         )?.results;
-      },
-    },
-    regional: {
-      async getBrief(latitude, longitude, options) {
-        return requireOk(
-          await request(pointUrl(urls.regional, latitude, longitude), options),
-          'Regional brief',
-        );
-      },
-    },
-    weather: {
-      async getConditions(latitude, longitude, options) {
-        return requireOk(
-          await request(pointUrl(urls.weather, latitude, longitude), options),
-          'Weather',
-        );
       },
     },
     summary: {

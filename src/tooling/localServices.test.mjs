@@ -13,10 +13,6 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { overpassProxy } from 'gods-eye-view/server/providers/overpass';
 import { militaryInstallationsProxy } from 'gods-eye-view/server/providers/military-installations';
-import {
-  regionalBriefProxy,
-  weatherEffectsProxy,
-} from 'gods-eye-view/server/providers/regional';
 import { openAiRealtimeProxy } from 'gods-eye-view/server/providers/openai';
 import { realtimeInstructions } from '../../server/providers/openai/instructions.js';
 import { GEV_REALTIME_TOOLS } from '../../server/providers/openai/tools.js';
@@ -95,8 +91,6 @@ test('standalone service guards run in development and preview without upstream 
     for (const [factory, route] of [
       [overpassProxy, '/api/overpass'],
       [militaryInstallationsProxy, '/api/military-installations'],
-      [regionalBriefProxy, '/api/regional-brief'],
-      [weatherEffectsProxy, '/api/weather-effects'],
     ]) {
       const routes = install(factory(), preview);
       assert.equal(
@@ -113,46 +107,6 @@ test('standalone service guards run in development and preview without upstream 
       );
     }
   }
-});
-
-test('weather-only requests share upstream work and retain fresh and stale responses', async (t) => {
-  let now = Date.now();
-  t.mock.method(Date, 'now', () => now);
-  let calls = 0;
-  t.mock.method(globalThis, 'fetch', async (url) => {
-    calls++;
-    assert.equal(new URL(url).hostname, 'api.open-meteo.com');
-    if (calls > 1) throw Error('offline');
-    await new Promise((resolve) => setTimeout(resolve, 10));
-    return Response.json({
-      current: {
-        time: '2026-09-12T12:00',
-        temperature_2m: 20,
-        weather_code: 0,
-        wind_speed_10m: 10,
-      },
-    });
-  });
-  const handler = install(weatherEffectsProxy()).get('/api/weather-effects');
-  const query = { url: '/?latitude=34.61&longitude=-112.43' };
-  const pair = await Promise.all([
-    request(handler, query),
-    request(handler, query),
-  ]);
-  assert.deepEqual(pair.map((r) => r.headers['x-weather-effects']).sort(), [
-    'INFLIGHT',
-    'MISS',
-  ]);
-  assert.equal(calls, 1);
-  assert.equal(
-    (await request(handler, query)).headers['x-weather-effects'],
-    'HIT',
-  );
-  now += 6 * 60_000;
-  assert.equal(
-    (await request(handler, query)).headers['x-weather-effects'],
-    'STALE',
-  );
 });
 
 test('Realtime handler preserves tools and default instructions, isolates supplied annotation guidance, and keeps the upstream key server-side', async (t) => {

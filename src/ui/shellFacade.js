@@ -266,7 +266,8 @@ export class ShellFacade {
   }
 
   set _cockpitDisplayPortal(value) {
-    this._cockpitCoordinator._cockpitDisplayPortal = value;
+    if (this._cockpitCoordinator)
+      this._cockpitCoordinator._cockpitDisplayPortal = value;
   }
 
   get _navigationGeneration() {
@@ -1198,47 +1199,6 @@ export class ShellFacade {
   }
 
   /**
-   * Returns cockpit status for voice/state sync and navigation operations.
-   * @returns {{active:boolean, entryAllowed:boolean, visionMode:string, subject:{id:string,layerId:string}|null, navigation:{canPrevious:boolean,canNext:boolean,canFocus:boolean}|null, awareness?: object}|null}
-   */
-  getCockpitState(...args) {
-    return this._cockpitCoordinator.getCockpitState(...args);
-  }
-
-  /**
-   * Point Cockpit entry at a requested contact layer before it enters.
-   *
-   * Reuses the filtered Context navigation NEXT already uses, so "cockpit in
-   * that military helicopter" lands on the same contact "next military
-   * helicopter" would. Cockpit flies aircraft only; vessel and installation
-   * layers are refused by name rather than silently ignored.
-   * @param {object} options Retarget request.
-   * @param {string} options.targetLayer Requested contact layer.
-   * @param {string|null} options.aircraftClass Optional class filter.
-   * @param {{layerId: string}|null} options.currentTarget Current tracker.
-   * @param {{layerId: string}|null} options.selectedTarget Pending selection.
-   * @returns {{ok: boolean, retargeted?: boolean, error?: string}} Outcome.
-   */
-  _retargetCockpitEntryLayer(...args) {
-    return this._cockpitCoordinator._retargetCockpitEntryLayer(...args);
-  }
-
-  /**
-   * Controls cockpit entry/exit and context navigation.
-   * @param {'enter'|'exit'|'next'|'previous'|'status'} action - Cockpit action.
-   * @param {object} [options]
-   * @param {string|Symbol|null} [options.notificationToken]
-   * @param {'flights'|'military'|'ais-live-vessels'|'military-installations'|null} [options.targetLayer]
-   * @param {string|null} [options.aircraftClass]
-   * @param {{layerId:'flights'|'military',id:string}|null} [options.selectedTarget]
-   * @param {{layerId:'flights'|'military',id:string}|null} [options.rollbackTarget]
-   * @returns {{ok:boolean, action:string, error?:string, state?:object}}
-   */
-  controlCockpit(...args) {
-    return this._cockpitCoordinator.controlCockpit(...args);
-  }
-
-  /**
    * Snapshots the full visual state (active style, bloom, sharpen, HUD, detection,
    * per-style shader uniform values) for serialization or scene recipe capture.
    * @returns {object} Serializable visual state object.
@@ -1474,7 +1434,7 @@ export class ShellFacade {
    * @returns {void}
    */
   _initCockpitDisplayPortal(...args) {
-    return this._cockpitCoordinator._initCockpitDisplayPortal(...args);
+    return this._cockpitCoordinator?._initCockpitDisplayPortal(...args);
   }
 
   /**
@@ -1484,19 +1444,19 @@ export class ShellFacade {
    * @returns {void}
    */
   _setCockpitDisplayPortalActive(...args) {
-    return this._cockpitCoordinator._setCockpitDisplayPortalActive(...args);
+    return this._cockpitCoordinator?._setCockpitDisplayPortalActive(...args);
   }
 
   get _cockpitDisplayPortalActive() {
-    return this._cockpitCoordinator._cockpitDisplayPortalActive;
+    return this._cockpitCoordinator?._cockpitDisplayPortalActive;
   }
 
   get _displayPortalScrollRestoreOwner() {
-    return this._cockpitCoordinator._displayPortalScrollRestoreOwner;
+    return this._cockpitCoordinator?._displayPortalScrollRestoreOwner;
   }
 
   get _standardDisplayScrollTop() {
-    return this._cockpitCoordinator._standardDisplayScrollTop;
+    return this._cockpitCoordinator?._standardDisplayScrollTop;
   }
 
   /**
