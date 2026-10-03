@@ -354,12 +354,6 @@ try {
       await step('pan-west-600m', [30.2672, -97.7494, 500, -35, 2, 20], 5000);
       await step('city-12km', [30.28, -97.75, 12000, -60, 3, 0], 8000, true);
       await fly(30.3125, -97.765, 1000, -45, 3, 0);
-      await page.evaluate(() =>
-        window.__godsEyeView.dataManager.setEnabled(
-          'military-installations',
-          true,
-        ),
-      );
       await hold('camp-mabry-1km', false, 8000);
       await step('camp-mabry-pan', [30.3125, -97.76, 1000, -45, 2, 30], 5000);
       await step('greenbelt', [30.312, -97.775, 1000, -55, 3, 0], 6000);

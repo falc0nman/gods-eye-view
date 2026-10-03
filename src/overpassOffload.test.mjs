@@ -3,20 +3,13 @@ import assert from 'node:assert/strict';
 import { Readable } from 'node:stream';
 import { randomUUID } from 'node:crypto';
 import { overpassProxy } from '../server/providers/overpass.js';
-import { militaryInstallationsProxy } from '../server/providers/military-installations.js';
 import {
   parseOverpassUpstreams,
   resolveOverpassUpstreams,
 } from '../server/providers/overpass/constants.js';
 import { fetchOverpassPayload } from '../server/providers/overpass/transport.js';
 import { _overpassCache } from '../server/providers/overpass/cache.js';
-import { _militaryInstallationCache } from '../server/providers/military-installations/cache.js';
-import {
-  militaryInstallationCacheKey,
-  quantizeMilitaryInstallationBox,
-} from '../server/providers/military-installations/query.js';
 import { createApplicationRequestServices } from './services/requests.js';
-import { createInstallationSource } from './layers/installations/source.js';
 import {
   resolveOutlineWithRetry,
   createAnnotationEngine,
@@ -105,7 +98,7 @@ test('zero egress: every Overpass consumer reaches real default handlers', async
     seen.push(String(url));
     throw new Error('Network unavailable');
   });
-  const handlers = routes(overpassProxy(), militaryInstallationsProxy());
+  const handlers = routes(overpassProxy());
   const queries = [
     '[out:json];way["highway"="primary"](30.2,-97.8,30.3,-97.7);out geom;',
   ];
@@ -141,12 +134,6 @@ test('zero egress: every Overpass consumer reaches real default handlers', async
     assert.equal(result.code, 'OVERPASS_NOT_CONFIGURED', operation);
     assert.equal(result.retryable, false, operation);
   }
-  const installations = await call(
-    handlers,
-    '/api/military-installations?south=30.2&west=-97.8&north=30.3&east=-97.7',
-  );
-  assert.equal(installations.status, 200);
-  assert.equal((await installations.json()).code, 'OVERPASS_NOT_CONFIGURED');
   assert.ok(
     seen.every((url) => !/overpass|nominatim/i.test(new URL(url).hostname)),
     JSON.stringify(seen),
@@ -211,7 +198,7 @@ test('default handlers serve expired caches with original dates and no upstream 
   t.mock.method(globalThis, 'fetch', () =>
     assert.fail('cached default made network request'),
   );
-  const handlers = routes(overpassProxy(), militaryInstallationsProxy());
+  const handlers = routes(overpassProxy());
   const q = `[out:json];node(around:10,30,-97)["name"="${randomUUID()}"];out;`;
   const body = `data=${encodeURIComponent(q)}`;
   const cachedAt = Date.now() - 60 * 86400000;
@@ -234,23 +221,6 @@ test('default handlers serve expired caches with original dates and no upstream 
   );
   assert.equal(response.headers.get('x-overpass-upstream'), null);
   assert.doesNotMatch(JSON.stringify([...response.headers]), /secret/);
-  const box = { south: 31.2, west: -97.8, north: 31.3, east: -97.7 };
-  const key = militaryInstallationCacheKey(
-    quantizeMilitaryInstallationBox(box),
-  );
-  _militaryInstallationCache.set(key, {
-    cachedAt,
-    payload: { elements: [], retrievedAt: new Date(cachedAt).toISOString() },
-  });
-  t.after(() => _militaryInstallationCache.delete(key));
-  const sites = await (
-    await call(
-      handlers,
-      '/api/military-installations?' + new URLSearchParams(box),
-    )
-  ).json();
-  assert.equal(sites.status, 'stale');
-  assert.equal(sites.retrievedAt, new Date(cachedAt).toISOString());
 });
 
 test('configured refusal response has a safe JSON body, Retry-After and no URL header', async (t) => {
@@ -308,41 +278,6 @@ test('feature capability misses stop source calls and deferred outline retry wai
   );
   assert.equal(requests, 1);
   assert.equal(waits, 0);
-});
-
-test('installation capability miss switches to tiles once, including later viewport loads', async () => {
-  let queries = 0,
-    tiles = 0;
-  const source = createInstallationSource({
-    fetchImpl: async () => {
-      queries++;
-      return Response.json(
-        { code: 'OVERPASS_NOT_CONFIGURED', retryable: false },
-        { status: 503 },
-      );
-    },
-    mapTiles: {
-      async fetchBounds() {
-        tiles++;
-        return {
-          tiles: [
-            {
-              military: [{ id: 'area', sources: [{ name: 'OpenStreetMap' }] }],
-            },
-          ],
-          partial: false,
-        };
-      },
-      clear() {},
-    },
-  });
-  const box = { south: 30.2, north: 30.3, west: -97.8, east: -97.7 };
-  const first = await source.getMappedSites(box);
-  await source.getMappedSites(box);
-  assert.equal(queries, 1);
-  assert.equal(tiles, 2);
-  assert.ok(first.records[0].retrievedAt);
-  assert.equal(first.tileSource, true);
 });
 
 test('annotation capability miss keeps its pin and exposes the unavailable label without a synthetic ring', async (t) => {

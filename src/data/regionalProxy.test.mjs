@@ -1,11 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import createViteConfig, {
+import {
   adsbLolFallbackAnchor,
   coalesceProxyRequest,
   keylessGooglePlacesResponse,
   readResponseJsonCapped,
-  validMilitaryInstallationBox,
   validRegionalPoint,
 } from '../../vite.config.js';
 
@@ -32,23 +31,8 @@ test('regional proxy rejects absent and blank coordinates instead of coercing th
 });
 
 test('adjacent proxy validators also require every coordinate explicitly', () => {
-  assert.equal(
-    validMilitaryInstallationBox(new URLSearchParams('west=-1&north=1&east=1')),
-    null,
-  );
   assert.equal(adsbLolFallbackAnchor({ url: '?lat=12.5' }), null);
   assert.equal(adsbLolFallbackAnchor({ url: '?lon=12.5' }), null);
-});
-
-test('new data proxies install the same routes in dev and preview servers', () => {
-  const config = createViteConfig({ mode: 'test' });
-  const byName = new Map(config.plugins.map((plugin) => [plugin.name, plugin]));
-  for (const name of [
-    'military-installations-proxy',
-  ]) {
-    assert.equal(typeof byName.get(name)?.configureServer, 'function', `${name} dev hook`);
-    assert.equal(typeof byName.get(name)?.configurePreviewServer, 'function', `${name} preview hook`);
-  }
 });
 
 test('proxy request coalescing shares one per-key refresh and clears it after settlement', async () => {

@@ -26,10 +26,6 @@ const PANEL_GROUPS = [
     ids: ['cctv', 'recent-imagery'],
   },
   {
-    label: 'Infrastructure',
-    ids: ['military-installations'],
-  },
-  {
     label: 'Weather',
     ids: [
       'wind',

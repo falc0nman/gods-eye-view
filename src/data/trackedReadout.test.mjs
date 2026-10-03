@@ -275,7 +275,6 @@ test('tracking layers write gevLabelModel and expose only their cached display p
   const files = await Promise.all([
     'flights.js',
     'militaryFlights.js',
-    'militaryInstallations.js',
   ].map(async (name) => [name, readLayerSource(new URL(`./${name}`, import.meta.url))]));
   const sources = Object.fromEntries(files);
   for (const [name, source] of files) {

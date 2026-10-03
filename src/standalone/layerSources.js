@@ -7,7 +7,6 @@ import {
 import { createCctvSource } from '../layers/cctv/source.js';
 import { createRadioSource } from '../layers/radio/source.js';
 import { createTrafficSource } from '../layers/traffic/source.js';
-import { createInstallationSource } from '../layers/installations/source.js';
 import { createWeatherSource } from '../layers/weather/source.js';
 import { createCycloneSource } from '../layers/cyclones/source.js';
 import { createNexradSource } from '../layers/nexrad/source.js';
@@ -27,7 +26,6 @@ export function createStandaloneLayerSources() {
     cctv: createCctvSource(),
     radio: createRadioSource(),
     traffic: createTrafficSource({ mapTiles }),
-    installations: createInstallationSource({ mapTiles }),
     wind: createWindSource(),
     weather: createWeatherSource(),
     cyclones: createCycloneSource(),

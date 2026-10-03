@@ -16,7 +16,6 @@ import { createApplicationRadio } from './layers/radio.js';
 import { createApplicationTraffic } from './layers/traffic.js';
 import { createApplicationDirections } from './layers/directions.js';
 import { createApplicationRecentImagery } from './layers/recentImagery.js';
-import { createApplicationInstallations } from './layers/militaryInstallations.js';
 import { createApplicationLocalAdsb } from './layers/localAdsb.js';
 
 const SOURCE_METHODS = Object.freeze({
@@ -32,7 +31,6 @@ const SOURCE_METHODS = Object.freeze({
     'getFlowSessionStats',
     'resetFlowTileCache',
   ],
-  installations: ['getMappedSites', 'searchNearby'],
   wind: ['getSnapshot'],
   weather: ['getSnapshot'],
   cyclones: ['getSnapshot'],
@@ -105,10 +103,6 @@ export function createApplicationCatalog({
       source: sources.vessels,
       options: vesselOptions,
     });
-    const installations = createApplicationInstallations({
-      surface,
-      source: sources.installations,
-    });
     const catalog = createLayerCatalog(
       [
         flights,
@@ -125,7 +119,6 @@ export function createApplicationCatalog({
         createApplicationDirections(),
         createApplicationRecentImagery(),
         vessels,
-        installations,
         createWindLayer({ feed: sources.wind, clock: weatherClock }),
         createWeatherLayer({
           feed: sources.weather,

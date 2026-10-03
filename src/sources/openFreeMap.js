@@ -1,7 +1,6 @@
 import { PbfReader } from 'pbf';
 import { VectorTile } from '@mapbox/vector-tile';
 import { createVectorTileSource } from './vectorTiles.js';
-import { clipTileRing, militaryOutlineLines } from './militaryTileGeometry.js';
 import { tileToBBox } from '../data/tomtomTiles.js';
 
 const ROAD_TYPES = Object.freeze({
@@ -53,28 +52,6 @@ export function openMapRoad(coordinates, properties = {}) {
     ramp: properties.ramp === 1,
     brunnel: properties.brunnel || null,
   };
-}
-
-/** Area-weighted centroid in tile-scale longitude/latitude coordinates. */
-export function polygonCentroid(ring) {
-  if (!ring?.length) return null;
-  const [ox, oy] = ring[0];
-  let area = 0,
-    x = 0,
-    y = 0;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const ax = ring[j][0] - ox,
-      ay = ring[j][1] - oy;
-    const bx = ring[i][0] - ox,
-      by = ring[i][1] - oy;
-    const cross = ax * by - bx * ay;
-    area += cross;
-    x += (ax + bx) * cross;
-    y += (ay + by) * cross;
-  }
-  return Math.abs(area) > 1e-15
-    ? [ox + x / (3 * area), oy + y / (3 * area)]
-    : ring[0];
 }
 
 /** Clip a line to its tile core so buffered copies never animate duplicate dots. */
@@ -132,89 +109,33 @@ export function clipTileLine(coords, box) {
   });
 }
 
-/** Decode road lines and unnamed military polygons from an OpenMapTiles tile. */
+/** Decode drivable road lines from an OpenMapTiles tile. */
 export function decodeOpenFreeMapTile(bytes, z, x, y) {
-  return decodeLayers(bytes, z, x, y, ['transportation', 'landuse']);
-}
-
-/** Decode only the unnamed military polygons; installations never use roads. */
-export function decodeOpenFreeMapMilitaryTile(bytes, z, x, y) {
-  return decodeLayers(bytes, z, x, y, ['landuse']);
-}
-
-function decodeLayers(bytes, z, x, y, layerNames) {
   const tile = new VectorTile(new PbfReader(bytes));
-  const roads = [],
-    military = [];
+  const roads = [];
   const box = tileToBBox(z, x, y);
-  for (const name of layerNames) {
-    const layer = tile.layers[name];
-    if (!layer) continue;
+  const layer = tile.layers.transportation;
+  if (layer) {
     if (layer.length > 40_000)
       throw new Error('Vector tile feature limit exceeded');
     for (let i = 0; i < layer.length; i++) {
-      const feature = layer.feature(i),
-        props = feature.properties;
-      if (
-        name === 'transportation'
-          ? !isDrivableOpenMapRoad(props)
-          : props.class !== 'military'
-      )
-        continue;
-      const geometry = feature.toGeoJSON(x, y, z).geometry;
-      if (name === 'transportation') {
-        const lines =
-          geometry.type === 'LineString'
-            ? [geometry.coordinates]
-            : geometry.type === 'MultiLineString'
-              ? geometry.coordinates
-              : [];
-        for (const coords of lines)
-          for (const clipped of clipTileLine(coords, box))
-            roads.push(openMapRoad(clipped, props));
-      } else {
-        const polygons =
-          geometry.type === 'Polygon'
-            ? [geometry.coordinates]
-            : geometry.type === 'MultiPolygon'
-              ? geometry.coordinates
-              : [];
-        for (let p = 0; p < polygons.length; p++) {
-          const rings = polygons[p]
-            .map((r) => clipTileRing(r, box))
-            .filter((r) => r.length >= 4);
-          const ring = rings[0],
-            centroid = polygonCentroid(ring);
-          if (!centroid || ring.length < 4) continue;
-          const [longitude, latitude] = centroid;
-          military.push({
-            id: `ofm:${z}/${x}/${y}:${feature.id ?? i}:${p}`,
-            kind: 'installation',
-            class: 'military_land',
-            name: 'Military area',
-            latitude,
-            longitude,
-            footprint: ring,
-            rings,
-            featureKey:
-              feature.id == null
-                ? `tile:${z}/${x}/${y}:${i}`
-                : String(feature.id),
-            tileEpsilon: (box.east - box.west) / feature.extent,
-            tileBounds: box,
-            tileZoom: z,
-            outlineLines: rings.flatMap((r) => militaryOutlineLines(r, box)),
-            validation: 'unreviewed',
-            sources: [{ name: 'OpenStreetMap', id: `tile:${z}/${x}/${y}` }],
-          });
-        }
-      }
+      const props = layer.feature(i).properties;
+      if (!isDrivableOpenMapRoad(props)) continue;
+      const geometry = layer.feature(i).toGeoJSON(x, y, z).geometry;
+      const lines =
+        geometry.type === 'LineString'
+          ? [geometry.coordinates]
+          : geometry.type === 'MultiLineString'
+            ? geometry.coordinates
+            : [];
+      for (const coords of lines)
+        for (const clipped of clipTileLine(coords, box))
+          roads.push(openMapRoad(clipped, props));
     }
   }
-  return { roads, military };
+  return { roads };
 }
-
-/** Construct an immutable-version road/military tile source without starting I/O. */
+/** Construct an immutable-version road tile source without starting I/O. */
 export function createOpenFreeMapSource(options = {}) {
   return createVectorTileSource({
     tileJsonUrl: 'https://tiles.openfreemap.org/planet',

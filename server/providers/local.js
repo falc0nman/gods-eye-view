@@ -3,7 +3,6 @@ import { tomtomProxy } from './traffic.js';
 import { terrainHeightsProxy } from './terrain.js';
 import { adsbdbProxy } from './aircraft/enrichment.js';
 import { overpassProxy } from './overpass.js';
-import { militaryInstallationsProxy } from './military-installations.js';
 import { geocodeProxy } from './regional/place.js';
 import { cctvProxy } from './cctv.js';
 import { defaultSourceRoot } from './common/source-root.js';
@@ -38,7 +37,6 @@ function localProviderRegistry({ notificationTransport } = {}) {
   registry.registerLegacy('terrain-heights', terrainHeightsProxy);
   registry.registerLegacy('adsbdb', adsbdbProxy);
   registry.registerLegacy('overpass', overpassProxy);
-  registry.registerLegacy('military-installations', militaryInstallationsProxy);
   registry.registerLegacy('geocode', geocodeProxy);
   registry.registerLegacy('cctv', () =>
     cctvProxy({ sourceRoot: defaultSourceRoot }),
@@ -87,15 +85,4 @@ export { resolveOverpassPreflight } from './overpass/cache.js';
 export { overpassPayloadIsData } from './overpass/transport.js';
 export { fetchOverpassPayload } from './overpass/transport.js';
 export { openAiRealtimeProxy } from './openai.js';
-export { MILITARY_INSTALLATION_ELEMENT_CAP } from './military-installations/constants.js';
-export { quantizeMilitaryInstallationBox } from './military-installations/query.js';
-export { militaryInstallationCacheKey } from './military-installations/query.js';
-export { resolveMilitaryInstallationTier } from './military-installations/cache.js';
-export { migrateMilitaryInstallationEntry } from './military-installations/cache.js';
-export { militaryInstallationDiskFresh } from './military-installations/cache.js';
-export { militaryInstallationDiskPath } from './military-installations/cache.js';
-export { readMilitaryInstallationDisk } from './military-installations/cache.js';
-export { writeMilitaryInstallationDisk } from './military-installations/cache.js';
-export { validMilitaryInstallationBox } from './military-installations/query.js';
-export { militaryInstallationFailureReason } from './military-installations/query.js';
 export { validRegionalPoint } from './regional/query.js';

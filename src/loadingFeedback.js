@@ -1,5 +1,3 @@
-import { installationFeedback } from './data/installationFeedback.js';
-
 export const LOADING_REVEAL_DELAY_MS = 160;
 export const LOADING_TERMINAL_DWELL_MS = 2200;
 export const LOADING_FAILURE_DWELL_MS = 5000;
@@ -27,23 +25,19 @@ export function normalizeLayerLoading(layer = {}) {
     stats.loading === true ||
     stats.refreshing === true;
   const count = finiteCount(stats.count);
-  const stoppingInstallations =
-    layer.id === 'military-installations' && disabling;
   // Guidance statuses ask the user to act (zoom in, run a search). They are
   // normal operation, never a batch failure — mirrors layerFeedState's carve-out
   // so a prompt stored alongside the status cannot turn the chip red.
   const guidance = GUIDANCE_STATUSES.includes(status);
-  const error = stoppingInstallations
-    ? null
-    : (!guidance && stats.error) ||
-      stats.lastError ||
-      stats.managerRefreshError ||
-      null;
+  const error =
+    (!guidance && stats.error) ||
+    stats.lastError ||
+    stats.managerRefreshError ||
+    null;
   const unavailable =
-    !stoppingInstallations &&
-    (stats.unavailable === true ||
-      stats.available === false ||
-      ['unavailable', 'offline', 'down', 'error'].includes(status));
+    stats.unavailable === true ||
+    stats.available === false ||
+    ['unavailable', 'offline', 'down', 'error'].includes(status);
   const keyRequired = stats.keyRequired === true || stats.missingKey === true;
   const degraded = stats.degraded === true || Boolean(error);
   const accepted = Boolean(stats.lastUpdate) || count > 0;
@@ -61,16 +55,6 @@ export function normalizeLayerLoading(layer = {}) {
     unavailable,
     keyRequired,
     degraded,
-    installationRetry:
-      layer.id === 'military-installations' && layer.enabled && !disabling
-        ? {
-            retryAt: Number(stats.retryAt) || 0,
-            retrying: stats.retrying === true,
-            failureReason: stats.failureReason,
-            loading,
-            status: stats.status,
-          }
-        : null,
   };
 }
 
@@ -187,8 +171,7 @@ export function presentGlobalLoadingStatus(
     summary,
     nowMs,
   );
-  if (['error', 'retry'].includes(loadingPresentation?.state))
-    return loadingPresentation;
+  if (loadingPresentation?.state === 'error') return loadingPresentation;
   return presentGlobalStatusNotice(notice, nowMs) || loadingPresentation;
 }
 
@@ -367,24 +350,6 @@ export function reduceLoadingFeedback(previous, summary, nowMs, event = null) {
 
 /** Build the user-facing status copy for the current loading state. */
 export function presentLoadingFeedback(state, summary, nowMs) {
-  const site = summary.records.find(
-    (record) => record.installationRetry?.retryAt > 0,
-  );
-  const otherFailure =
-    summary.records.some(
-      (record) =>
-        record.id !== 'military-installations' &&
-        (state?.activeIds || []).includes(record.id) &&
-        (record.error || record.unavailable || record.keyRequired),
-    ) ||
-    (state?.failedEventIds || []).some((id) => id !== 'military-installations');
-  // Keep the actual retry visible between attempts, without hiding another
-  // participant's failure or pretending that a scheduled retry is fetching.
-  if (site && !summary.active.length && !otherFailure) {
-    const message = installationFeedback(site.installationRetry);
-    const [label, detail] = message.split(' — ');
-    return { state: 'retry', label: label.toUpperCase(), detail: detail || '' };
-  }
   if (!state?.visible) return null;
   if (state.phase === 'terminal') {
     const labels = {
@@ -395,27 +360,10 @@ export function presentLoadingFeedback(state, summary, nowMs) {
     const label =
       state.operation === 'disabling' && state.terminal === 'complete'
         ? 'LIVE DATA OFF'
-        : state.terminal === 'complete' &&
-            state.activeIds?.length === 1 &&
-            state.activeIds[0] === 'military-installations'
-          ? 'MAPPED SITES LOADED'
-          : labels[state.terminal] || 'LOAD COMPLETE';
+        : labels[state.terminal] || 'LOAD COMPLETE';
     return { state: state.terminal, label, detail: '' };
   }
   const active = summary.active;
-  if (
-    active.length === 1 &&
-    active[0].installationRetry &&
-    !summary.disabling
-  ) {
-    return {
-      state: 'loading',
-      label: active[0].installationRetry.retrying
-        ? 'RETRYING MAPPED SITES'
-        : 'FETCHING MAPPED SITES',
-      detail: 'OpenStreetMap · Overpass',
-    };
-  }
   const elapsed = Math.max(0, nowMs - state.startedAt);
   const label = summary.disabling
     ? 'TURNING OFF LIVE DATA'

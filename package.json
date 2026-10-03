@@ -107,9 +107,6 @@
     "./server/providers/overpass": {
       "node": "./server/providers/overpass.js"
     },
-    "./server/providers/military-installations": {
-      "node": "./server/providers/military-installations.js"
-    },
     "./server/providers/regional": {
       "node": "./server/providers/regional.js"
     },
@@ -144,7 +141,6 @@
     "./aircraft": "./src/layers/aircraft/index.js",
     "./layers/vessels": "./src/layers/vessels/index.js",
     "./layers/recent-imagery": "./src/layers/recentImagery/index.js",
-    "./layers/installations": "./src/layers/installations/index.js",
     "./layers/traffic": "./src/layers/traffic/index.js",
     "./layers/directions": "./src/layers/directions/index.js",
     "./layers/cctv": "./src/layers/cctv/index.js",
@@ -201,7 +197,6 @@
     "./voice/session-controls": "./src/voice/sessionCommands.js",
     "./voice/realtime-session": "./src/voice/realtimeSession.js",
     "./layers/cctv/source": "./src/layers/cctv/source.js",
-    "./layers/installations/source": "./src/layers/installations/source.js",
     "./layers/radio/source": "./src/layers/radio/source.js",
     "./layers/traffic/source": "./src/layers/traffic/source.js",
     "./sources/http-body": "./src/sources/httpBody.js",

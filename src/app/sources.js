@@ -4,14 +4,12 @@ import vessels from '../data/aisLiveVessels.js';
 import { configureCctvSource } from '../data/cctv.js';
 import { configureRadioSource } from '../data/radio.js';
 import { configureTrafficSource } from '../data/traffic.js';
-import { configureInstallationSource } from '../data/militaryInstallations.js';
 import { configureWindSource } from '../data/wind.js';
 import { configureMilitaryRegistrySource } from '../data/militaryRegistry.js';
 const configure = {
   cctv: configureCctvSource,
   radio: configureRadioSource,
   traffic: configureTrafficSource,
-  installations: configureInstallationSource,
   wind: configureWindSource,
 };
 /** Configure sources before any registration or state restoration starts. */

@@ -4,7 +4,6 @@ import { readFileSync } from 'node:fs';
 import {
   decodeOpenFreeMapTile,
   openMapRoad,
-  polygonCentroid,
   clipTileLine,
   createOpenFreeMapSource,
 } from './openFreeMap.js';
@@ -86,35 +85,6 @@ test('tile buffer clipping rejects slivers and does not join disconnected lines'
       box,
     ),
     [],
-  );
-});
-
-test('Camp Mabry tile emits an unnamed polygon and its centroid marker', () => {
-  const { military } = decodeOpenFreeMapTile(
-    fixture('ofm-camp-mabry-12-935-1685.pbf'),
-    12,
-    935,
-    1685,
-  );
-  assert.ok(military.length > 0);
-  const camp = military.find(
-    (record) =>
-      Math.abs(record.latitude - 30.314) < 0.03 &&
-      Math.abs(record.longitude + 97.763) < 0.03,
-  );
-  assert.ok(camp);
-  assert.equal(camp.name, 'Military area');
-  assert.equal(camp.kind, 'installation');
-  assert.equal(camp.class, 'military_land');
-  assert.ok(camp.footprint.length > 3);
-  assert.deepEqual(
-    polygonCentroid([
-      [0, 0],
-      [4, 0],
-      [0, 4],
-      [0, 0],
-    ]),
-    [4 / 3, 4 / 3],
   );
 });
 

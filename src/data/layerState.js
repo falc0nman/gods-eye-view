@@ -541,11 +541,6 @@ export const LAYER_STATE_REGISTRY = Object.freeze([
     disposition: 'enabled+mirrored-options',
     optionOwner: 'flights',
   }),
-  Object.freeze({
-    id: 'military-installations',
-    token: 'i',
-    disposition: 'enabled-only',
-  }),
   Object.freeze({ id: 'nexrad', token: '0', disposition: 'enabled-only' }),
   Object.freeze({
     id: 'nws-warnings',

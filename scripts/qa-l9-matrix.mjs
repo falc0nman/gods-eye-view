@@ -168,7 +168,6 @@ const CREDIT_EXPECTATIONS = {
   traffic: /TomTom|OpenStreetMap/i,
   cctv: /Austin|Caltrans|Transport for London|TfL/i,
   'ais-live-vessels': /AISStream/i,
-  'military-installations': /OpenStreetMap/i,
   'local-neighborhoods': /DataSF|San Francisco/i,
   'weather-effects': /Open-Meteo/i,
 };
@@ -240,7 +239,7 @@ function isCalibratedAllocationRuntime(version) {
 /**
  * Did C10's traffic measurement expire before the flow fetch landed?
  *
- * The same discrimination C11 makes for the bundled layers: "still loading when
+ * The same discrimination the layer checks make: "still loading when
  * my budget expired" is not "empty". The discriminator is whether the flow
  * request ever completed — NOT whether the answer was empty — so a result that
  * landed and is empty keeps failing. That empty-but-landed shape is the
@@ -992,7 +991,6 @@ const BROWSER_CHECKS = [
   ['C7', 'CCTV layer populates and its frame loop is healthy'],
   ['C8', 'Vessels: live rows when keyed, honest UNAVAILABLE when not'],
   ['C10', 'Traffic: LIVE mode when keyed, clearly-labelled SIMULATION when not'],
-  ['C11', 'Mapped installations render'],
   ['C12', 'Attribution lightbox lists a credit for every enabled layer'],
   ['C13', 'Clean-UI keeps the Google/Cesium credit line visible (ToS)'],
   ['C14', 'No key material reaches browser state, URLs or storage'],
@@ -1314,8 +1312,7 @@ async function runBrowserGroup(record) {
     quiesced = true;
     await evalBounded(async () => {
       const dm = window.__godsEyeView.dataManager;
-      const heavy = ['cctv', 'traffic', 'flights',
-        'military-installations'];
+      const heavy = ['cctv', 'traffic', 'flights'];
       for (const id of heavy) {
         if (!dm.layers.has(id)) continue;
         try {
@@ -1509,7 +1506,7 @@ async function runBrowserGroup(record) {
     if (s.mode === 'live' && s.tilesFetched > 0 && colored > 0) {
       return pass(`live: ${s.flowCoveragePct}% coverage, ${s.tilesFetched} tiles, ${colored} colored dots`);
     }
-    // Same discrimination C11 already makes for the bundled layers: "still
+    // Same discrimination the layer checks make: "still
     // loading when my budget expired" is not "empty", and calling it a product
     // failure is a false accusation. The discriminator here is whether the FLOW
     // FETCH ever completed, not whether the answer was empty:
@@ -1526,74 +1523,6 @@ async function runBrowserGroup(record) {
       return crash(`traffic's flow fetch had not landed when the 45 s budget expired: tiles=0, loading=${!!s.loading}, label="${String(s.loadingLabel || '').slice(0, 40)}", road dots=${s.count ?? 0} — this check could not determine whether live flow renders, so it verified nothing`);
     }
     return fail(`mode=${s.mode} tiles=${s.tilesFetched} coverage=${s.flowCoveragePct} colored=${colored}`);
-  });
-
-  await step('C11', async () => {
-
-    // military-installations is named in this check's description, so it is
-    // asserted — not quietly excluded. It is viewport-scoped (≤10° span,
-    // src/data/militaryInstallations.js MAX_VIEWPORT_DEGREES) and returns 0
-    // from a global camera, so fly to a tight box over a known base cluster
-    // first, and cross-check the layer against its own API: rows from the API
-    // but nothing on the map is a PRODUCT failure; nothing from either is a
-    // positively-identified upstream-data condition.
-    const box = { name: 'San Diego / Coronado', lat: 32.70, lon: -117.18, span: 0.6 };
-    const api = await jget(`/api/military-installations?south=${(box.lat - box.span).toFixed(5)}&west=${(box.lon - box.span).toFixed(5)}&north=${(box.lat + box.span).toFixed(5)}&east=${(box.lon + box.span).toFixed(5)}`, { timeoutMs: 60000 })
-      .catch((e) => ({ status: 0, json: null, text: String(e?.message || e) }));
-    const apiRows = Array.isArray(api.json?.features) ? api.json.features.length
-      : (Array.isArray(api.json?.elements) ? api.json.elements.length
-        : (Array.isArray(api.json) ? api.json.length : null));
-    // The layer gates on the camera's COMPUTED VIEW RECTANGLE (<=10 degrees,
-    // MAX_VIEWPORT_DEGREES), not on the request box. An oblique camera sees to
-    // the horizon and blows past that even from low altitude, so look straight
-    // down: nadir at 25 km spans well under a degree.
-    await evalBounded(async (b) => {
-      const g = window.__godsEyeView;
-      g.viewer.camera.cancelFlight();
-      g.styleManager.applyCameraState({ lat: b.lat, lon: b.lon, alt: 25000, heading: 0, pitch: -90 }, 1.2);
-      await new Promise((r) => setTimeout(r, 4000));
-    }, box, 30000);
-    // `zoom-in` is a TRANSIENT: the layer evaluates the viewport at enable time
-    // and republishes after the camera settles. settle() breaks on the first
-    // truthy `error`, so it latched that transient and never saw the real load.
-    // Poll for a definitive outcome instead, and only then judge.
-    const mi = await settle('military-installations', 5);
-    let ms = mi.stats || {};
-    for (let i = 0; i < 40; i += 1) {
-      if (ms.count > 0) break;
-      if (ms.error && !/zoom.?in/i.test(String(ms.error))) break;
-      // eslint-disable-next-line no-await-in-loop
-      const snap = await evalBounded(() => {
-        const dm = window.__godsEyeView.dataManager;
-        // Nudge the viewport-driven reload: the layer reloads on camera settle.
-        try { dm.layers.get('military-installations')?.module?.refresh?.(); } catch { /* optional */ }
-        return dm.layers.get('military-installations')?.module?.getStats?.() ?? null;
-      }, null, 10000);
-      if (snap) ms = snap;
-      // eslint-disable-next-line no-await-in-loop
-      await new Promise((r) => setTimeout(r, 1000));
-    }
-    if (mi.missing) return fail('military-installations layer is not registered');
-    if (ms.count > 0) return pass(`military-installations=${ms.count} over ${box.name}`);
-    if (/zoom-in/.test(String(ms.status || ''))) {
-      return fail(`military-installations refused the ${box.span * 2}° box over ${box.name} as too wide (status=${ms.status}, error="${ms.error}") — the probe camera and the layer's own ≤10° gate disagree`);
-    }
-    if (api.status !== 200) {
-      // Distinguish an honest upstream outage from a broken route: the proxy
-      // has a documented degraded shape (503 + "temporarily unavailable") for
-      // when Overpass is down. That is the app degrading correctly, so it is a
-      // positively identified ENV condition — anything else is a product FAIL.
-      const honestOutage = api.status === 503 && /temporarily unavailable/i.test(String(api.text || ''));
-      if (honestOutage) {
-        return skip(`military-installations could not be checked — its upstream is down and the proxy says so honestly (HTTP 503 "${String(api.json?.error || '').slice(0, 60)}")`, 'ENV');
-      }
-      return fail(`military-installations rendered 0 and its API returned HTTP ${api.status} for ${box.name} — a responsive app failing this route is a product failure: ${String(api.text || '').slice(0, 100)}`);
-    }
-    if (apiRows === null) return crash(`could not read a row count from /api/military-installations to cross-check the empty layer: ${String(api.text || '').slice(0, 100)}`);
-    if (apiRows > 0) {
-      return fail(`/api/military-installations returned ${apiRows} features over ${box.name} but the layer rendered 0 (status=${ms.status}, error=${ms.error || 'none'})`);
-    }
-    return skip(`military-installations rendered 0 AND its API returned 0 features over ${box.name} — positively an upstream-data condition, not a render failure`, 'ENV');
   });
 
   await step('C12', async () => {
@@ -1630,8 +1559,8 @@ async function runBrowserGroup(record) {
     if (!credR.ok) return crash(`could not read the credit display: ${credR.reason}`);
     const cred = credR.value;
     // EVERY enabled layer is checked. Filtering to a known subset meant a layer
-    // outside the list — military-installations, which C11 now enables — could
-    // ship with no attribution while this check claimed full coverage.
+    // outside the list could ship with no attribution while this check claimed
+    // full coverage.
     const missing = [];
     const unmapped = [];
     const exempted = [];

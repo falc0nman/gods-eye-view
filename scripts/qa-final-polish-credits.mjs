@@ -114,17 +114,6 @@ try {
   };
   await sleep(1600);
   await shot('nothing', false, false);
-  await toggle('military-installations', true);
-  await page.waitForFunction(
-    () =>
-      document
-        .querySelector('#cesium-credits')
-        .innerText.includes('© OpenStreetMap'),
-    { timeout: 60000 },
-  );
-  await shot('installations', true, false);
-  await sleep(6000);
-  await shot('installations-persistent', true, false);
   await toggle('traffic', true);
   await page.waitForFunction(
     () =>
@@ -133,8 +122,6 @@ try {
         .innerText.includes('© OpenMapTiles'),
     { timeout: 60000 },
   );
-  await shot('installations-and-traffic', true, true);
-  await toggle('military-installations', false);
   await shot('traffic', true, true);
   for (const width of [1280, 1920]) {
     await page.setViewport({ width, height: 900 });

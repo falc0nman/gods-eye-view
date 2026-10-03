@@ -7,7 +7,6 @@ const LAYER_FOLDERS = Object.freeze({
   'flights.js': '../layers/flights',
   'militaryFlights.js': '../layers/military',
   'aisLiveVessels.js': '../layers/vessels',
-  'militaryInstallations.js': '../layers/installations',
   'traffic.js': '../layers/traffic',
   'cctv.js': '../layers/cctv',
 });

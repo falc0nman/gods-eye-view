@@ -12,7 +12,6 @@ import {
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { overpassProxy } from 'gods-eye-view/server/providers/overpass';
-import { militaryInstallationsProxy } from 'gods-eye-view/server/providers/military-installations';
 import { openAiRealtimeProxy } from 'gods-eye-view/server/providers/openai';
 import { realtimeInstructions } from '../../server/providers/openai/instructions.js';
 import { GEV_REALTIME_TOOLS } from '../../server/providers/openai/tools.js';
@@ -88,10 +87,7 @@ test('standalone service guards run in development and preview without upstream 
     throw Error('invalid requests must not fetch');
   });
   for (const preview of [false, true]) {
-    for (const [factory, route] of [
-      [overpassProxy, '/api/overpass'],
-      [militaryInstallationsProxy, '/api/military-installations'],
-    ]) {
+    for (const [factory, route] of [[overpassProxy, '/api/overpass']]) {
       const routes = install(factory(), preview);
       assert.equal(
         (await request(routes.get(route), { method: 'DELETE' })).status,
