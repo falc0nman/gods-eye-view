@@ -201,64 +201,6 @@ test('outline upgrade preserves the existing SVG group identity', (t) => {
   renderer.destroy();
 });
 
-test('annotation fade consumes the actual tracked host paint rectangle after layout', (t) => {
-  const originalDocument = globalThis.document;
-  const originalRequestAnimationFrame = globalThis.requestAnimationFrame;
-  const originalProjection = Cesium.SceneTransforms.worldToWindowCoordinates;
-  globalThis.document = fakeDocument();
-  globalThis.requestAnimationFrame = (callback) => { callback(); return 1; };
-  Cesium.SceneTransforms.worldToWindowCoordinates = () => ({ x: 0, y: 0 });
-  t.after(() => {
-    Cesium.SceneTransforms.worldToWindowCoordinates = originalProjection;
-    if (originalDocument === undefined) delete globalThis.document;
-    else globalThis.document = originalDocument;
-    if (originalRequestAnimationFrame === undefined) delete globalThis.requestAnimationFrame;
-    else globalThis.requestAnimationFrame = originalRequestAnimationFrame;
-  });
-
-  const positionWC = Cesium.Cartesian3.fromDegrees(0, 0, 1000);
-  const directionWC = Cesium.Cartesian3.normalize(
-    Cesium.Cartesian3.negate(positionWC, new Cesium.Cartesian3()),
-    new Cesium.Cartesian3(),
-  );
-  const camera = { positionWC, directionWC, positionCartographic: { height: 1000 } };
-  const scene = {
-    camera,
-    canvas: { clientWidth: 800, clientHeight: 600, width: 800, height: 600 },
-    clampToHeightSupported: false,
-    postRender: { addEventListener() {}, removeEventListener() {} },
-  };
-  const paintRectCalls = [];
-  const renderer = createScreenAnnotationRenderer(
-    { scene, camera, trackedEntity: null },
-    {
-      activeTrackedReadoutId: () => 'installations:test',
-      overlayPaintRect(sourceId, entryId) {
-        paintRectCalls.push({ sourceId, entryId });
-        return { x: -10, y: -10, w: 120, h: 80 };
-      },
-    },
-  );
-  renderer.add({
-    id: 'anno-overlap',
-    type: 'label',
-    color: 'primary',
-    label: 'OVERLAP',
-    alpha: 1,
-    anchor: { lon: 0, lat: 0, height: 0 },
-  });
-  const { group } = findAnnotationGroup(globalThis.document);
-  assert.deepEqual(paintRectCalls.at(-1), {
-    sourceId: 'tracked',
-    entryId: 'installations:test',
-  });
-  assert.ok(
-    Number(group.getAttribute('opacity')) < 1,
-    'final annotation bbox fades against the complete painted card rectangle',
-  );
-  renderer.destroy();
-});
-
 // ── Partial-add unwind (review round 2) ───────────────────────────────────────
 //
 // add() inserts the group and records it, then does more live-document work

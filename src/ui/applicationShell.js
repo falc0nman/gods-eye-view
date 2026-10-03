@@ -60,13 +60,8 @@ export class StyleManager extends ShellFacade {
     { mapStackController = null, placeSearch, services, requestServices } = {},
   ) {
     super();
-    const {
-      IntelHUD,
-      ShareLinkManager,
-      CelestialRing,
-      initTrackedReadout,
-      initWorldOverlay,
-    } = services;
+    const { IntelHUD, ShareLinkManager, CelestialRing, initWorldOverlay } =
+      services;
     this.services = services;
     this._lifetime = new UiLifetime();
     this._recording = new RecordingControls({
@@ -345,12 +340,9 @@ export class StyleManager extends ShellFacade {
     // preferences. Encoded panel fields are applied after all panels exist.
     this._shareRestoration.attachLinks(this.shareLinkManager);
 
-    // The shared world-overlay host must own its one postRender lane before
-    // the tracked readout initializes. It stays transparent until a
-    // production source explicitly registers entries.
+    // The shared world-overlay host owns its one postRender lane. It stays
+    // transparent until a production source explicitly registers entries.
     initWorldOverlay(viewer);
-
-    initTrackedReadout(viewer);
 
     this._initStages();
     this._initBloomSharpen();
@@ -1267,7 +1259,7 @@ export class StyleManager extends ShellFacade {
    * @returns {Promise<void>} Resolves after focused-session state restoration.
    */
   async dispose() {
-    const { destroyTrackedReadout, destroyWorldOverlay } = this.services;
+    const { destroyWorldOverlay } = this.services;
     if (this._disposed) return;
     this._shareRestoration.destroy();
     this._feedback._globalStatusNotice = null;
@@ -1300,7 +1292,6 @@ export class StyleManager extends ShellFacade {
       window.removeEventListener('resize', this._windowResizeHandler);
       this._windowResizeHandler = null;
     }
-    destroyTrackedReadout();
     destroyWorldOverlay();
     this.celestialRing?.destroy();
     this._visualSettings.destroy();

@@ -20,10 +20,6 @@ import {
   setKeyholeFadeTuning,
 } from '../celestialRing.js';
 import {
-  destroyTrackedReadout,
-  initTrackedReadout,
-} from '../data/trackedReadout.js';
-import {
   destroyWorldOverlay,
   initWorldOverlay,
 } from '../overlays/worldOverlay.js';
@@ -61,8 +57,6 @@ export class StyleManager extends ApplicationShell {
         getKeyholeFadeTuning,
         isCelestialRingStyleSupported,
         setKeyholeFadeTuning,
-        destroyTrackedReadout,
-        initTrackedReadout,
         destroyWorldOverlay,
         initWorldOverlay,
         holdContinuousRender,

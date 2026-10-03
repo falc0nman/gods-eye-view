@@ -104,6 +104,22 @@ import { isCalibratedAllocationRuntime } from '../../scripts/run-unit-tests.mjs'
  *
  * GW-57 removed the detection overlay and with it the Phase-6 detection row.
  *
+ * GW-57 Phase 4a-2 then removed the tracked readout, which had no producer
+ * once the flight layers were gone. Its protected card was the first entry of
+ * every remaining production row, and the Phase 5 civil/military variants only
+ * restyled it, so those rows now start from the CCTV cohort alone. Re-measured
+ * on Node 24.14 (identical across three clean runs); frame budgets re-derived
+ * with ~30% headroom:
+ *
+ *   profile                | entries | painted | median B/frame | B/candidate | frame budget
+ *   -----------------------+---------+---------+----------------+-------------+-------------
+ *   Phase 4 + CCTV         |      41 |      27 |           2387 |        58.2 |       3,100
+ *   Phase 5 CCTV projection|      42 |      27 |           2749 |        65.4 |       3,600
+ *   all-live + Radio       |     107 |      92 |          13278 |       124.1 |      17,300
+ *
+ * Every row now sits under the shared 154 B/candidate ceiling, so the CCTV
+ * image-inclusive exceptions (210 / 225) are no longer needed.
+ *
  * History: the FIRMS migration introduced `anchor +/- leaderOffset` writes on
  * every pooled placement. Those computed doubles were boxed on the shared
  * frame path and inflated the three Phase-2 medians to 12,782 / 50,022 /
@@ -127,36 +143,31 @@ const WORKLOADS = [
     saturated: true,
   },
   {
-    name: 'with the tracked readout and CCTV thumbnails live',
+    name: 'with CCTV thumbnails live',
     profile: 'phase4-cctv',
-    entries: 1 + CCTV_AMBIENT_CARD_MAX + 1,
-    candidates: 1 + CCTV_AMBIENT_CARD_MAX + 1,
-    maxBytesPerFrame: 4_600,
-    maxBytesPerCandidatePerFrame: 210,
+    entries: CCTV_AMBIENT_CARD_MAX + 1,
+    candidates: CCTV_AMBIENT_CARD_MAX + 1,
+    maxBytesPerFrame: 3_100,
     saturated: true,
     ambientCardCapacity: AMBIENT_CARD_COLLISION_CAPACITY,
   },
 
   {
-    name: 'with final Phase 5 host sources live (pre-cable-migration surface)',
-    profile: 'phase5-military',
-    entries: 1 + CCTV_AMBIENT_CARD_MAX + 1 + 1,
-    candidates: 1 + CCTV_AMBIENT_CARD_MAX + 1 + 1,
-    maxBytesPerFrame: 5_000,
-    maxBytesPerCandidatePerFrame: 225,
+    name: 'with CCTV thumbnails and the active-camera projection live',
+    profile: 'phase5-cctv-projection',
+    entries: CCTV_AMBIENT_CARD_MAX + 1 + 1,
+    candidates: CCTV_AMBIENT_CARD_MAX + 1 + 1,
+    maxBytesPerFrame: 3_600,
     saturated: true,
     ambientCardCapacity: AMBIENT_CARD_COLLISION_CAPACITY,
   },
 
   {
-    // Re-measured after GW-57 removed the vessel cohort (14,549 B/frame
-    // median on Node 24.14); the 225 image-inclusive ceiling is unchanged.
     name: 'with every shared-host source and bounded Radio text live',
     profile: 'all-live-radio',
-    entries: 1 + CCTV_AMBIENT_CARD_MAX + 1 + 1 + RADIO_OVERLAY_COHORT_LIMIT + 1,
-    candidates: 1 + CCTV_AMBIENT_CARD_MAX + 1 + 1 + RADIO_OVERLAY_COHORT_LIMIT + 1,
-    maxBytesPerFrame: 19_000,
-    maxBytesPerCandidatePerFrame: 225,
+    entries: CCTV_AMBIENT_CARD_MAX + 1 + 1 + RADIO_OVERLAY_COHORT_LIMIT + 1,
+    candidates: CCTV_AMBIENT_CARD_MAX + 1 + 1 + RADIO_OVERLAY_COHORT_LIMIT + 1,
+    maxBytesPerFrame: 17_300,
     saturated: true,
     ambientCardCapacity: AMBIENT_CARD_COLLISION_CAPACITY,
   },
