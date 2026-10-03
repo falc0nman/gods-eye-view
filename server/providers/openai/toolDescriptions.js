@@ -35,7 +35,7 @@ export const ACTION_DESCRIPTIONS = {
   },
   select_nearest_aircraft: {
     description:
-      'Atomically fly to a place, wait for arrival, enable and load Flights or Military Flights in that viewport, exclude on-ground records, and select/follow the nearest airborne aircraft. Healthy fallback feeds remain usable and are reported in the result. This does not open Contacts.',
+      'Atomically fly to a place, wait for arrival, enable and load Flights or Military Flights in that viewport, exclude on-ground records, and select/follow the nearest airborne aircraft. Healthy fallback feeds remain usable and are reported in the result.',
     $position: 1,
     parameters: {
       properties: {
@@ -104,19 +104,6 @@ export const ACTION_DESCRIPTIONS = {
   set_panel_open: {
     description: 'Open or close a GEV UI panel/dropdown.',
     $position: 1,
-  },
-  set_context_mode: {
-    description:
-      'Enter or exit the Global Context sub-mode used by Contacts. Use Contacts only when the user explicitly requests Contacts. A request to open the parent Context panel alone uses set_panel_open and must not activate the sub-mode. Selecting an aircraft does not imply Context.',
-    $position: 1,
-    parameters: {
-      properties: {
-        mode: {
-          description: 'Use off to exit context mode.',
-          $position: 2,
-        },
-      },
-    },
   },
   set_visual_style: {
     description: "Set the active God's Eye View visual filter/style.",

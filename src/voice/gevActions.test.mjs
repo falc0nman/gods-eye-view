@@ -1111,124 +1111,8 @@ test('voice CCTV focus reports cockpit ownership', () => {
 
 
 
-test('set_context_mode forwards cancellation authority and reports a stale turn', async () => {
-  globalThis.window = globalThis.window || { clearTimeout, setTimeout, requestIdleCallback: null };
-  const controller = new AbortController();
-  let receivedOptions = null;
-  const styleManager = {
-    getContextModeState: () => ({ mode: null, active: false, changing: false }),
-    setPanelCollapsed() {},
-    async setContextMode(_mode, options) {
-      receivedOptions = options;
-      controller.abort();
-      return { ok: false, mode: null };
-    },
-  };
-  const viewer = {
-    clock: { onTick: { addEventListener: () => () => {} } },
-    scene: { canvas: { addEventListener() {}, removeEventListener() {} } },
-    camera: { moveEnd: { addEventListener() {} } },
-  };
-  const runner = createGevActionRunner({
-    viewer,
-    styleManager,
-    dataManager: { layers: new Map(), getAll: () => [] },
-  });
-  const result = await runner('set_context_mode', { mode: 'contacts' }, {
-    signal: controller.signal,
-    isCurrent: () => !controller.signal.aborted,
-  });
-  assert.equal(receivedOptions.signal, controller.signal);
-  assert.equal(result.ok, false);
-  assert.equal(result.cancelled, true);
-  // State output speaks the tools' own vocabulary: no context reads as 'off',
-  // the word set_context_mode accepts, with the internal id kept alongside.
-  assert.equal(result.mode, 'off');
-  assert.equal(result.modeInternal, null);
-  assert.equal(result.active, false);
-  assert.equal(result.changing, false);
-});
 
-test('opening Contacts expands Context before activation and returns its settled aircraft window', async () => {
-  globalThis.window = globalThis.window || { clearTimeout, setTimeout, requestIdleCallback: null };
-  const order = [];
-  const contactsWindow = {
-    centeredOn: 'SWA2120',
-    radiusKm: 250,
-    aircraft: 17,
-    flights: 14,
-    military: 3,
-    vessels: 2,
-  };
-  const styleManager = {
-    getContextModeState: () => ({ mode: 'flights', active: true, changing: false }),
-    setPanelCollapsed(panelId, collapsed) {
-      order.push(`panel:${panelId}:${collapsed ? 'closed' : 'open'}`);
-    },
-    async setContextMode(mode) {
-      order.push(`mode:${mode}`);
-      return {
-        ok: true,
-        action: 'set_context_mode',
-        mode: 'flights',
-        active: true,
-        contactsWindow,
-      };
-    },
-  };
-  const viewer = {
-    clock: { onTick: { addEventListener: () => () => {} } },
-    scene: { canvas: { addEventListener() {}, removeEventListener() {} } },
-    camera: { moveEnd: { addEventListener() {} } },
-  };
-  const runner = createGevActionRunner({
-    viewer,
-    styleManager,
-    dataManager: { layers: new Map(), getAll: () => [] },
-  });
-  const result = await runner('set_context_mode', { mode: 'contacts' });
-  assert.deepEqual(order, [
-    'panel:global-context-panel:open',
-    'mode:flights',
-  ]);
-  assert.equal(result.ok, true);
-  assert.deepEqual(result.contactsWindow, contactsWindow);
-  assert.equal(result.contactsWindow.aircraft, 17);
-});
 
-test('set_context_mode pre-dispatch cancellation includes authoritative Context state', async () => {
-  globalThis.window = globalThis.window || { clearTimeout, setTimeout, requestIdleCallback: null };
-  const controller = new AbortController();
-  controller.abort();
-  const styleManager = {
-    getContextModeState: () => ({ mode: 'flights', active: true, changing: false }),
-    setContextMode: () => assert.fail('cancelled request must not dispatch'),
-  };
-  const viewer = {
-    clock: { onTick: { addEventListener: () => () => {} } },
-    scene: { canvas: { addEventListener() {}, removeEventListener() {} } },
-    camera: { moveEnd: { addEventListener() {} } },
-  };
-  const runner = createGevActionRunner({
-    viewer,
-    styleManager,
-    dataManager: { layers: new Map(), getAll: () => [] },
-  });
-  const result = await runner('set_context_mode', { mode: 'contacts' }, {
-    signal: controller.signal,
-  });
-  assert.deepEqual(result, {
-    ok: false,
-    action: 'set_context_mode',
-    cancelled: true,
-    error: 'Context request was cancelled before it could run',
-    // Authoritative state, reported in the vocabulary the tool accepts.
-    mode: 'contacts',
-    modeInternal: 'flights',
-    active: true,
-    changing: false,
-  });
-});
 
 
 test('voice CCTV select, next, prev, and nearest report tracking-refused flights after selection', async () => {
@@ -2076,20 +1960,6 @@ function contextClaimProbe({ entrySucceeds = true, cockpitSucceeds = true } = {}
 
 
 
-test('a genuine set_context_mode request DOES claim the visual lane', async () => {
-  globalThis.window = globalThis.window || { clearTimeout, setTimeout, requestIdleCallback: null };
-  const probe = contextClaimProbe();
-  await probe.runner('set_context_mode', { mode: 'contacts' });
-
-  assert.equal(probe.calls.length, 1);
-  // The operator's own request must take authority: undefined (the facade
-  // default) or an explicit true both mean "claim".
-  assert.notEqual(
-    probe.calls[0].claimVisualAuthority,
-    false,
-    'an operator Context request must not opt out of claiming',
-  );
-});
 
 /**
  * Viewer stub for the moveEnd prewarm: enough scene graph for
@@ -2226,80 +2096,7 @@ test('an unexpected prewarm failure is logged once at debug level, never thrown'
   });
 });
 
-test('a lost cross-mode switch reports every mode field in the shared vocabulary', async () => {
-  // The primary `mode` was translated first; the failure path also carries
-  // `priorMode` and a diagnostic sentence naming the mode. One leaked internal
-  // id is enough to put the model back where it started — reading 'flights'
-  // and concluding Contacts is off.
-  globalThis.window = globalThis.window || { clearTimeout, setTimeout, requestIdleCallback: null };
-  const styleManager = {
-    getContextModeState: () => ({ mode: null, active: false, changing: false, entering: 'flights' }),
-    setPanelCollapsed() {},
-    async setContextMode() {
-      return {
-        ok: false,
-        action: 'set_context_mode',
-        mode: null,
-        active: false,
-        changing: false,
-        entering: 'flights',
-        contextOff: true,
-        priorMode: 'flights',
-        error: 'Switch to contacts did not complete — Context is now off',
-      };
-    },
-  };
-  const viewer = {
-    clock: { onTick: { addEventListener: () => () => {} } },
-    scene: { canvas: { addEventListener() {}, removeEventListener() {} } },
-    camera: { moveEnd: { addEventListener() {} } },
-  };
-  const runner = createGevActionRunner({
-    viewer,
-    styleManager,
-    dataManager: { layers: new Map(), getAll: () => [] },
-  });
-  const result = await runner('set_context_mode', { mode: 'contacts' });
-  assert.equal(result.mode, 'off');
-  assert.equal(result.modeInternal, null);
-  assert.equal(result.priorMode, 'contacts', 'the mode that was lost is named the way the tools name it');
-  assert.equal(result.priorModeInternal, 'flights');
-  assert.equal(result.entering, 'contacts');
-  assert.equal(result.enteringInternal, 'flights');
-  assert.doesNotMatch(
-    JSON.stringify(result),
-    /"(mode|priorMode|entering)":"flights"/,
-    'no model-readable mode field may carry the internal id',
-  );
-});
 
-test('an absent secondary mode stays absent instead of claiming to be off', async () => {
-  globalThis.window = globalThis.window || { clearTimeout, setTimeout, requestIdleCallback: null };
-  const styleManager = {
-    getContextModeState: () => ({ mode: 'flights', active: true, changing: false, entering: null }),
-    setPanelCollapsed() {},
-    async setContextMode() {
-      return { ok: true, action: 'set_context_mode', mode: 'flights', active: true, entering: null };
-    },
-  };
-  const viewer = {
-    clock: { onTick: { addEventListener: () => () => {} } },
-    scene: { canvas: { addEventListener() {}, removeEventListener() {} } },
-    camera: { moveEnd: { addEventListener() {} } },
-  };
-  const runner = createGevActionRunner({
-    viewer,
-    styleManager,
-    dataManager: { layers: new Map(), getAll: () => [] },
-  });
-  const result = await runner('set_context_mode', { mode: 'contacts' });
-  assert.equal(result.mode, 'contacts');
-  assert.equal(
-    result.entering,
-    null,
-    'nothing is entering — calling that "off" would assert a transition that is not happening',
-  );
-});
 
 
 

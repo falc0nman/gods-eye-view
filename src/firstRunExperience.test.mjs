@@ -378,15 +378,11 @@ test('the launcher yields on engage and waits when a surface is already up', () 
 
 // ── Per-mission behavior ─────────────────────────────────────────────────────
 
-function missionSpy({ contextOk = true, layerResult = () => true, globe = async () => ({ ok: true }) } = {}) {
-  const calls = { contextModes: [], layerIds: [], globeFlights: 0 };
+function missionSpy({ layerResult = () => true, globe = async () => ({ ok: true }) } = {}) {
+  const calls = { layerIds: [], globeFlights: 0 };
   return {
     calls,
     deps: {
-      setContextMode: async (mode) => {
-        calls.contextModes.push(mode);
-        return contextOk ? { ok: true, mode } : { ok: false, failedLayerIds: ['military-awareness'] };
-      },
       setLayerEnabled: async (layerId) => {
         calls.layerIds.push(layerId);
         return layerResult(layerId);
@@ -399,7 +395,7 @@ function missionSpy({ contextOk = true, layerResult = () => true, globe = async 
   };
 }
 
-test('the menu is the three owner-ordered missions', () => {
+test('the menu is the two owner-ordered missions', () => {
   // INFRASTRUCTURE was removed after the owner playtested it: enabling all
   // three bundled layers at once put ~5,700 entities on a full-earth view and
   // tanked the frame rate. The layers stay reachable by hand and by voice; what
@@ -407,24 +403,14 @@ test('the menu is the three owner-ordered missions', () => {
   // globe-LOD declutter first.
   assert.deepEqual(Object.keys(FIRST_RUN_MISSIONS), [
     // STORM CHASE leads: this deployment is a storm-chasing team's console.
-    'storm-chase', 'contacts', 'explore',
+    'storm-chase', 'explore',
   ]);
+  // GW-58 removed the Contacts and Space Missions tiles with their modes.
+  assert.equal(FIRST_RUN_MISSIONS.contacts, undefined);
   // GW-58 removed ENVIRONMENTAL with the earthquake and fire layers it drove.
   assert.equal(FIRST_RUN_MISSIONS.environmental, undefined);
   assert.equal(FIRST_RUN_MISSIONS.infrastructure, undefined,
     'the infrastructure mission must be gone, not dormant');
-});
-
-test('Live Contacts goes through the one setContextMode facade', async () => {
-  for (const [choice, mode] of [['contacts', 'contacts']]) {
-    const spy = missionSpy();
-    const outcome = await runFirstRunChoice(choice, spy.deps);
-    assert.equal(outcome.ok, true);
-    assert.deepEqual(spy.calls.contextModes, [mode]);
-    // A Context mission owns no layers and no camera of its own — the facade does.
-    assert.deepEqual(spy.calls.layerIds, []);
-    assert.equal(spy.calls.globeFlights, 0);
-  }
 });
 
 test('a refused layer fails the mission by name, and a stalled flight never does', async () => {
@@ -441,16 +427,9 @@ test('a refused layer fails the mission by name, and a stalled flight never does
 test('Explore manually touches nothing at all, and an unknown choice is inert', async () => {
   const spy = missionSpy();
   assert.equal((await runFirstRunChoice('explore', spy.deps)).ok, true);
-  assert.deepEqual(spy.calls, { contextModes: [], layerIds: [], globeFlights: 0 });
+  assert.deepEqual(spy.calls, { layerIds: [], globeFlights: 0 });
   assert.equal((await runFirstRunChoice('nope', spy.deps)).ok, false);
-  assert.deepEqual(spy.calls, { contextModes: [], layerIds: [], globeFlights: 0 });
-});
-
-test('a failed Context mission reports the layers the facade named', async () => {
-  const spy = missionSpy({ contextOk: false });
-  const outcome = await runFirstRunChoice('contacts', spy.deps);
-  assert.equal(outcome.ok, false);
-  assert.deepEqual(outcome.result.failedLayerIds, ['military-awareness']);
+  assert.deepEqual(spy.calls, { layerIds: [], globeFlights: 0 });
 });
 
 test('no mission writes a preference the visitor did not choose by picking it', () => {
@@ -479,12 +458,8 @@ test('no mission writes a preference the visitor did not choose by picking it', 
     assert.doesNotMatch(code, new RegExp(forbidden), `a mission must never touch ${forbidden}`);
   }
 
-  // The only durable panel write is the Context reveal, and only on the Context
-  // missions — the globe missions open no panel at all.
-  const panelWrites = code.match(/setPanelCollapsed/g) || [];
-  assert.equal(panelWrites.length, 1, 'exactly one panel reveal, on the Context path');
-  const contextPath = code.slice(code.indexOf('setContextMode: async (mode)'), code.indexOf('setLayerEnabled:'));
-  assert.match(contextPath, /result\?\.ok[\s\S]*?setPanelCollapsed\?\.\('global-context-panel', false, \{\s*explicit: true,?\s*\}\)/);
+  // The globe missions open no panel at all, so a mission writes no panel pref.
+  assert.doesNotMatch(code, /setPanelCollapsed/);
 });
 
 test('the decision table is written down where the next editor will read it', () => {
@@ -504,7 +479,7 @@ test('markup, startup ordering and accessibility remain pinned', () => {
   const css = readStylesheet(new URL('../style.css', import.meta.url));
 
   assert.match(html, /id="first-run-launcher" role="dialog"[^>]*aria-labelledby="first-run-title"[^>]*hidden/);
-  assert.equal((html.match(/data-first-run-choice=/g) || []).length, 3);
+  assert.equal((html.match(/data-first-run-choice=/g) || []).length, 2);
   assert.match(html, /data-first-run-status[^>]*role="status"[^>]*aria-live="polite"/);
   assert.match(html, /<input type="checkbox" data-first-run-suppress \/>/);
   assert.doesNotMatch(html, /data-first-run-choice="environmental"/);
@@ -520,7 +495,7 @@ test('markup, startup ordering and accessibility remain pinned', () => {
 
   // Menu order is the owner's, read straight off the markup.
   const order = [...html.matchAll(/data-first-run-choice="([a-z-]+)"/g)].map((match) => match[1]);
-  assert.deepEqual(order, ['storm-chase', 'contacts', 'explore']);
+  assert.deepEqual(order, ['storm-chase', 'explore']);
   assert.doesNotMatch(html, /data-first-run-choice="infrastructure"/,
     'the removed tile must leave no markup behind');
 
@@ -613,10 +588,10 @@ test('the voice TOOL SCHEMA matches the pinned release — the mission mapping i
   // Re-derived again for the storm-chase layer ids and their mapping, and
   // for each GW-57 removal taking its layers out of enums, mappings and
   // analyst fields.
-  assert.equal(block.length, 25684, 'serialized tool schema length drifted');
+  assert.equal(block.length, 25118, 'serialized tool schema length drifted');
   assert.equal(
     crypto.createHash('sha256').update(block).digest('hex'),
-    '6249f8f5f5f1157fd3c6a5c236efd66ea96c000a204940d171eab18536d65532',
+    'a6f750ebbdd0abe666728f168c03b06efa91dd7cdc997a01be5172ead1afdc5a',
     'the first-run missions must ride EXISTING tools: no schema edit, no cache bust',
   );
   const instructions = fs.readFileSync(new URL('../server/providers/openai/instructions.js', import.meta.url), 'utf8');
@@ -641,7 +616,6 @@ test('every layer a mission drives is already in the shipped set_layer_visibilit
 test('STORM CHASE turns on radar, warnings and chasers, switches to the globe basemap, and frames the US', async () => {
   const calls = [];
   const outcome = await runFirstRunChoice('storm-chase', {
-    setContextMode: async () => assert.fail('Storm Chase is a globe mission'),
     setLayerEnabled: async (layerId) => { calls.push(['layer', layerId]); return true; },
     flyToGlobe: async (frame) => { calls.push(['fly', frame]); },
     setMapStack: async (stackId) => { calls.push(['stack', stackId]); return { ok: true }; },
@@ -658,16 +632,14 @@ test('STORM CHASE turns on radar, warnings and chasers, switches to the globe ba
 
 test('a failed basemap switch does not fail Storm Chase; other missions never touch the basemap', async () => {
   const outcome = await runFirstRunChoice('storm-chase', {
-    setContextMode: async () => ({ ok: false }),
     setLayerEnabled: async () => true,
     flyToGlobe: async () => {},
     setMapStack: async () => { throw new Error('stack down'); },
   });
   assert.equal(outcome.ok, true);
-  await runFirstRunChoice('contacts', {
-    setContextMode: async () => ({ ok: true }),
+  await runFirstRunChoice('explore', {
     setLayerEnabled: async () => true,
     flyToGlobe: async () => {},
-    setMapStack: async () => assert.fail('contacts must not switch the basemap'),
+    setMapStack: async () => assert.fail('explore must not switch the basemap'),
   });
 });

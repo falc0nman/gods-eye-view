@@ -198,20 +198,6 @@ const schemas = [
     },
   },
   {
-    name: 'set_context_mode',
-    parameters: {
-      type: 'object',
-      additionalProperties: false,
-      properties: {
-        mode: {
-          type: 'string',
-          enum: ['off', 'contacts', 'flights'],
-        },
-      },
-      required: ['mode'],
-    },
-  },
-  {
     name: 'set_visual_style',
     parameters: {
       type: 'object',

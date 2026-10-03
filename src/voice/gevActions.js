@@ -91,14 +91,6 @@ const PANEL_IDS = new Set([
   'scene-panel',
   'pp-toggles',
 ]);
-const CONTEXT_MODE_ALIASES = new Map([
-  ['off', 'off'],
-  ['none', 'off'],
-  ['clear', 'off'],
-  ['contacts', 'flights'],
-  ['contact', 'flights'],
-  ['flights', 'flights'],
-]);
 /**
  * Every model-readable field that carries a context-mode id, and what an
  * absent value means for each.
@@ -663,72 +655,6 @@ export function createGevActionRunner({
       const open = args.open !== false;
       setPanelOpen(styleManager, panelId, open);
       return { ok: true, action: 'set_panel_open', panelId, open };
-    }
-
-    if (name === 'set_context_mode') {
-      if (!styleManager?.setContextMode) {
-        return {
-          ok: false,
-          action: 'set_context_mode',
-          error: 'Context mode control unavailable',
-        };
-      }
-      const mode = normalizeContextMode(args.mode || args.contextMode);
-      if (
-        mode === null &&
-        args.mode != null &&
-        String(args.mode || '').trim() !== 'off'
-      ) {
-        return {
-          ok: false,
-          action: 'set_context_mode',
-          error: `Unknown context mode: ${args.mode || 'missing'}`,
-        };
-      }
-      const cancellationState = () =>
-        withContextModeVocabulary(
-          typeof styleManager.getContextModeState === 'function'
-            ? styleManager.getContextModeState()
-            : {},
-        );
-      if (!current()) {
-        return {
-          ok: false,
-          action: 'set_context_mode',
-          cancelled: true,
-          error: 'Context request was cancelled before it could run',
-          ...cancellationState(),
-        };
-      }
-      if (mode && mode !== 'off') {
-        setPanelOpen(styleManager, 'global-context-panel', true);
-      }
-      const result = await styleManager.setContextMode(
-        mode === 'off' ? null : mode,
-        {
-          signal: runOptions.signal,
-          isCurrent: runOptions.isCurrent,
-        },
-      );
-      if (!current() && result?.ok !== true) {
-        return {
-          ...withContextModeVocabulary(result),
-          ok: false,
-          action: 'set_context_mode',
-          cancelled: true,
-          error:
-            result?.error ||
-            'Context request was cancelled before it completed',
-          ...cancellationState(),
-        };
-      }
-      const contactsWindow = ['contacts', 'flights'].includes(mode)
-        ? activeContactsWindow(dataManager)
-        : null;
-      return {
-        ...withContextModeVocabulary(result),
-        ...(contactsWindow ? { contactsWindow } : {}),
-      };
     }
 
     if (name === 'show_data_layers_menu') {
@@ -2552,14 +2478,6 @@ function setPanelOpen(styleManager, panelId, open) {
     const panel = document.getElementById(panelId);
     if (panel) panel.classList.toggle('collapsed', !open);
   }
-}
-
-function normalizeContextMode(value) {
-  const raw = String(value || '')
-    .trim()
-    .toLowerCase();
-  if (!raw) return null;
-  return CONTEXT_MODE_ALIASES.get(raw) || null;
 }
 
 function focusDataLayerRow(layerId) {

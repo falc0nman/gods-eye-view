@@ -24,12 +24,12 @@ const css = readStylesheet(new URL('../style.css', import.meta.url));
 
 function realtimeTools() { return GEV_REALTIME_TOOLS; }
 
-test('Realtime schema exposes the authoritative 29-tool inventory', () => {
+test('Realtime schema exposes the authoritative 28-tool inventory', () => {
   const tools = realtimeTools();
-  assert.equal(tools.length, 29);
+  assert.equal(tools.length, 28);
   const names = tools.map((tool) => tool.name);
-  assert.equal(new Set(names).size, 29, 'tool names are unique');
-  assert.ok(names.includes('set_context_mode'));
+  assert.equal(new Set(names).size, 28, 'tool names are unique');
+  assert.equal(names.includes('set_context_mode'), false, 'GW-58 removed Contacts');
   assert.equal(names.includes('control_cockpit'), false, 'GW-58 removed Cockpit');
   assert.ok(names.includes('select_nearest_aircraft'));
   assert.ok(names.includes('control_radio'));
@@ -57,11 +57,9 @@ test('the counting contract is stated in the Realtime instructions', () => {
   // One instruction per source line; the string carries escaped quotes, so take
   // the line rather than trying to match a quoted literal.
   const text = voice.slice(start, voice.indexOf('\n', start));
-  assert.match(text, /Contacts is ACTIVE/, 'rule 1: active means the Contacts window');
-  assert.match(text, /contactsWindow/, 'rule 1 names its mechanism');
-  assert.match(text, /call set_context_mode\{mode:"contacts"\} first/);
-  assert.match(text, /contactsWindow\.aircraft/);
-  assert.match(text, /Contacts OFF, "nearby" means in view/, 'rule 2: off means in view');
+  assert.match(text, /CENTER PRECEDENCE/, 'rule 1: the center precedence');
+  assert.match(text, /"Nearby" means in view/, 'rule 2: nearby means in view');
+  assert.doesNotMatch(text, /Contacts/, 'GW-58 removed the Contacts window');
   assert.match(text, /EVERY count names its scope in words/, 'rule 3');
   assert.match(text, /scopeLabel/, 'rule 3 names its mechanism');
   assert.match(text, /never a bare number/, 'rule 3 is stated as a prohibition too');
@@ -69,17 +67,15 @@ test('the counting contract is stated in the Realtime instructions', () => {
   assert.match(text, /flights layer loads where you look/, 'rule 5: the loaded-data caveat');
 });
 
-test('Context panel opening stays distinct from Contacts activation', () => {
+test('Context panel opening is a plain panel request', () => {
   const start = voice.indexOf("'For requests to open, show, reveal, or focus a menu/panel");
   assert.ok(start >= 0, 'panel-routing instruction is missing');
   const text = voice.slice(start, voice.indexOf('\n', start));
   assert.match(text, /"Open Context" means only set_panel_open/);
-  assert.match(text, /does not activate a Context sub-mode/);
-  assert.match(text, /"Open Contacts" means set_context_mode\{mode:"contacts"\}/);
-  assert.match(text, /expands the parent Context panel before activating Contacts/);
+  assert.doesNotMatch(text, /set_context_mode/);
 });
 
-test('nearest-aircraft selection stays out of Contacts', () => {
+test('nearest-aircraft selection is one atomic tool call', () => {
   const start = voice.indexOf("'For a request to enable an aircraft layer and SELECT or FIND");
   assert.ok(start >= 0, 'nearest-aircraft selection routing instruction is missing');
   const text = voice.slice(start, voice.indexOf('\n', start));
@@ -91,13 +87,9 @@ test('nearest-aircraft selection stays out of Contacts', () => {
   assert.match(text, /filters out landed\/on-ground records/);
   assert.match(text, /nearest airborne result/);
   assert.match(text, /healthy fallback feed is valid data/i);
-  assert.match(text, /Do not also call fly_to_location, set_layer_visibility, analyst_query, track_entity/);
-  assert.match(text, /SELECT\/FIND never implies Contacts/);
-  assert.match(text, /track_entity, or set_context_mode/);
+  assert.match(text, /analyst_query, or track_entity for the same request/);
 
   const byName = new Map(realtimeTools().map((tool) => [tool.name, tool]));
-  assert.match(byName.get('set_context_mode').description, /explicitly requests/);
-  assert.match(byName.get('set_context_mode').description, /selecting an aircraft does not imply Context/i);
   assert.equal(
     byName.get('fly_to_location').parameters.properties.waitForArrival.type,
     'boolean',
@@ -108,18 +100,6 @@ test('nearest-aircraft selection stays out of Contacts', () => {
   assert.match(nearest.description, /Atomically/);
   assert.match(nearest.description, /exclude on-ground records/);
   assert.match(nearest.description, /fallback feeds remain usable/);
-  assert.match(nearest.description, /does not open Contacts/);
-});
-
-test('the Context tool pins its enums and required arguments', () => {
-  const byName = new Map(realtimeTools().map((tool) => [tool.name, tool]));
-
-  const contextMode = byName.get('set_context_mode');
-  assert.deepEqual(contextMode.parameters.required, ['mode']);
-  assert.deepEqual(
-    contextMode.parameters.properties.mode.enum,
-    ['off', 'contacts', 'flights'],
-  );
 });
 
 test('the edited existing tools changed exactly as intended', () => {

@@ -38,11 +38,6 @@ export const FIRST_RUN_SESSION_KEY = 'gev:first-run-mission-session:v1';
  *   TOUCHED, DURABLE      layer enables for the mission's OWN layers, at
  *                         `origin: 'user'` — identical to clicking those rows.
  *                         Choosing STORM CHASE *is* choosing those layers.
- *   TOUCHED, DURABLE      the Context panel reveal, but only for the two
- *                         Context missions, exactly as the visible Contacts /
- *                         Space Missions tabs do it. The globe missions open no
- *                         panel at all — nothing there needs explaining, and a
- *                         panel-collapse write is a pref nobody chose.
  *   TOUCHED, SESSION      the camera. Never persisted by anything.
  *   NOT TOUCHED           detection mode + density. The reasonable-defaults
  *                         landing owns the DENSE/75 start, and Contacts owns
@@ -51,18 +46,14 @@ export const FIRST_RUN_SESSION_KEY = 'gev:first-run-mission-session:v1';
  *   NOT TOUCHED           `_detectionUserOverridden`. Setting it would mean "the
  *                         operator hand-edited detection" and would silently
  *                         kill the CRT/NVG/FLIR auto-preset contract for the
- *                         whole session. Missions run through setContextMode and
- *                         DataManager.setEnabled, neither of which writes it.
+ *                         whole session. Missions run through
+ *                         DataManager.setEnabled, which never writes it.
  *   NOT TOUCHED           detection allocation (`gev:detection-allocation:v1`),
  *                         3D aircraft models, scope feather. All are defaults or
  *                         separate durable prefs the visitor did not choose here.
  *                         In particular nothing calls `_setModels3dEnabled` /
  *                         `_setModels3dMode`, which default to origin 'user' and
  *                         would persist a 3D choice nobody made.
- *
- * The two Context missions deliberately reuse `styleManager.setContextMode`, the
- * same facade the visible tabs and voice use, so Contacts detection ownership,
- * layer isolation and rollback stay in exactly one place.
  */
 
 /** @type {Readonly<Record<string, object>>} */
@@ -82,11 +73,6 @@ export const FIRST_RUN_MISSIONS = Object.freeze({
       heightM: 4_500_000,
     }),
     busyText: 'Loading radar, warnings and chasers…',
-  }),
-  contacts: Object.freeze({
-    kind: 'context',
-    contextMode: 'contacts',
-    busyText: 'Starting live contacts…',
   }),
   explore: Object.freeze({ kind: 'none' }),
 });
@@ -226,22 +212,17 @@ export function rememberFirstRunSessionDismissed(sessionStorageRef) {
  *
  * @param {string} choice Key of FIRST_RUN_MISSIONS.
  * @param {object} deps
- * @param {(mode: string) => Promise<object>} deps.setContextMode
  * @param {(layerId: string) => Promise<boolean>} deps.setLayerEnabled
  * @param {() => Promise<any>} deps.flyToGlobe
  * @returns {Promise<{ok: boolean, choice: string, result?: object, failedLayerIds?: string[]}>}
  */
 export async function runFirstRunChoice(
   choice,
-  { setContextMode, setLayerEnabled, flyToGlobe, setMapStack },
+  { setLayerEnabled, flyToGlobe, setMapStack },
 ) {
   const mission = FIRST_RUN_MISSIONS[choice];
   if (!mission) return { ok: false, choice };
   if (mission.kind === 'none') return { ok: true, choice };
-  if (mission.kind === 'context') {
-    const result = await setContextMode(mission.contextMode);
-    return { ok: Boolean(result?.ok), choice, result };
-  }
   // Globe missions: start the pull-out and the layer work together so the
   // camera is already moving while the feeds spin up. The flight is framing,
   // not the mission — a stalled or superseded flight never fails the tile.
@@ -425,19 +406,6 @@ export function initFirstRunExperience({
     let outcome = null;
     try {
       outcome = await runFirstRunChoice(choice, {
-        setContextMode: async (mode) => {
-          const result = await styleManager.setContextMode(mode);
-          if (result?.ok) {
-            // setContextMode is also a voice/internal facade and deliberately
-            // does not decide panel chrome. This first-run click is an explicit
-            // visual choice, so reveal the result exactly as the visible
-            // Contacts / Space Missions tabs do.
-            styleManager.setPanelCollapsed?.('global-context-panel', false, {
-              explicit: true,
-            });
-          }
-          return result;
-        },
         // `origin: 'user'` on purpose: a mission tile is a real person choosing
         // these layers, so it persists exactly as clicking those rows would.
         setLayerEnabled: (layerId) =>

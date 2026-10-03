@@ -17,19 +17,6 @@ const html = expandApplicationHtml(readFileSync(new URL('../index.html', import.
 const ui = readShellSource();
 const css = readStylesheet(new URL('../style.css', import.meta.url));
 
-test('Contacts participates in the ordinary Tab sequence', () => {
-  for (const id of ['global-context-flights-btn']) {
-    const button = html.match(new RegExp(`<button id="${id}"[\\s\\S]*?</button>`));
-    assert.ok(button, `${id} is missing`);
-    assert.match(button[0], /role="tab"/);
-    assert.match(button[0], /tabindex="0"/);
-  }
-
-  const syncSource = _syncContextModeButtons.toString();
-  assert.match(syncSource, /\[\s*this\._globalContextFlightsBtn,\s*this\._globalContextMissionsBtn,?\s*\]/);
-  assert.match(syncSource, /button\.tabIndex = 0/);
-  assert.doesNotMatch(syncSource, /tabIndex\s*=\s*[^;]*\?\s*-1/);
-});
 
 test('Context transition state preserves focus and Tab availability until settle', () => {
   const syncSource = _syncContextModeButtons.toString();

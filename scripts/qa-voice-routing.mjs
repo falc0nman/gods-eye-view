@@ -800,67 +800,6 @@ async function runBehaviorLayer() {
     const hasContext = !!(r && (r.basemap || r.scene || r.context || r.viewScale || r.center));
     report(hasContext, 'behavior: get_entity_context returns scene context', `keys=${Object.keys(r || {}).slice(0, 8).join(',')}`);
 
-    // (9) set_context_mode — happy path and a refusal.
-    // Contacts is an exclusive mode that tears other layers down, so this runs
-    // last and hands the app back to `off` before the screenshot.
-    r = await run('set_context_mode', { mode: 'contacts' });
-    await settle(2500);
-    const contextEntered = await page.evaluate(
-      () => window.__godsEyeView?.styleManager?.getContextModeState?.() || null,
-    );
-    report(r?.ok === true && contextEntered?.mode === 'flights',
-      'behavior: set_context_mode enters Contacts',
-      `result=${JSON.stringify(r)?.slice(0, 140)} state=${JSON.stringify(contextEntered)?.slice(0, 90)}`);
-
-    // (9d) An unavailable context mode is refused, and the live mode survives.
-    r = await run('set_context_mode', { mode: 'orbital-weather' });
-    const contextAfterRefusal = await page.evaluate(
-      () => window.__godsEyeView?.styleManager?.getContextModeState?.() || null,
-    );
-    report(r?.ok === false && /unknown context mode/i.test(r?.error || '')
-      && contextAfterRefusal?.mode === 'flights',
-      'behavior: set_context_mode refuses an unavailable mode without dropping the live one',
-      `result=${JSON.stringify(r)?.slice(0, 120)} state=${JSON.stringify(contextAfterRefusal)?.slice(0, 80)}`);
-
-    // (9c-2) With Contacts up, an aircraft radius query must carry the panel's
-    // own numbers. Field case: analyst said 8 for a 250 km window the panel had
-    // at 42 — both honest (analyst counts loaded records, the flights layer
-    // reloads by viewport), and the operator saw two answers to one question.
-    r = await run('analyst_query', {
-      layers: ['flights'],
-      scope: { kind: 'radius', km: 250 },
-      sortBy: 'distance',
-      limit: 3,
-    });
-    const awarenessFlights = await page.evaluate(() => {
-      const snap = window.__godsEyeView?.dataManager?.layers
-        ?.get('military-awareness')?.module?.getContextSnapshot?.();
-      const cohort = snap?.cohorts?.find((c) => c.id === 'flights');
-      return cohort ? cohort.count : null;
-    });
-    const windowBlock = r?.contactsWindow || null;
-    report(
-      Boolean(windowBlock)
-      && windowBlock.flights === awarenessFlights
-      && windowBlock.radiusKm === 250
-      && typeof windowBlock.centeredOn === 'string'
-      && /loads by viewport/.test(r?.coverage?.note || '')
-      // Contract rule 3: the count names its own scope.
-      && /^within 250 km of /.test(r?.scopeLabel || ''),
-      'behavior: analyst_query carries the Contacts panel counts and says what it measured',
-      `contactsWindow=${JSON.stringify(windowBlock)} awarenessFlights=${awarenessFlights} analystCount=${r?.count} scopeLabel="${r?.scopeLabel}"`,
-    );
-
-    // (9e) Exit restores the neutral map.
-    r = await run('set_context_mode', { mode: 'off' });
-    await settle(2000);
-    const contextExited = await page.evaluate(
-      () => window.__godsEyeView?.styleManager?.getContextModeState?.() || null,
-    );
-    report(r?.ok !== false && !contextExited?.mode,
-      'behavior: set_context_mode exits back to the neutral map',
-      `result=${JSON.stringify(r)?.slice(0, 120)} state=${JSON.stringify(contextExited)?.slice(0, 80)}`);
-
     const shotDir = path.join(ROOT, 'qa-shots');
     fs.mkdirSync(shotDir, { recursive: true });
     await page.screenshot({ path: path.join(shotDir, 'voice-behavior-final.png') });
