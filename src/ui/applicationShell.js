@@ -79,7 +79,6 @@ export class StyleManager extends ShellFacade {
       militaryFlightsLayer,
       satellitesLayer,
       cctvLayer,
-      transitLayer,
       aisLiveVesselsLayer,
       militaryAwarenessLayer,
       localAdsbLayer,
@@ -469,7 +468,6 @@ export class StyleManager extends ShellFacade {
         localAdsbLayer,
         satellitesLayer,
         cctvLayer,
-        transitLayer,
         aisLiveVesselsLayer,
       ].filter(Boolean),
       (modeLabel) => {

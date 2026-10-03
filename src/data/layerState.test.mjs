@@ -199,9 +199,9 @@ function encode(state) {
 
 test('production registry is exact, canonical, and rejects incomplete contracts', async () => {
   assert.equal(validateLayerStateRegistry(), true);
-  assert.equal(REGISTERED_LAYER_IDS.length, 23);
-  assert.equal(new Set(REGISTERED_LAYER_IDS).size, 23);
-  assert.ok(REGISTERED_LAYER_IDS.includes('transit'));
+  assert.equal(REGISTERED_LAYER_IDS.length, 22);
+  assert.equal(new Set(REGISTERED_LAYER_IDS).size, 22);
+  assert.equal(REGISTERED_LAYER_IDS.includes('transit'), false);
   assert.deepEqual(REGISTERED_LAYER_IDS, [...REGISTERED_LAYER_IDS].sort());
   assert.deepEqual(LEGACY_LAYER_STATE_TOKENS, {
     'ais-live-vessels': 'a',
@@ -571,6 +571,12 @@ test('removed layers keep their tokens reserved and old links skip them', () => 
   assert.deepEqual(
     decodeLayerStateParams(new URLSearchParams('v=2&l=b.c')).retiredLayerIds,
     ['bikeshare'],
+  );
+  // ...and transit (j).
+  assert.equal(LAYER_STATE_TOKEN_RESERVATIONS.transit, 'j');
+  assert.deepEqual(
+    decodeLayerStateParams(new URLSearchParams('v=2&l=j.c')).retiredLayerIds,
+    ['transit'],
   );
   // A token that was never reserved is still malformed.
   assert.equal(decodeLayerStateParams(new URLSearchParams('v=2&l=c.Q')), null);

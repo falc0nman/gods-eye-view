@@ -87,7 +87,6 @@ test('controls bind catalog instances rather than similarly named defaults', () 
     'satellites',
     'cctv',
     'radio',
-    'transit',
     'ais-live-vessels',
     'military-awareness',
     'military-installations',
@@ -98,9 +97,8 @@ test('controls bind catalog instances rather than similarly named defaults', () 
   const catalog = createLayerCatalog(layers, metadata(layers));
   const services = catalogControlServices(catalog);
   assert.equal(services.flightsLayer, layers[1]);
-  assert.equal(services.transitLayer, layers[6]);
-  assert.equal(services.aisLiveVesselsLayer, layers[7]);
-  assert.equal(services.localAdsbLayer, layers[11]);
+  assert.equal(services.aisLiveVesselsLayer, layers[6]);
+  assert.equal(services.localAdsbLayer, layers[10]);
   assert.equal(new Set(Object.values(services)).size, layers.length);
   assert.throws(
     () => catalogControlServices(createLayerCatalog([], [])),

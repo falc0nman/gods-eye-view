@@ -6,7 +6,6 @@ import {
 } from '../sources/live/standalone.js';
 import { createCctvSource } from '../layers/cctv/source.js';
 import { createRadioSource } from '../layers/radio/source.js';
-import { createTransitSource } from '../layers/transit/source.js';
 import { createTrafficSource } from '../layers/traffic/source.js';
 import { createInstallationSource } from '../layers/installations/source.js';
 import { createSatelliteSource } from '../layers/satellites/source.js';
@@ -30,7 +29,6 @@ export function createStandaloneLayerSources() {
     cctv: createCctvSource(),
     radio: createRadioSource(),
     traffic: createTrafficSource({ mapTiles }),
-    transit: createTransitSource(),
     installations: createInstallationSource({ mapTiles }),
     satellites: createSatelliteSource(),
     launches: createLaunchSource(),
