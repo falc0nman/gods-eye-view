@@ -38,12 +38,6 @@ export class DisplayBindings {
   get celestialRingEnabled() {
     return this.readState().celestialRingEnabled;
   }
-  get _models3dEnabled() {
-    return this.readState()._models3dEnabled;
-  }
-  get _models3dModeBtns() {
-    return this.readState()._models3dModeBtns;
-  }
   get _detectionAllocationBtns() {
     return this.readState()._detectionAllocationBtns;
   }
@@ -117,8 +111,6 @@ export class DisplayBindings {
         allocationButtons: this._detectionAllocationBtns,
         fadeSliders: [this._detectionFadeSlider, this._detectionOpacitySlider],
         celestialButton: this._celestialBtn,
-        modelsButton: this._models3dBtn,
-        modelModeButtons: this._models3dBtn ? this._models3dModeBtns : [],
       },
       actions: {
         setStyle: (style) => this.setStyle(style),
@@ -213,11 +205,6 @@ export class DisplayBindings {
           cycleDetectionMode();
           this._syncShareState();
         },
-        toggleModels: () => {
-          this._setModels3dEnabled(!this._models3dEnabled);
-          this._syncModels3dModeRow();
-        },
-        setModelsMode: (mode) => this._setModels3dMode(mode),
       },
     });
   }

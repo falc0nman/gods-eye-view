@@ -30,7 +30,6 @@ const compatibilityEdge = (from, to) =>
 const portableExport = (key) =>
   key.startsWith('./sources/') ||
   /\/source$/.test(key) ||
-  /^\.\/layers\/(?:flights|military)\/(?:records|ingestion)$/.test(key) ||
   [
     './director',
     './voice/action-schemas',

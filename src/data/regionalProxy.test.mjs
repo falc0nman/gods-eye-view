@@ -1,7 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  adsbLolFallbackAnchor,
   coalesceProxyRequest,
   keylessGooglePlacesResponse,
   readResponseJsonCapped,
@@ -28,11 +27,6 @@ test('regional proxy rejects absent and blank coordinates instead of coercing th
     validRegionalPoint(new URLSearchParams('latitude=0&longitude=0')),
     { latitude: 0, longitude: 0 },
   );
-});
-
-test('adjacent proxy validators also require every coordinate explicitly', () => {
-  assert.equal(adsbLolFallbackAnchor({ url: '?lat=12.5' }), null);
-  assert.equal(adsbLolFallbackAnchor({ url: '?lon=12.5' }), null);
 });
 
 test('proxy request coalescing shares one per-key refresh and clears it after settlement', async () => {

@@ -40,7 +40,6 @@ import {
   setDetectionStyle,
   setDetectionTuning,
 } from '../data/detection.js';
-import { isTr3b, toggleTr3b } from '../data/tr3bRegistry.js';
 import {
   holdContinuousRender,
   releaseContinuousRender,
@@ -90,8 +89,6 @@ export class StyleManager extends ApplicationShell {
         resumeDetection,
         setDetectionStyle,
         setDetectionTuning,
-        isTr3b,
-        toggleTr3b,
         holdContinuousRender,
         releaseContinuousRender,
         governorRequestRender,

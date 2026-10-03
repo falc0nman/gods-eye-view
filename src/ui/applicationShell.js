@@ -1,6 +1,5 @@
 import { resolveImageryHost } from '../layers/weather/imageryHost.js';
 import { ShellFacade } from './shellFacade.js';
-import { AircraftDisplay } from './aircraftDisplay.js';
 import { LayerBindings } from './layerBindings.js';
 import { PanelChrome } from './panelChrome.js';
 import { VisualSettings } from './visualSettings.js';
@@ -27,8 +26,6 @@ import {
 } from './cyberSonarControls.js';
 
 import * as Cesium from 'cesium';
-
-import { aircraftTrackingTarget } from '../cockpitTracking.js';
 
 import { ShellFeedback } from './shellFeedback.js';
 
@@ -73,8 +70,6 @@ export class StyleManager extends ShellFacade {
       initDetection,
       setDetectionStyle,
       trafficLayer,
-      flightsLayer,
-      militaryFlightsLayer,
       cctvLayer,
     } = services;
     this.services = services;
@@ -116,10 +111,6 @@ export class StyleManager extends ShellFacade {
 
     this._navigation = new NavigationController({
       viewer,
-      tracking: {
-        flightsLayer,
-        militaryFlightsLayer,
-      },
       searchInput: this._locationSearch,
       interruptCameraMotion: services.interruptCameraMotion,
       isCockpitActive: () => !!this.cockpitView?.active,
@@ -134,7 +125,6 @@ export class StyleManager extends ShellFacade {
       viewer,
       navigation: this._navigation,
       syncShareState: () => this._syncShareState(),
-      syncModels3d: (state) => this._syncModels3dFromLayerState(state),
       showStatus: (message, options) =>
         this._showGlobalStatusNotice(message, options),
       feedback: this._feedback,
@@ -292,8 +282,6 @@ export class StyleManager extends ShellFacade {
         GLOBE_VIEW: services.GLOBE_VIEW,
         flyToGlobeView: services.flyToGlobeView,
         interruptCameraMotion: services.interruptCameraMotion,
-        flightsLayer: services.flightsLayer,
-        militaryFlightsLayer: services.militaryFlightsLayer,
       },
       elements: {
         _locationPills: this._locationPills,
@@ -380,15 +368,6 @@ export class StyleManager extends ShellFacade {
     // preferences. Encoded panel fields are applied after all panels exist.
     this._shareRestoration.attachLinks(this.shareLinkManager);
 
-    this._aircraftDisplay = new AircraftDisplay({
-      elements: {
-        _models3dBtn: this._models3dBtn,
-        _models3dModeRow: this._models3dModeRow,
-      },
-      readDataManager: () => this._dataManager,
-      layout: () => this._layoutRightPanels(),
-    });
-
     // The shared world-overlay host must own its one postRender lane before
     // detection and tracked-readout initialize. It stays transparent until a
     // production source explicitly registers entries.
@@ -398,9 +377,7 @@ export class StyleManager extends ShellFacade {
     // stage is first in the post-process pipeline
     initDetection(
       viewer,
-      [trafficLayer, flightsLayer, militaryFlightsLayer, cctvLayer].filter(
-        Boolean,
-      ),
+      [trafficLayer, cctvLayer].filter(Boolean),
       (modeLabel) => {
         this._updateDetectionButton(modeLabel);
       },
@@ -442,7 +419,6 @@ export class StyleManager extends ShellFacade {
         _detectionFadeSlider: this._detectionFadeSlider,
         _detectionOpacitySlider: this._detectionOpacitySlider,
         _celestialBtn: this._celestialBtn,
-        _models3dBtn: this._models3dBtn,
         _scopeFeatherValue: this._scopeFeatherValue,
         _sharpenSliderValue: this._sharpenSliderValue,
         _detectionDensityValue: this._detectionDensityValue,
@@ -470,9 +446,6 @@ export class StyleManager extends ShellFacade {
           this._applyDetectionFadeFromUi(...args),
         setCelestialRingEnabled: (...args) =>
           this.setCelestialRingEnabled(...args),
-        _setModels3dEnabled: (...args) => this._setModels3dEnabled(...args),
-        _syncModels3dModeRow: (...args) => this._syncModels3dModeRow(...args),
-        _setModels3dMode: (...args) => this._setModels3dMode(...args),
       },
       readState: () => ({
         shareLinkManager: this.shareLinkManager,
@@ -481,8 +454,6 @@ export class StyleManager extends ShellFacade {
         sharpenEnabled: this.sharpenEnabled,
         celestialRing: this.celestialRing,
         celestialRingEnabled: this.celestialRingEnabled,
-        _models3dEnabled: this._models3dEnabled,
-        _models3dModeBtns: this._models3dModeBtns,
         _detectionAllocationBtns: this._detectionAllocationBtns,
       }),
       claimDetection: () => {
@@ -502,7 +473,6 @@ export class StyleManager extends ShellFacade {
     this._initCameraOrientationControls();
     this._initClearSelectedLayersButton();
     this._initHUDToggle();
-    this._initModels3dToggle();
     this._applyGlobalPostDefaults();
     this._initOrbit();
     this._initRecordingOverlay();
@@ -584,11 +554,6 @@ export class StyleManager extends ShellFacade {
   /** Route a valid vessel/fire request through the shared navigation policy. */
   _runExplicitWorldFocus(detail, fly) {
     return this._runExplicitNavigation(detail?.kind || 'target', fly);
-  }
-
-  /** Return the aircraft tracker owned before a multi-step Cockpit transaction. */
-  getAircraftTrackingTarget() {
-    return aircraftTrackingTarget(this.cockpitView?.readAircraftInfo?.());
   }
 
   /** Apply a temporary cockpit-only CRT/NVG/FLIR/NOIR post-process override. */
@@ -1143,10 +1108,6 @@ export class StyleManager extends ShellFacade {
         visible: !!this.celestialRing?.visible,
       },
       orbiting: !!this.orbitController?.active,
-      models3d: {
-        enabled: !!this._models3dEnabled,
-        mode: this._models3dMode || 'proximity',
-      },
       recording: !!this._recording._recordingMode,
       cleanView: document.body.classList.contains('ui-clean-view'),
     };
@@ -1330,17 +1291,6 @@ export class StyleManager extends ShellFacade {
    * and sets up the detection mode cycle button.
    * @returns {void}
    */
-  /**
-   * Wires the DISPLAY-rail "3D" toggle to the flights layer's `models3d` param.
-   * ON by default in `proximity` mode (owner directive 2026-08-22): the fleet
-   * renders as 3D glTF models once the camera is zoomed in past the layer's
-   * altitude ceiling, and only the nearest MODEL_MAX in view are admitted, so
-   * the default costs nothing at globe scale. `all` is the deliberate opt-in;
-   * turning the toggle off returns the fleet to flat billboards. The TRACKED
-   * contact is independent of this toggle (see trackedModelRegime.js).
-   * @returns {void}
-   */
-
   _initHUDToggle() {
     if (this._hudLayoutSelect) {
       this._hudLayoutSelect.value = 'tactical';
@@ -1425,10 +1375,6 @@ export class StyleManager extends ShellFacade {
 
     this._contextControls.stop();
     this._navigation.destroy();
-    // IR boost teardown BEFORE detaching the data manager: restore fog and
-    // un-boost both aircraft layers so a surviving viewer or replacement
-    // manager doesn't inherit sensor state (review P2, 2026-08-16).
-    this._visualSettings.releaseIrBoost();
     this._contextControls.disconnect();
     this._layerBindings.disconnect();
 

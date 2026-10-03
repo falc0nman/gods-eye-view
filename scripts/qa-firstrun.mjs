@@ -112,7 +112,7 @@ const appState = (page) => page.evaluate(() => {
   const counts = {};
   const all = dm?.getAll?.() || [];
   for (const id of [
-    'weather-radar', 'nws-warnings', 'team-chasers', 'flights', 'military',
+    'weather-radar', 'nws-warnings', 'team-chasers',
   ]) {
     layers[id] = !!dm?.isEnabled?.(id);
     counts[id] = all.find((entry) => entry.id === id)?.stats?.count ?? null;

@@ -1,5 +1,4 @@
 import { ShellFacade } from '../ui/shellFacade.js';
-import { AircraftDisplay } from '../ui/aircraftDisplay.js';
 import { LayerBindings } from '../ui/layerBindings.js';
 import { DisplayBindings } from '../ui/displayBindings.js';
 import { readFileSync } from 'node:fs';
@@ -18,7 +17,6 @@ export function readShellSource() {
     'shareRestoration',
     'visualSettings',
     'panelChrome',
-    'aircraftDisplay',
     'layerBindings',
     'displayBindings',
     'shellFacade',
@@ -38,7 +36,6 @@ export function shellMethod(name) {
     VisualSettings,
     PanelChrome,
     LocationNavigation,
-    AircraftDisplay,
     LayerBindings,
     DisplayBindings,
     StyleManager,

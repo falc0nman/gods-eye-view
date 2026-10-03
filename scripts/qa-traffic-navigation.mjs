@@ -49,8 +49,6 @@ try {
     await page.evaluate(async (withCctv) => {
       const { viewer, dataManager } = window.__godsEyeView;
       const C = await import('/node_modules/.vite/deps/cesium.js');
-      for (const id of ['flights', 'military'])
-        await dataManager.setEnabled(id, false);
       viewer.camera.cancelFlight();
       viewer.camera.setView({
         destination: C.Cartesian3.fromDegrees(-97.744, 30.267, 3200),

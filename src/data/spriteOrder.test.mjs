@@ -6,9 +6,8 @@ import {
   restoreSpriteOrderOnEnable,
   unregisterSpriteCollection,
 } from './spriteOrder.js';
-import flightsLayer from './flights.js';
 
-const ORDER = ['cctv', 'directions', 'military', 'flights'];
+const ORDER = ['cctv', 'directions'];
 
 function makePrimitives(initial = []) {
   return {
@@ -30,78 +29,69 @@ function makeCollection(id, destroyed = false) {
 
 test('restoreSpriteOrder raises live collections bottom-to-top and skips destroyed entries', () => {
   const collections = Object.fromEntries(ORDER.map((id) => [id, makeCollection(id)]));
-  const destroyedDirections = makeCollection('directions', true);
-  for (const id of ORDER) {
-    registerSpriteCollection(id, id === 'directions' ? destroyedDirections : collections[id]);
-  }
-  const primitives = makePrimitives([
-    collections.flights,
-    collections.cctv,
-    collections.directions,
-    collections.military,
-  ]);
+  const destroyedCctv = makeCollection('cctv', true);
+  registerSpriteCollection('cctv', destroyedCctv);
+  registerSpriteCollection('directions', collections.directions);
+  const primitives = makePrimitives([collections.directions, destroyedCctv]);
 
   restoreSpriteOrder({ scene: { primitives } });
 
-  assert.deepEqual(primitives.calls, ['cctv', 'military', 'flights']);
-  assert.deepEqual(primitives.items.map((item) => item.id), [
-    'directions', 'cctv', 'military', 'flights',
-  ]);
+  assert.deepEqual(primitives.calls, ['directions']);
+  assert.deepEqual(primitives.items.map((item) => item.id), ['cctv', 'directions']);
 
   for (const id of ORDER) unregisterSpriteCollection(id);
 });
 
-test('late CCTV registration still restores flights above the ambient collection', () => {
-  const flights = makeCollection('flights');
+test('late CCTV registration still restores directions above the ambient collection', () => {
+  const directions = makeCollection('directions');
   const cctv = makeCollection('cctv');
-  const primitives = makePrimitives([flights]);
+  const primitives = makePrimitives([directions]);
   const viewer = { scene: { primitives } };
 
-  registerSpriteCollection('flights', flights);
+  registerSpriteCollection('directions', directions);
   restoreSpriteOrder(viewer);
-  primitives.items.push(cctv); // CCTV enabled after flights: it starts on top.
+  primitives.items.push(cctv); // CCTV enabled after directions: it starts on top.
   registerSpriteCollection('cctv', cctv);
   primitives.calls.length = 0;
 
   restoreSpriteOrder(viewer);
 
-  assert.deepEqual(primitives.calls, ['cctv', 'flights']);
-  assert.deepEqual(primitives.items.map((item) => item.id), ['cctv', 'flights']);
+  assert.deepEqual(primitives.calls, ['cctv', 'directions']);
+  assert.deepEqual(primitives.items.map((item) => item.id), ['cctv', 'directions']);
 
   unregisterSpriteCollection('cctv', cctv);
-  unregisterSpriteCollection('flights', flights);
+  unregisterSpriteCollection('directions', directions);
 });
 
 test('restoreSpriteOrder is inert for destroyed viewers and primitive collections', () => {
-  const flights = makeCollection('flights');
-  const primitives = makePrimitives([flights]);
-  registerSpriteCollection('flights', flights);
+  const directions = makeCollection('directions');
+  const primitives = makePrimitives([directions]);
+  registerSpriteCollection('directions', directions);
 
   restoreSpriteOrder({ isDestroyed: () => true, scene: { primitives } });
   restoreSpriteOrder({ scene: { primitives: { ...primitives, isDestroyed: () => true } } });
 
   assert.deepEqual(primitives.calls, []);
-  unregisterSpriteCollection('flights', flights);
+  unregisterSpriteCollection('directions', directions);
 });
 
 test('restoreSpriteOrder never raises a registered collection absent from scene primitives', () => {
-  const flights = makeCollection('flights');
+  const directions = makeCollection('directions');
   const primitives = makePrimitives([]);
-  registerSpriteCollection('flights', flights);
+  registerSpriteCollection('directions', directions);
 
   restoreSpriteOrder({ scene: { primitives } });
 
   assert.deepEqual(primitives.calls, []);
   assert.deepEqual(primitives.items, []);
-  unregisterSpriteCollection('flights', flights);
+  unregisterSpriteCollection('directions', directions);
 });
 
-test('the flights enable path is wired through the shared sprite restorer', () => {
+test('a sprite layer enable path is wired through the shared sprite restorer', () => {
   const viewer = { id: 'viewer' };
   const calls = [];
   const restoreSpy = (value) => calls.push(value);
+  restoreSpriteOrderOnEnable('directions', viewer, restoreSpy);
   restoreSpriteOrderOnEnable('flights', viewer, restoreSpy);
   assert.deepEqual(calls, [viewer]);
-
-  assert.match(flightsLayer.enable.toString(), /restoreSpriteOrderOnEnable\('flights', viewer\)/);
 });

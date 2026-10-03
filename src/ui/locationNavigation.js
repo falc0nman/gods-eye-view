@@ -302,13 +302,7 @@ export class LocationNavigation {
    *   the reset keeps the current sub-camera point at full-globe height.
    */
   resetToGlobeView(frame = {}) {
-    const {
-      GLOBE_VIEW,
-      flyToGlobeView,
-      interruptCameraMotion,
-      flightsLayer,
-      militaryFlightsLayer,
-    } = this.services;
+    const { GLOBE_VIEW, flyToGlobeView, interruptCameraMotion } = this.services;
     if (this._disposed)
       return Promise.resolve({
         ok: false,
@@ -320,16 +314,6 @@ export class LocationNavigation {
     interruptCameraMotion('reset-globe');
     this._stopOrbit();
     this.cockpitView?.exit({ restoreTracking: false });
-    try {
-      flightsLayer.stopTracking?.({ origin: 'tool' });
-    } catch {
-      /* best-effort release */
-    }
-    try {
-      militaryFlightsLayer.stopTracking?.({ origin: 'tool' });
-    } catch {
-      /* best-effort release */
-    }
     this.viewer.trackedEntity = undefined;
     this.viewer.camera.cancelFlight();
     this.viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);

@@ -8,13 +8,11 @@ import { DataLayerManager } from '../data/manager.js';
 import { getActiveCameraMotion, interruptCameraMotion, moveCamera } from '../cameraVerbs.js';
 import { reassertNavigationHandoff, runExplicitNavigation } from '../navigationPolicy.js';
 import { normalizeRadioCountryInput } from '../data/radioCountry.js';
-import { TR3B_CLASS } from '../data/tr3bRegistry.js';
 import {
   controlCctv,
   controlRadio as runControlRadio,
   createGevActionRunner as createActionRunner,
   cctvVoiceFocusOutcome,
-  formatTrackedEntityLabel,
   knownRadioLocation,
   normalizeStackId,
 } from './gevActions.js';
@@ -43,56 +41,6 @@ test('every live basemap is reachable by its own id — no enum value without a 
     MAP_STACKS.map((s) => s.id).sort(),
     'the set_map_stack voice enum and MAP_STACKS must name exactly the same basemaps',
   );
-});
-
-test('track_entity narration names aircraft callsign → registration → icao24', () => {
-  const found = { callsign: 'SWA696', registration: 'N123AB', icao24: 'ae1fa4' };
-  assert.equal(formatTrackedEntityLabel(found, 'q'), 'SWA696');
-  // A callsign-less contact must be spoken as its tail number, not the hex —
-  // otherwise the voice says "ae1fa4" at a plane the UI is labelling N123AB.
-  assert.equal(formatTrackedEntityLabel({ ...found, callsign: null }, 'q'), 'N123AB');
-  assert.equal(formatTrackedEntityLabel({ ...found, callsign: '  ', registration: ' ' }, 'q'), 'ae1fa4');
-  // A contact with neither callsign nor registration falls back to its name.
-  assert.equal(formatTrackedEntityLabel({ name: 'LIFEGUARD 1' }, 'q'), 'LIFEGUARD 1');
-  assert.equal(formatTrackedEntityLabel(null, 'the tanker'), 'the tanker');
-});
-
-test('track_entity runner narrates a callsign-less aircraft by its registration', async () => {
-  globalThis.window = globalThis.window || { clearTimeout, setTimeout, requestIdleCallback: null };
-  // Only the layer lookup is stubbed — the runner reaches the real formatter
-  // through its real wiring, so a broken hand-off fails this test.
-  for (const layerId of ['flights', 'military']) {
-    const { viewer, styleManager } = createVoiceNavigationHarness();
-    let trackedId = null;
-    const runner = createGevActionRunner({
-      viewer,
-      styleManager,
-      dataManager: {
-        layers: new Map([[layerId, { module: {
-          findByQuery: () => ({
-            icao24: 'ae1fa4',
-            callsign: null,
-            registration: 'N123AB',
-            latitude: 30.19,
-            longitude: -97.67,
-            altitudeM: 10_668,
-          }),
-          trackById: (id) => { trackedId = id; return true; },
-        } }]]),
-        isEnabled: () => true,
-        getAll: () => [],
-      },
-    });
-
-    const result = await runner('track_entity', { query: 'N123AB', layerId });
-    assert.equal(result.ok, true, `${layerId} must track the match`);
-    assert.equal(
-      result.label,
-      'N123AB',
-      `${layerId} narration must speak the registration, not the ICAO hex`,
-    );
-    assert.equal(trackedId, 'ae1fa4', `${layerId} must still TRACK by icao24`);
-  }
 });
 
 function createVoiceNavigationHarness({ cockpitActive = false } = {}) {
@@ -213,297 +161,6 @@ test('dependent voice navigation waits for the destination viewport to arrive', 
   assert.equal(result.arrived, true);
 });
 
-test('nearest-aircraft voice action serializes layer enable, arrival, refresh, airborne query, and selection', async () => {
-  globalThis.window = globalThis.window || { clearTimeout, setTimeout, requestIdleCallback: null };
-  const { viewer, styleManager } = createVoiceNavigationHarness();
-  const order = [];
-  let completeFlight = null;
-  viewer.camera.flyTo = (options) => {
-    order.push('fly');
-    completeFlight = options.complete;
-  };
-  styleManager.runImmediateLocationNavigation = (navigate) => (
-    styleManager.runImmediateNavigation('location', navigate)
-  );
-  let enabled = false;
-  let trackedId = null;
-  const flights = {
-    source: 'adsb.lol fallback',
-    getStats: () => ({ count: 2, lastUpdate: Date.now() }),
-    getAnalystRecords: (maxCount = 2000) => {
-      assert.ok(maxCount > 2000, 'the nearest search must inspect the complete loaded fleet');
-      return [
-        { id: 'GROUND1', icao24: 'landed-near', callsign: 'GROUND1', lat: 30.2673, lon: -97.7432, onGround: true },
-        { id: 'AIR1', icao24: 'airborne-far', callsign: 'AIR1', lat: 30.30, lon: -97.76, altitudeM: 2400, onGround: false },
-      ];
-    },
-    findByQuery: (query) => (query === 'airborne-far'
-      ? { icao24: 'airborne-far', callsign: 'AIR1', latitude: 30.30, longitude: -97.76, altitudeM: 2400 }
-      : null),
-    trackById: (id) => {
-      order.push(`track:${id}`);
-      trackedId = id;
-      return true;
-    },
-  };
-  const dataManager = {
-    layers: new Map([['flights', { module: flights }]]),
-    isEnabled: () => enabled,
-    async setEnabled() {
-      order.push('enable');
-      enabled = true;
-      return true;
-    },
-    async refreshLayer() {
-      order.push('refresh-austin');
-      return true;
-    },
-    getAll: () => [{ id: 'flights', name: 'Live Flights', enabled }],
-  };
-  const runner = createGevActionRunner({ viewer, styleManager, dataManager });
-  const resultPromise = runner('select_nearest_aircraft', {
-    layerId: 'flights',
-    locationId: 'austin',
-  });
-  await new Promise((resolve) => setImmediate(resolve));
-  assert.deepEqual(order, ['enable', 'fly'], 'Flights must turn on before navigation begins');
-  completeFlight();
-  const result = await resultPromise;
-  assert.equal(result.ok, true);
-  assert.equal(result.label, 'AIR1');
-  assert.equal(result.aircraft.onGround, false);
-  assert.equal(result.feed.state, 'fallback');
-  assert.equal(result.feed.source, 'adsb.lol fallback');
-  assert.equal(trackedId, 'airborne-far', 'the closer landed record must be excluded');
-  assert.deepEqual(order, ['enable', 'fly', 'refresh-austin', 'track:airborne-far']);
-});
-
-test('nearest-aircraft voice action refreshes an already-enabled viewport layer after arrival', async () => {
-  globalThis.window = globalThis.window || { clearTimeout, setTimeout, requestIdleCallback: null };
-  const { viewer, styleManager } = createVoiceNavigationHarness();
-  const order = [];
-  let completeFlight = null;
-  viewer.camera.flyTo = (options) => {
-    order.push('fly');
-    completeFlight = options.complete;
-  };
-  styleManager.runImmediateLocationNavigation = (navigate) => (
-    styleManager.runImmediateNavigation('location', navigate)
-  );
-  const flights = {
-    source: 'OpenSky Network',
-    getStats: () => ({ source: 'OpenSky Network', count: 1, lastUpdate: Date.now() }),
-    getAnalystRecords: () => [
-      { id: 'DUPLICATE', icao24: 'fresh-austin', callsign: 'DUPLICATE', lat: 30.28, lon: -97.74, altitudeM: 1800, onGround: false },
-    ],
-    findByQuery: (query) => (query === 'fresh-austin'
-      ? { icao24: 'fresh-austin', callsign: 'DUPLICATE', latitude: 30.28, longitude: -97.74, altitudeM: 1800 }
-      : null),
-    trackById: (id) => {
-      order.push(`track:${id}`);
-      return id === 'fresh-austin';
-    },
-  };
-  const dataManager = {
-    layers: new Map([['flights', { module: flights }]]),
-    isEnabled: () => true,
-    async setEnabled() {
-      order.push('enable-same-state');
-      return true;
-    },
-    async refreshLayer() {
-      order.push('refresh-austin');
-      return true;
-    },
-    getAll: () => [{ id: 'flights', name: 'Live Flights', enabled: true }],
-  };
-  const runner = createGevActionRunner({ viewer, styleManager, dataManager });
-  const resultPromise = runner('select_nearest_aircraft', {
-    layerId: 'flights',
-    locationId: 'austin',
-  });
-  await new Promise((resolve) => setImmediate(resolve));
-  assert.deepEqual(order, ['enable-same-state', 'fly']);
-  completeFlight();
-  const result = await resultPromise;
-  assert.equal(result.ok, true);
-  assert.equal(result.aircraft.id, 'fresh-austin');
-  assert.deepEqual(order, [
-    'enable-same-state',
-    'fly',
-    'refresh-austin',
-    'track:fresh-austin',
-  ]);
-});
-
-test('fallback with zero airborne records reports enabled fallback without selecting a landed aircraft', async () => {
-  globalThis.window = globalThis.window || { clearTimeout, setTimeout, requestIdleCallback: null };
-  const { viewer, styleManager } = createVoiceNavigationHarness();
-  let completeFlight = null;
-  viewer.camera.flyTo = (options) => { completeFlight = options.complete; };
-  styleManager.runImmediateLocationNavigation = (navigate) => (
-    styleManager.runImmediateNavigation('location', navigate)
-  );
-  let enabled = false;
-  const flights = {
-    source: 'adsb.lol fallback',
-    getStats: () => ({ count: 1, lastUpdate: Date.now() }),
-    getAnalystRecords: () => [
-      { id: 'GROUND2', icao24: 'ground-only', callsign: 'GROUND2', lat: 30.2673, lon: -97.7432, onGround: true },
-    ],
-    trackById: () => {
-      assert.fail('a landed-only fallback result must not be tracked');
-    },
-  };
-  const dataManager = {
-    layers: new Map([['flights', { module: flights }]]),
-    isEnabled: () => enabled,
-    async setEnabled() {
-      enabled = true;
-      return true;
-    },
-    async refreshLayer() {
-      return true;
-    },
-    getAll: () => [{ id: 'flights', name: 'Live Flights', enabled }],
-  };
-  const runner = createGevActionRunner({ viewer, styleManager, dataManager });
-  const resultPromise = runner('select_nearest_aircraft', {
-    layerId: 'flights',
-    locationId: 'austin',
-  });
-  await new Promise((resolve) => setImmediate(resolve));
-  completeFlight();
-  const result = await resultPromise;
-  assert.equal(result.ok, false);
-  assert.equal(result.stage, 'nearest');
-  assert.equal(result.feed.state, 'fallback');
-  assert.equal(result.feed.source, 'adsb.lol fallback');
-  assert.match(result.error, /enabled on the adsb\.lol fallback feed.*no airborne aircraft/i);
-});
-
-test('nearest-aircraft voice action rejects a missing destination without changing the map or layer', async () => {
-  const { viewer, styleManager } = createVoiceNavigationHarness();
-  let enabled = false;
-  const dataManager = {
-    layers: new Map([['flights', { module: {} }]]),
-    isEnabled: () => enabled,
-    async setEnabled() {
-      enabled = true;
-      return true;
-    },
-    getAll: () => [{ id: 'flights', name: 'Live Flights', enabled }],
-  };
-  const runner = createGevActionRunner({ viewer, styleManager, dataManager });
-  const result = await runner('select_nearest_aircraft', { layerId: 'flights' });
-  assert.equal(result.ok, false);
-  assert.equal(result.stage, 'location');
-  assert.equal(enabled, false);
-});
-
-test('successful voice tracking stamps and releases the old owner before layer takeover', async () => {
-  globalThis.window = globalThis.window || { clearTimeout, setTimeout, requestIdleCallback: null };
-  const { order, viewer, styleManager } = createVoiceNavigationHarness();
-  const flights = {
-    findByQuery: () => ({ icao24: 'abc123', callsign: 'ALLOC01' }),
-    trackById(id) {
-      order.push(`track:${id}`);
-      return true;
-    },
-  };
-  const dataManager = {
-    layers: new Map([['flights', { module: flights }]]),
-    isEnabled: (id) => id === 'flights',
-    getAll: () => [],
-  };
-  const runner = createGevActionRunner({ viewer, styleManager, dataManager });
-  const result = await runner('track_entity', { query: 'ALLOC01', layerId: 'flights' });
-  assert.equal(result.ok, true);
-  assert.deepEqual(order, ['stamp:aircraft', 'release', 'cancel', 'track:abc123']);
-});
-
-test('voice Stop Tracking clears all durable tracker IDs even without active trackers', async () => {
-  const cleared = [];
-  const dormant = { getTrackedInfo: () => null, stopTracking() { throw new Error('must not need active tracking'); } };
-  const dataManager = {
-    layers: new Map([
-      ['flights', { module: dormant }],
-      ['military', { module: dormant }],
-    ]),
-    setLayerParams(layerId, params, options) { cleared.push({ layerId, params, options }); return true; },
-    getAll: () => [],
-  };
-  const runner = createGevActionRunner({
-    viewer: {
-      scene: {
-        canvas: { addEventListener() {}, removeEventListener() {} },
-        preRender: { addEventListener() {} },
-      },
-      camera: { moveEnd: { addEventListener() {} } },
-      clock: { onTick: { addEventListener() {} } },
-    },
-    styleManager: {},
-    dataManager,
-  });
-  assert.deepEqual(await runner('stop_tracking'), { ok: true, action: 'stop_tracking', released: [] });
-  assert.deepEqual(cleared, [
-    { layerId: 'flights', params: { selectedFlightsTrackingId: null }, options: { origin: 'voice' } },
-    { layerId: 'military', params: { selectedMilitaryTrackingId: null }, options: { origin: 'voice' } },
-  ]);
-});
-
-test('voice Stop Tracking reports exact layers whose active or durable clear failed', async () => {
-  const active = {
-    getTrackedInfo: () => ({ icao24: 'active' }),
-    stopTracking: () => false,
-  };
-  const dormant = { getTrackedInfo: () => null };
-  const dataManager = {
-    layers: new Map([
-      ['flights', { module: active }],
-      ['military', { module: dormant }],
-    ]),
-    setLayerParams(layerId) { return layerId !== 'military'; },
-    getAll: () => [],
-  };
-  const viewer = {
-    trackedEntity: { gevTrackedId: 'flights:active' },
-    scene: {
-      canvas: { addEventListener() {}, removeEventListener() {} },
-      preRender: { addEventListener() {} },
-    },
-    camera: { moveEnd: { addEventListener() {} } },
-    clock: { onTick: { addEventListener() {} } },
-  };
-  const runner = createGevActionRunner({ viewer, styleManager: {}, dataManager });
-
-  assert.deepEqual(await runner('stop_tracking'), {
-    ok: false,
-    action: 'stop_tracking',
-    released: [],
-    failedLayerIds: ['flights', 'military'],
-    error: 'Tracking could not be cleared for: flights, military',
-  });
-  assert.equal(viewer.trackedEntity, undefined, 'camera ownership still releases after partial failure');
-});
-
-test('successful voice overhead framing stamps and releases the old owner before flight', async () => {
-  globalThis.window = globalThis.window || { clearTimeout, setTimeout, requestIdleCallback: null };
-  const { order, viewer, styleManager } = createVoiceNavigationHarness();
-  const position = viewer.camera.positionWC;
-  viewer.camera.pickEllipsoid = () => position;
-  const flights = { getNearby: () => [{ id: 'abc123', position }] };
-  const dataManager = {
-    layers: new Map([['flights', { module: flights }]]),
-    isEnabled: (id) => id === 'flights',
-    getAll: () => [],
-  };
-  const runner = createGevActionRunner({ viewer, styleManager, dataManager });
-  const result = await runner('frame_overhead', { target: 'flights' });
-  assert.equal(result.ok, true);
-  assert.deepEqual(order, ['stamp:frame', 'release', 'cancel', 'fly:released']);
-});
-
 test('move_camera and fly_route validate first, then use the shared camera authority seam', async () => {
   globalThis.window = globalThis.window || { clearTimeout, setTimeout, requestIdleCallback: null };
   const { order, viewer, styleManager } = createVoiceNavigationHarness();
@@ -561,7 +218,6 @@ test('invalid named voice navigation never releases the current camera owner', a
   });
   assert.equal((await runner('move_camera', { motion: 'warp' })).ok, false);
   assert.equal((await runner('fly_route')).ok, false);
-  assert.equal((await runner('frame_overhead', { target: 'flights' })).ok, false);
   assert.deepEqual(order, []);
   assert.equal(viewer.trackedEntity?.id, 'prior-aircraft');
 
@@ -597,8 +253,6 @@ test('Cockpit refuses every named voice camera route before camera or selection 
     ['move_camera', { motion: 'pan', direction: 'right' }],
     ['move_camera', { motion: 'stop' }],
     ['fly_route', { label: 'harbor' }],
-    ['frame_overhead', { target: 'flights' }],
-    ['track_entity', { query: 'ALLOC01', layerId: 'flights' }],
   ];
   for (const [name, args] of cases) {
     const { order, viewer, styleManager } = createVoiceNavigationHarness({ cockpitActive: true });
@@ -643,16 +297,10 @@ test('a newer voice action makes an older deferred navigation authority inert', 
   const runner = createGevActionRunner({
     viewer,
     styleManager,
-    dataManager: {
-      layers: new Map([['flights', { module: {
-        findByQuery: () => ({ icao24: 'abc123', callsign: 'ALLOC01' }),
-        trackById: () => true,
-      } }]]),
-      isEnabled: () => true,
-      getAll: () => [],
-    },
+    dataManager: { layers: new Map(), isEnabled: () => false, getAll: () => [] },
   });
-  assert.equal((await runner('track_entity', { query: 'ALLOC01', layerId: 'flights' })).ok, true);
+  assert.equal((await runner('move_camera', { motion: 'pan', direction: 'right' })).ok, true);
+  interruptCameraMotion('test-cleanup');
   let staleReleased = false;
   assert.equal(reassertNavigationHandoff({
     generation: oldGeneration,
@@ -937,18 +585,18 @@ test('generic layer visibility exposes lifecycle truth for every manager phase a
   assert.equal(rejected.lifecycleState, 'enabled');
   assert.equal(rejected.lifecycleUncertain, true);
 
-  const flightsManager = {
-    layers: new Map([['flights', { module: {} }]]),
+  const trafficManager = {
+    layers: new Map([['traffic', { module: {} }]]),
     isEnabled: () => true,
     getLayerLifecycleState: () => ({ enabled: true, lifecycleState: 'enabled', uncertain: false }),
-    getAll: () => [{ id: 'flights', name: 'Flights' }],
+    getAll: () => [{ id: 'traffic', name: 'Traffic' }],
     setEnabled: async () => true,
   };
-  const flightsRunner = createGevActionRunner({ viewer, styleManager: {}, dataManager: flightsManager });
-  const flights = await flightsRunner('set_layer_visibility', { layerId: 'flights', enabled: true });
-  assert.equal(flights.ok, true);
-  assert.equal(flights.lifecycleState, 'enabled');
-  assert.equal(flights.lifecycleUncertain, false);
+  const trafficRunner = createGevActionRunner({ viewer, styleManager: {}, dataManager: trafficManager });
+  const traffic = await trafficRunner('set_layer_visibility', { layerId: 'traffic', enabled: true });
+  assert.equal(traffic.ok, true);
+  assert.equal(traffic.lifecycleState, 'enabled');
+  assert.equal(traffic.lifecycleUncertain, false);
 
   const missingRadioManager = {
     layers: new Map(),
@@ -2085,68 +1733,4 @@ test('voice Radio: the keyless path applies no country filter the keyed path wou
 const testPlaceSearch = () => createStandalonePlaceSearch({ resolveApiKey: () => globalThis.window?.__GOOGLE_MAPS_API_KEY__ });
 function createGevActionRunner(options) { return createActionRunner({ placeSearch: testPlaceSearch(), ...options }); }
 function controlRadio(viewer, manager, args, options) { return runControlRadio(viewer, manager, args, { placeSearch: testPlaceSearch(), ...options }); }
-
-test('analyst_query and get_current_view_state carry stale feed provenance', async () => {
-  globalThis.window = globalThis.window || { clearTimeout, setTimeout, requestIdleCallback: null };
-  const now = Date.now();
-  const flights = {
-    id: 'flights',
-    source: 'OpenSky Network',
-    getStats: () => ({
-      source: 'OpenSky Network',
-      stale: true,
-      count: 12,
-      lastUpdate: now - 240_000,
-    }),
-    getAnalystRecords: () => ([
-      { id: 'SWA1', icao24: 'aaa001', lat: 30.27, lon: -97.74, altitudeM: 11000, onGround: false },
-    ]),
-  };
-  const viewer = {
-    clock: { onTick: { addEventListener: () => () => {} } },
-    scene: { canvas: { addEventListener() {}, removeEventListener() {} } },
-    camera: {
-      moveEnd: { addEventListener() {} },
-      positionWC: Cesium.Cartesian3.fromDegrees(-97.7, 30.2, 1000),
-      positionCartographic: { height: 300_000, latitude: 0.52, longitude: -1.71 },
-    },
-  };
-  const dataManager = {
-    layers: new Map([['flights', { module: flights }]]),
-    isEnabled: (id) => id === 'flights',
-    getAll: () => [{
-      id: 'flights',
-      name: 'Live Flights',
-      enabled: true,
-      source: 'OpenSky Network',
-      stats: flights.getStats(),
-    }],
-  };
-  const runner = createGevActionRunner({
-    viewer,
-    styleManager: {
-      activeStyle: 'normal',
-      getContextModeState: () => ({ mode: null, active: false }),
-      getCockpitState: () => ({ active: false }),
-      getControlState: () => null,
-    },
-    dataManager,
-  });
-  const view = await runner('get_current_view_state');
-  assert.equal(view.layers[0].feedState, 'stale');
-  assert.equal(view.feedProvenance.overall, 'stale');
-  assert.match(view.feedProvenance.note, /STALE/);
-
-  const query = await runner('analyst_query', {
-    layers: ['flights'],
-    scope: { kind: 'view' },
-    limit: 5,
-  });
-  assert.equal(query.ok, true);
-  assert.equal(query.feedState, 'stale');
-  assert.equal(query.feedProvenance.overall, 'stale');
-  assert.equal(query.coverage.layersQueried[0].feedState, 'stale');
-  assert.match(query.feedProvenance.note, /do not describe this as live/i);
-});
-
 

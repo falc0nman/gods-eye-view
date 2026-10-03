@@ -206,7 +206,7 @@ function fail(detail) { return { status: FAIL, detail }; }
 
 // ── finding 4: attribution coverage fails closed ──────────────────────────
 test('every layer the matrix can enable has an attribution expectation', () => {
-  for (const id of ['flights', 'cctv', 'traffic']) {
+  for (const id of ['cctv', 'traffic']) {
     const expectation = requiredCreditFor(id);
     assert.ok(expectation?.regex, `${id} needs a credit expectation`);
   }

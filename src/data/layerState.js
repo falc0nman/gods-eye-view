@@ -14,15 +14,6 @@ const NEW_SINGLE_CHARACTER_TOKEN_PATTERN = /^[0-9]$/;
 /** Re-check cadence while a shared subject waits for its feed row to arrive. */
 const PENDING_TRACKING_POLL_MS = 1_000;
 /**
- * A tracking ID is a transponder address, not free text: 6 hex digits for an
- * ICAO24, with slack for TIS-B (`~abc123`) and similar prefixed forms. Bounding
- * it at the codec keeps an arbitrarily long string out of durable state, the
- * generated URL, and local storage. Identity is never TRUNCATED to fit — an
- * out-of-grammar ID is rejected outright, because half an address is a
- * DIFFERENT aircraft, not a shorter name for the same one.
- */
-const TRACKING_ID_GRAMMAR = /^[0-9a-z~_-]{1,16}$/;
-/**
  * Ceilings for the untrusted v2 layer fields. The layer ceiling covers the
  * complete reserved one-character space plus every two-character base-36
  * allocation, while the option ceiling covers a dozen short assignments.
@@ -130,29 +121,6 @@ function absentTokenValue(spec) {
   return Object.hasOwn(spec, 'absentValue')
     ? spec.absentValue
     : spec.defaultValue;
-}
-
-function trackingIdOption(key, token, defaultValue = null) {
-  const bounded = (candidate) => {
-    if (candidate === null || candidate === undefined) return null;
-    const raw =
-      typeof candidate === 'number' && Number.isFinite(candidate)
-        ? String(candidate)
-        : typeof candidate === 'string'
-          ? candidate
-          : null;
-    if (raw === null) return null;
-    const normalized = raw.trim().toLowerCase();
-    return TRACKING_ID_GRAMMAR.test(normalized) ? normalized : null;
-  };
-  return Object.freeze({
-    key,
-    token,
-    defaultValue,
-    normalize: bounded,
-    encode: (value) => String(value),
-    decode: bounded,
-  });
 }
 
 function stringOption(key, token, defaultValue) {
@@ -329,34 +297,6 @@ const OPTION_GROUPS = Object.freeze({
     }),
     booleanOption('paused', 'p', false),
   ]),
-  flights: Object.freeze([
-    // Owner directive 2026-08-22: the fleet's 3D models are DEFAULT-ON in
-    // PROXIMITY mode. Proximity is itself the altitude/count gate — models only
-    // materialize once the camera is close enough and only for the nearest
-    // contacts in view — so "on" costs nothing at globe scale, and an operator
-    // who wants every in-view plane still opts into `all` deliberately.
-    // This default must stay in lockstep with `_models3dEnabled` in BOTH flight
-    // layers, `this._models3dEnabled` in ui.js, and the `active` / `visible`
-    // classes in index.html: the fresh-boot path skips restoration entirely (see
-    // `start()` below), so nothing ever pushes this value into the layers — those
-    // four initializers ARE the agreement, and they are pinned together in
-    // layerState.test.mjs.
-    //
-    // `absentValue: false` is what keeps the flip out of links already in the
-    // wild. Schema v2 shipped with OFF as the omitted default, so `v=2&l=f`
-    // MEANS off — and it has to keep meaning that. Moving the default without
-    // this would have silently turned 3D on for every existing v2 link, and
-    // `v=2&l=f&lo=f.m.a` (an OFF link that remembered mode All) would have come
-    // back as ON+All. The price is that ON is now written explicitly (`f.e.1`)
-    // instead of ridden in on the omission; see `absentTokenValue`.
-    booleanOption('models3d', 'e', true, { absentValue: false }),
-    enumOption('models3dMode', 'm', 'proximity', ['proximity', 'all'], {
-      proximity: 'p',
-      all: 'a',
-    }),
-    trackingIdOption('selectedFlightsTrackingId', 't', null),
-    trackingIdOption('selectedMilitaryTrackingId', 'u', null),
-  ]),
   cctv: Object.freeze([
     enumOption('coverageMode', 'c', 'on', ['off', 'on', 'viewshed'], {
       off: '0',
@@ -404,25 +344,11 @@ const OPTION_GROUPS = Object.freeze({
   ]),
 });
 
-const TRACKING_OPTION_KEY_BY_LAYER = Object.freeze({
-  flights: 'selectedFlightsTrackingId',
-  military: 'selectedMilitaryTrackingId',
-});
+// No layer owns a tracking selection since GW-57 removed the flight layers.
+// The share tracking-restore machinery below is inert until it is removed.
+const TRACKING_OPTION_KEY_BY_LAYER = Object.freeze({});
 
-export const SHARE_TRACKING_RESTORE_POLICIES = Object.freeze({
-  flights: Object.freeze({
-    optionOwner: 'flights',
-    optionKey: 'selectedFlightsTrackingId',
-    expiryWindowMs: 90_000,
-    label: 'flight',
-  }),
-  military: Object.freeze({
-    optionOwner: 'flights',
-    optionKey: 'selectedMilitaryTrackingId',
-    expiryWindowMs: 45_000,
-    label: 'military flight',
-  }),
-});
+export const SHARE_TRACKING_RESTORE_POLICIES = Object.freeze({});
 
 /**
  * The original single-character assignments are a closed compatibility set.
@@ -524,18 +450,6 @@ export const LAYER_STATE_REGISTRY = Object.freeze([
     optionOwner: 'cctv',
   }),
   Object.freeze({ id: 'directions', token: 'n', disposition: 'enabled-only' }),
-  Object.freeze({
-    id: 'flights',
-    token: 'f',
-    disposition: 'enabled+options',
-    optionOwner: 'flights',
-  }),
-  Object.freeze({
-    id: 'military',
-    token: 'm',
-    disposition: 'enabled+mirrored-options',
-    optionOwner: 'flights',
-  }),
   Object.freeze({ id: 'nexrad', token: '0', disposition: 'enabled-only' }),
   Object.freeze({
     id: 'nws-warnings',
@@ -803,23 +717,6 @@ export function normalizeLayerState(candidate) {
       normalizeOwnerOptions(ownerId, input.options?.[ownerId]),
     ]),
   );
-  // A selected entity cannot outlive an explicitly disabled owner layer.
-  // Keeping these IDs would resurrect tracking when that layer is enabled
-  // later, even though OFF was newer explicit intent.
-  if (!enabled.has('flights')) options.flights.selectedFlightsTrackingId = null;
-  if (!enabled.has('military'))
-    options.flights.selectedMilitaryTrackingId = null;
-  // The codec has no cross-family recency field, so multiple tracking IDs are
-  // ambiguous rather than an ordered handoff. Fail closed instead of letting
-  // asynchronous feed arrival decide which tracker and camera owner wins.
-  const trackingSelectionCount = [
-    options.flights.selectedFlightsTrackingId,
-    options.flights.selectedMilitaryTrackingId,
-  ].filter((value) => value !== null).length;
-  if (trackingSelectionCount > 1) {
-    options.flights.selectedFlightsTrackingId = null;
-    options.flights.selectedMilitaryTrackingId = null;
-  }
   return {
     version: LAYER_STATE_VERSION,
     enabledLayerIds,

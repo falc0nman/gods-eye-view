@@ -93,33 +93,6 @@ export function hideOsmCredit(viewer, owner) {
 export const DATA_CREDITS = [
   // ── Live sources ────────────────────────────────────────────────
   {
-    key: 'opensky',
-    html:
-      'Flights: OpenSky Network — Schäfer et al., ' +
-      '“Bringing Up OpenSky”, IPSN 2014 · ' +
-      '<a href="https://opensky-network.org" target="_blank" rel="noopener">opensky-network.org</a> ' +
-      '(non-commercial)',
-  },
-  {
-    key: 'adsblol',
-    html:
-      'Military flights, aircraft traces &amp; bounded regional flight fallback: ' +
-      '<a href="https://adsb.lol" target="_blank" rel="noopener">adsb.lol</a> ' +
-      '(ODbL 1.0)',
-  },
-  {
-    key: 'adsbdb',
-    html:
-      'Aircraft type, registration &amp; flight routes: ' +
-      '<a href="https://www.adsbdb.com" target="_blank" rel="noopener">adsbdb</a> ' +
-      '· aircraft data from PlaneBase · ICAO-to-N-number conversion by ' +
-      'Guillaume Michel · route data is the work of ' +
-      'David Taylor, Edinburgh, and Jim Mason, Glasgow, and may not be ' +
-      'copied, published, or incorporated into other databases without the ' +
-      'explicit permission of David J Taylor, Edinburgh',
-  },
-
-  {
     key: 'nws-alerts',
     html: 'Storm warnings: National Weather Service (api.weather.gov), U.S. public domain',
   },

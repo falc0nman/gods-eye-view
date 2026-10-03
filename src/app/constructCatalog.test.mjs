@@ -6,40 +6,24 @@ import { createStandaloneLayerSources } from '../standalone/layerSources.js';
 import { catalogControlServices } from './catalog.js';
 import { LayerLifecycle } from '../data/lifecycle.js';
 
-function fixtureSources(ids, calls) {
-  const sources = createStandaloneLayerSources();
-  sources.military = {
-    getSnapshot: async () => {
-      throw new Error('Use identity acquisition');
-    },
-    async getIdentities(_query, { signal }) {
-      calls.push(signal);
-      return ids;
-    },
-  };
-  return sources;
-}
-
-test('catalogs construct distinct layers and classification from their supplied source', async (t) => {
+test('catalogs construct distinct layers from their supplied source', async (t) => {
   const a = new AbortController();
   const b = new AbortController();
   t.after(() => {
     a.abort();
     b.abort();
   });
-  const callsA = [];
-  const callsB = [];
   const first = createApplicationCatalog({
-    sources: fixtureSources(['abc123'], callsA),
+    sources: createStandaloneLayerSources(),
     signal: a.signal,
     surface: fixtureSurface(a.signal),
   });
   const second = createApplicationCatalog({
-    sources: fixtureSources(['def456'], callsB),
+    sources: createStandaloneLayerSources(),
     signal: b.signal,
     surface: fixtureSurface(b.signal),
   });
-  assert.equal(first.layers.length, 15);
+  assert.equal(first.layers.length, 13);
   for (const id of ['nexrad', 'nws-warnings', 'team-chasers'])
     assert.ok(first.get(id), `${id} (storm chase) is registered`);
   assert.equal(first.get('local-adsb'), undefined, 'GW-57 removed Local ADS-B');
@@ -74,11 +58,14 @@ test('catalogs construct distinct layers and classification from their supplied 
   assert.equal(first.get('local-datacenters'), undefined);
   assert.equal(first.get('local-dams'), undefined);
   assert.equal(first.get('rocket-launches'), undefined);
+  // GW-57: civilian and military flights are removed.
+  assert.equal(first.get('flights'), undefined);
+  assert.equal(first.get('military'), undefined);
   const lifecycle = new LayerLifecycle({});
   for (const layer of first.layers) lifecycle.register(layer);
   const rows = lifecycle.getAll();
   assert.equal(
-    rows.find((row) => row.id === 'flights')?.showInTogglePanel,
+    rows.find((row) => row.id === 'traffic')?.showInTogglePanel,
     true,
     'ordinary data layer entries remain visible',
   );
@@ -89,27 +76,17 @@ test('catalogs construct distinct layers and classification from their supplied 
   for (const layer of first.layers)
     assert.notEqual(layer, second.get(layer.id));
   assert.equal(
-    catalogControlServices(first).flightsLayer,
-    first.get('flights'),
+    catalogControlServices(first).trafficLayer,
+    first.get('traffic'),
   );
-  assert.equal(callsA.length, 0, 'construction must not acquire');
-  await first.militaryRegistry.refreshMilitaryRegistryIfStale();
-  await second.militaryRegistry.refreshMilitaryRegistryIfStale();
-  assert.equal(first.militaryRegistry.isMilitaryIcao('abc123'), true);
-  assert.equal(first.militaryRegistry.isMilitaryIcao('def456'), false);
-  assert.equal(second.militaryRegistry.isMilitaryIcao('def456'), true);
   a.abort();
   assert.equal(
     await first.weatherClock.setTarget('2026-09-21T13:00:00.000Z'),
     false,
   );
-  assert.equal(callsA[0].aborted, true);
-  assert.equal(first.militaryRegistry.isMilitaryIcao('abc123'), false);
-  assert.equal(callsB[0].aborted, false);
-  assert.equal(second.militaryRegistry.isMilitaryIcao('def456'), true);
 });
 
-test('invalid or already cancelled construction fails before classification can acquire', () => {
+test('invalid or already cancelled construction fails', () => {
   const lifetime = new AbortController();
   assert.throws(
     () =>

@@ -33,29 +33,6 @@ export const ACTION_DESCRIPTIONS = {
       },
     },
   },
-  select_nearest_aircraft: {
-    description:
-      'Atomically fly to a place, wait for arrival, enable and load Flights or Military Flights in that viewport, exclude on-ground records, and select/follow the nearest airborne aircraft. Healthy fallback feeds remain usable and are reported in the result.',
-    $position: 1,
-    parameters: {
-      properties: {
-        layerId: {
-          description:
-            'Aircraft layer to enable and search. Use flights unless the user explicitly asks for military aircraft.',
-          $position: 2,
-        },
-        locationId: {
-          description:
-            'Known city preset ID when the place matches one of these cities.',
-          $position: 2,
-        },
-        locationQuery: {
-          description: 'Free-form destination when no locationId matches.',
-          $position: 2,
-        },
-      },
-    },
-  },
   adjust_camera_zoom: {
     description:
       'Move the current Cesium camera closer to or farther from what it is presently looking at. Use for relative zoom requests without changing location.',
@@ -300,40 +277,6 @@ export const ACTION_DESCRIPTIONS = {
       },
     },
   },
-  track_entity: {
-    description:
-      'Find and follow a specific aircraft (callsign/ICAO hex) on enabled layers. Camera follows the entity.',
-    $position: 1,
-    parameters: {
-      properties: {
-        query: {
-          description: 'Callsign or ICAO hex.',
-          $position: 1,
-        },
-        layerId: {
-          description: 'Optional layer hint: flights | military.',
-          $position: 1,
-        },
-      },
-    },
-  },
-  stop_tracking: {
-    description: 'Stop following the tracked aircraft.',
-    $position: 1,
-  },
-  frame_overhead: {
-    description:
-      'Cinematically frame entities near the current view: pulls the camera back and angles it so nearby aircraft are visible together.',
-    $position: 1,
-    parameters: {
-      properties: {
-        radiusKm: {
-          description: 'Search radius around the view target. Default 150.',
-          $position: 1,
-        },
-      },
-    },
-  },
   annotate_map: {
     description:
       'Draw annotations on the 3D map to visually point out what you are talking about — like sketching on a whiteboard over the world. Use this whenever you mention a specific place, building, campus, boundary, district, or a relationship between two places, so the user can SEE what you mean. Give place NAMES (preferred) or explicit lat/lng; the app resolves them to real-world positions and real building/area outlines — never guess pixel positions. Call this as you begin describing something, and you may mark several places in one call.',
@@ -476,49 +419,6 @@ export const ACTION_DESCRIPTIONS = {
       properties: {
         label: {
           description: 'Match an existing route mark by (partial) label.',
-          $position: 1,
-        },
-      },
-    },
-  },
-  analyst_query: {
-    description:
-      'Answer questions ABOUT the data currently loaded on the map — counts, lists, superlatives, and attribute filters over live layers (flights, military). Examples: "how many flights over Texas", "which flights are headed to Oakland", "anything above 40,000 feet", "fastest thing in view". Queries ONLY client-side data from ENABLED layers — if the needed layer is off, say so and offer to enable it. For a follow-up about the previous answer\'s set ("which of those is closest?"), set followUp=true and send only the new filters/sort.',
-    $position: 1,
-    parameters: {
-      properties: {
-        layers: {
-          description: 'Layers to query.',
-          $position: 2,
-        },
-        scope: {
-          description:
-            'Spatial scope. Default: view (near the camera). Use kind=region for "over Texas"-style asks; kind=anywhere for global questions.',
-          $position: 2,
-          properties: {
-            name: {
-              description:
-                'For kind=region: a state/country ("Texas", "France") or a named natural region ("the Alps", "Gulf of Mexico").',
-              $position: 1,
-            },
-            km: {
-              description: 'For kind=radius.',
-              $position: 1,
-            },
-          },
-        },
-        filters: {
-          description:
-            'Attribute predicates, ANDed. ALTITUDE IS METERS (40,000 ft = 12192). Fields: altitudeM, speedMps, military, onGround, aircraftClass, callsign, operator, routeOrigin, routeDestination, originCountry (flights).',
-          $position: 1,
-        },
-        sortBy: {
-          description: 'Field to rank by, or "distance" for nearest-first.',
-          $position: 1,
-        },
-        followUp: {
-          description:
-            'true = re-query the PREVIOUS result set instead of fresh data.',
           $position: 1,
         },
       },

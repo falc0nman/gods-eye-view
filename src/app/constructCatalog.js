@@ -7,9 +7,6 @@ import { createApplicationNwsWarnings } from './layers/nwsWarnings.js';
 import { createApplicationTeamChasers } from './layers/teamChasers.js';
 import { createLayerCatalog } from './catalog.js';
 import { LAYER_STATE_REGISTRY } from '../data/layerState.js';
-import { createMilitaryRegistry } from '../layers/aircraft/classification.js';
-import { createApplicationFlights } from './layers/flights.js';
-import { createApplicationMilitary } from './layers/militaryFlights.js';
 import { createApplicationCctv } from './layers/cctv.js';
 import { createApplicationRadio } from './layers/radio.js';
 import { createApplicationTraffic } from './layers/traffic.js';
@@ -17,8 +14,6 @@ import { createApplicationDirections } from './layers/directions.js';
 import { createApplicationRecentImagery } from './layers/recentImagery.js';
 
 const SOURCE_METHODS = Object.freeze({
-  flights: ['getSnapshot'],
-  military: ['getSnapshot'],
   cctv: ['getCatalog', 'getHealth', 'getFrameUrl', 'getMediaUrl'],
   radio: ['getDirectory', 'recordClick'],
   traffic: [
@@ -42,15 +37,14 @@ export const APPLICATION_LAYER_METADATA = Object.freeze([
 ]);
 
 /** Construct the current catalog without choosing any source provider.
- * Scene engines remain page-owned; layers and classification have this app's lifetime.
- * The manager owns layer destruction, while abort releases classification even if startup fails.
+ * Scene engines remain page-owned; layers and the weather clock have this app's lifetime.
+ * The manager owns layer destruction, while abort releases the clock even if startup fails.
  */
 export function createApplicationCatalog({
   surface,
   sources,
   signal,
   metadata = APPLICATION_LAYER_METADATA,
-  resolveAsset,
 }) {
   if (!signal?.addEventListener)
     throw new TypeError('An application lifetime signal is required');
@@ -64,32 +58,15 @@ export function createApplicationCatalog({
     )
       throw new TypeError(`Invalid catalog source: ${name}`);
   }
-  const militaryRegistry = createMilitaryRegistry();
   const weatherClock = createWeatherClock();
   const dispose = () => {
     signal.removeEventListener('abort', dispose);
-    militaryRegistry.dispose();
     weatherClock.destroy();
   };
   signal.addEventListener('abort', dispose, { once: true });
   try {
-    militaryRegistry.configureSource(sources.military, { signal });
-    const flights = createApplicationFlights({
-      surface,
-      source: sources.flights,
-      militaryRegistry,
-      resolveAsset,
-    });
-    const military = createApplicationMilitary({
-      surface,
-      source: sources.military,
-      militaryRegistry,
-      resolveAsset,
-    });
     const catalog = createLayerCatalog(
       [
-        flights,
-        military,
         createApplicationTraffic({ source: sources.traffic, surface }),
         createApplicationCctv({ surface, source: sources.cctv }),
         createApplicationRadio({ surface, source: sources.radio }),
@@ -120,7 +97,6 @@ export function createApplicationCatalog({
     );
     return Object.freeze({
       ...catalog,
-      militaryRegistry,
       surface,
       weatherClock,
     });

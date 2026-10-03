@@ -50,47 +50,6 @@ const schemas = [
     },
   },
   {
-    name: 'select_nearest_aircraft',
-    parameters: {
-      type: 'object',
-      additionalProperties: false,
-      properties: {
-        layerId: {
-          type: 'string',
-          enum: ['flights', 'military'],
-        },
-        locationId: {
-          type: 'string',
-          enum: [
-            'austin',
-            'sf',
-            'nyc',
-            'tokyo',
-            'london',
-            'paris',
-            'dubai',
-            'dc',
-          ],
-        },
-        locationQuery: {
-          type: 'string',
-          maxLength: 160,
-        },
-        latitude: {
-          type: 'number',
-          minimum: -90,
-          maximum: 90,
-        },
-        longitude: {
-          type: 'number',
-          minimum: -180,
-          maximum: 180,
-        },
-      },
-      required: ['layerId'],
-    },
-  },
-  {
     name: 'adjust_camera_zoom',
     parameters: {
       type: 'object',
@@ -125,8 +84,6 @@ const schemas = [
         layerId: {
           type: 'string',
           enum: [
-            'flights',
-            'military',
             'traffic',
             'cctv',
             'radio',
@@ -152,8 +109,6 @@ const schemas = [
         layerId: {
           type: 'string',
           enum: [
-            'flights',
-            'military',
             'traffic',
             'cctv',
             'radio',
@@ -478,47 +433,6 @@ const schemas = [
     },
   },
   {
-    name: 'track_entity',
-    parameters: {
-      type: 'object',
-      additionalProperties: false,
-      properties: {
-        query: {
-          type: 'string',
-        },
-        layerId: {
-          type: 'string',
-        },
-      },
-      required: ['query'],
-    },
-  },
-  {
-    name: 'stop_tracking',
-    parameters: {
-      type: 'object',
-      additionalProperties: false,
-      properties: {},
-    },
-  },
-  {
-    name: 'frame_overhead',
-    parameters: {
-      type: 'object',
-      additionalProperties: false,
-      properties: {
-        target: {
-          type: 'string',
-          enum: ['flights', 'military'],
-        },
-        radiusKm: {
-          type: 'number',
-        },
-      },
-      required: ['target'],
-    },
-  },
-  {
     name: 'annotate_map',
     parameters: {
       type: 'object',
@@ -708,81 +622,6 @@ const schemas = [
         speed: {
           type: 'string',
           enum: ['slow', 'normal', 'fast'],
-        },
-      },
-    },
-  },
-  {
-    name: 'analyst_query',
-    parameters: {
-      type: 'object',
-      additionalProperties: false,
-      properties: {
-        layers: {
-          type: 'array',
-          items: {
-            type: 'string',
-            enum: ['flights', 'military'],
-          },
-        },
-        scope: {
-          type: 'object',
-          additionalProperties: false,
-          properties: {
-            kind: {
-              type: 'string',
-              enum: ['view', 'region', 'radius', 'anywhere'],
-            },
-            name: {
-              type: 'string',
-            },
-            km: {
-              type: 'number',
-            },
-            center: {
-              type: 'object',
-              additionalProperties: false,
-              properties: {
-                lat: {
-                  type: 'number',
-                },
-                lon: {
-                  type: 'number',
-                },
-              },
-            },
-          },
-        },
-        filters: {
-          type: 'array',
-          items: {
-            type: 'object',
-            additionalProperties: false,
-            properties: {
-              field: {
-                type: 'string',
-              },
-              op: {
-                type: 'string',
-                enum: ['gt', 'gte', 'lt', 'lte', 'eq', 'neq', 'contains'],
-              },
-              value: {},
-            },
-            required: ['field', 'op', 'value'],
-          },
-        },
-        sortBy: {
-          type: 'string',
-        },
-        sortDir: {
-          type: 'string',
-          enum: ['asc', 'desc'],
-        },
-        limit: {
-          type: 'number',
-        },
-        followUp: {
-          type: 'boolean',
         },
       },
     },

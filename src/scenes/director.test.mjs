@@ -473,31 +473,6 @@ test('the director reconciles only the layers a shot declares', async () => {
   }
 });
 
-test('a shot captured while tracking never re-establishes tracking on playback', async () => {
-  // Two writers on the camera is the documented jitter failure mode: the scene
-  // claims the camera, then a captured tracking id hands it straight back to
-  // the follow loop. Playback drops those keys on the way to the layer.
-  const { director, dataManager, restore } = makeDirector();
-  try {
-    await director._applyLayerStates({
-      flights: { enabled: true, params: { models3d: true, selectedFlightsTrackingId: 'a835af' } },
-      military: { enabled: true, params: { selectedMilitaryTrackingId: 'ae1460' } },
-    });
-
-    const pushed = Object.fromEntries(dataManager.setParamsCalls.map((call) => [call.id, call.params]));
-    assert.deepEqual(pushed.flights, { models3d: true });
-    // Nothing survived military's params, so nothing is pushed at all.
-    assert.equal(Object.hasOwn(pushed, 'military'), false);
-    for (const call of dataManager.setParamsCalls) {
-      for (const key of SCENE_TRACKING_PARAM_KEYS) {
-        assert.equal(Object.hasOwn(call.params, key), false, `${call.id} leaked ${key}`);
-      }
-    }
-  } finally {
-    restore();
-  }
-});
-
 test('a refused layer is reported, never counted as applied', async () => {
   const { director, dataManager, restore } = makeDirector({
     data: { refuse: (id) => id === 'flights' },

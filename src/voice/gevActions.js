@@ -23,7 +23,6 @@ import {
   isContextRecordActive,
 } from '../data/contextStore.js';
 import { CCTV_FOCUS_RESULT } from '../layers/cctv/index.js';
-import { createAnalystEngine } from '../data/analystEngine.js';
 import { layerFeedState } from '../data/feedState.js';
 import {
   initCameraVerbs,
@@ -35,9 +34,7 @@ import {
 import * as defaultFloorServices from '../data/groundFloor.js';
 import { isPickedWorldPosition } from '../data/scenePick.js';
 import { unavailablePlaceSearch } from '../search/placeSearch.js';
-import * as defaultAnnotationResolver from '../annotations/annotationResolver.js';
 import { normalizeRadioCountryInput } from '../data/radioCountry.js';
-import { TR3B_CLASS } from '../data/tr3bRegistry.js';
 
 const ALLOWED_STYLES = new Set([
   'normal',
@@ -91,11 +88,6 @@ const PANEL_IDS = new Set([
   'pp-toggles',
 ]);
 const LAYER_ALIASES = new Map([
-  ['flights', 'flights'],
-  ['planes', 'flights'],
-  ['aircraft', 'flights'],
-  ['military', 'military'],
-  ['military flights', 'military'],
   ['weather-radar', 'weather-radar'],
   ['radar', 'weather-radar'],
   ['weather radar', 'weather-radar'],
@@ -163,21 +155,6 @@ const STACK_ALIASES = new Map([
   ['road map', 'osm'],
 ]);
 
-/** Search order for track_entity across entity layer families. */
-const TRACKABLE_FAMILIES = [
-  { layerId: 'flights', kind: 'aircraft' },
-  { layerId: 'military', kind: 'aircraft' },
-];
-
-const FRAME_TARGETS = new Map([
-  ['flights', 'flights'],
-  ['planes', 'flights'],
-  ['aircraft', 'flights'],
-  ['military', 'military'],
-  ['military flights', 'military'],
-]);
-
-const serviceCaches = new WeakMap();
 function cachesFor(service) {
   service.signal?.throwIfAborted();
   let caches = serviceCaches.get(service);
@@ -212,14 +189,8 @@ export function createGevActionRunner({
   annotations = null,
   placeSearch = unavailablePlaceSearch,
   floorServices = defaultFloorServices,
-  annotationResolver = defaultAnnotationResolver,
   searchNavigation = searchAndFlyTo,
 }) {
-  // Voice enable times and analyst follow-up memory belong to this runner.
-  const _layerEnabledAt = new Map();
-  let analystEngine;
-  const resolveRegionRing = (name) =>
-    annotationResolver.resolveRegionRingForQuery(name, undefined, placeSearch);
   installViewTargetPrewarm(viewer);
   initCameraVerbs(viewer, getViewTargetCartesian);
   return async function runGevAction(name, rawArgs = {}, runOptions = {}) {
@@ -233,11 +204,10 @@ export function createGevActionRunner({
     if (name === 'zoom_to_globe') {
       interruptCameraMotion(`nav:${name}`);
     }
-    // Explicit navigation while TRACKING supersedes the follow camera —
-    // otherwise the tracker drags the view back and "I flew there but can't
-    // do anything" (field finding). track_entity manages its own handoff.
+    // Explicit navigation supersedes any follow camera; otherwise it drags the
+    // view back (field finding).
     if (name === 'zoom_to_globe' && viewer.trackedEntity) {
-      stopAllTracking(viewer, dataManager);
+      viewer.trackedEntity = undefined;
     }
 
     // Zoom during an active orbit adjusts the orbit RADIUS (spiral in/out) —
@@ -365,7 +335,6 @@ export function createGevActionRunner({
           ...lifecycleSummary,
         };
       }
-      if (enabled) _layerEnabledAt.set(layerId, Date.now());
       const layer = dataManager.getAll().find((item) => item.id === layerId);
       return {
         ok: true,
@@ -373,190 +342,6 @@ export function createGevActionRunner({
         layerId,
         label: layer?.name || layerId,
         ...lifecycleSummary,
-      };
-    }
-
-    if (name === 'select_nearest_aircraft') {
-      const layerId = normalizeLayerId(args.layerId || 'flights');
-      if (!['flights', 'military'].includes(layerId)) {
-        return {
-          ok: false,
-          action: 'select_nearest_aircraft',
-          error:
-            'Nearest-aircraft selection supports Flights or Military Flights only',
-        };
-      }
-      const hasLocationId = Boolean(String(args.locationId || '').trim());
-      const hasLocationQuery = Boolean(String(args.locationQuery || '').trim());
-      const hasCoordinates =
-        args.latitude != null &&
-        args.longitude != null &&
-        Number.isFinite(Number(args.latitude)) &&
-        Number.isFinite(Number(args.longitude));
-      if (!hasLocationId && !hasLocationQuery && !hasCoordinates) {
-        return {
-          ok: false,
-          action: 'select_nearest_aircraft',
-          stage: 'location',
-          error:
-            'Nearest-aircraft selection needs a preset, place name, or latitude and longitude',
-        };
-      }
-      const locationArgs = {
-        waitForArrival: true,
-        ...(args.locationId ? { locationId: args.locationId } : {}),
-        ...(args.locationQuery ? { query: args.locationQuery } : {}),
-        ...(hasCoordinates
-          ? {
-              latitude: Number(args.latitude),
-              longitude: Number(args.longitude),
-            }
-          : {}),
-      };
-      const layer = await runGevAction(
-        'set_layer_visibility',
-        {
-          layerId,
-          enabled: true,
-        },
-        runOptions,
-      );
-      if (layer?.ok !== true || !current()) {
-        return {
-          ok: false,
-          action: 'select_nearest_aircraft',
-          stage: 'layer',
-          cancelled: !current() || Boolean(layer?.cancelled),
-          error: layer?.error || `${layerId} could not be enabled`,
-          layer,
-        };
-      }
-
-      const location = await runGevAction(
-        'fly_to_location',
-        locationArgs,
-        runOptions,
-      );
-      if (location?.ok !== true || !current()) {
-        return {
-          ok: false,
-          action: 'select_nearest_aircraft',
-          stage: 'location',
-          cancelled: !current() || Boolean(location?.cancelled),
-          error:
-            location?.error ||
-            `Could not arrive at ${location?.label || args.locationQuery || args.locationId || 'the requested place'}`,
-          location,
-          layer,
-        };
-      }
-
-      const layerModule = dataManager.layers.get(layerId)?.module || null;
-      let refreshed = false;
-      try {
-        if (typeof dataManager.refreshLayer === 'function') {
-          refreshed = await dataManager.refreshLayer(layerId, {
-            signal: runOptions.signal,
-          });
-        } else if (typeof layerModule?.update === 'function') {
-          refreshed =
-            (await layerModule.update(viewer, {
-              signal: runOptions.signal,
-            })) !== false;
-        }
-      } catch {
-        refreshed = false;
-      }
-      if (!refreshed || !current()) {
-        return {
-          ok: false,
-          action: 'select_nearest_aircraft',
-          stage: 'refresh',
-          cancelled: !current(),
-          error: !current()
-            ? 'Nearest-aircraft refresh was cancelled'
-            : `${layer.label || layerId} is enabled, but its destination refresh did not complete`,
-          location,
-          layer,
-        };
-      }
-      const stats = layerModule?.getStats?.() || {};
-      const source =
-        String(stats.source || layerModule?.source || '').trim() || null;
-      const feed = {
-        state: layerFeedState({ ...stats, source }),
-        source,
-        count: Number.isFinite(Number(stats.count))
-          ? Number(stats.count)
-          : null,
-      };
-
-      const nearest = await createAnalystEngine(
-        analystProviders(viewer, dataManager, {
-          recordLimitByLayer: { [layerId]: Number.MAX_SAFE_INTEGER },
-          placeSearch,
-          resolveRegionRing,
-        }),
-      ).query({
-        layers: [layerId],
-        scope: { kind: 'view' },
-        filters: [{ field: 'onGround', op: 'eq', value: false }],
-        sortBy: 'distance',
-        sortDir: 'asc',
-        limit: 1,
-      });
-      const aircraft = nearest?.items?.[0] || null;
-      if (!aircraft || !current()) {
-        return {
-          ok: false,
-          action: 'select_nearest_aircraft',
-          stage: 'nearest',
-          cancelled: !current(),
-          error: !current()
-            ? 'Nearest-aircraft selection was cancelled'
-            : feed.state === 'unavailable'
-              ? `${layer.label || layerId} is enabled, but ${feed.source || 'its aircraft feed'} is unavailable`
-              : `${layer.label || layerId} is enabled${feed.state === 'fallback' ? ` on the ${feed.source || 'fallback'} feed` : ''}, but no airborne aircraft is loaded in the ${location.label || 'destination'} view yet`,
-          location,
-          layer,
-          feed,
-          count: nearest?.count || 0,
-        };
-      }
-
-      const stableAircraftId = aircraft.icao24 || aircraft.id;
-      const selection = await trackEntity(viewer, dataManager, styleManager, {
-        query: stableAircraftId,
-        layerId,
-      });
-      if (selection?.ok !== true) {
-        return {
-          ok: false,
-          action: 'select_nearest_aircraft',
-          stage: 'selection',
-          error:
-            selection?.error ||
-            'The nearest airborne aircraft could not be selected',
-          location,
-          layer,
-          feed,
-          selection,
-        };
-      }
-      return {
-        ok: true,
-        action: 'select_nearest_aircraft',
-        location: location.label,
-        layerId,
-        label: selection.label,
-        feed,
-        aircraft: {
-          id: stableAircraftId,
-          callsign: aircraft.callsign || null,
-          altitudeM: aircraft.altitudeM ?? null,
-          distanceKm: aircraft.distanceKm ?? null,
-          onGround: false,
-        },
       };
     }
 
@@ -628,7 +413,7 @@ export function createGevActionRunner({
             return;
           }
           interruptCameraMotion('nav:fly_to_location');
-          if (viewer.trackedEntity) stopAllTracking(viewer, dataManager);
+          viewer.trackedEntity = undefined;
         },
       });
     }
@@ -651,16 +436,6 @@ export function createGevActionRunner({
           longitude: Number(result.longitude.toFixed(2)),
         },
       };
-    }
-
-    if (name === 'analyst_query') {
-      analystEngine ||= createAnalystEngine(
-        analystProviders(viewer, dataManager, {
-          placeSearch,
-          resolveRegionRing,
-        }),
-      );
-      return runAnalystQuery(analystEngine, dataManager, args, _layerEnabledAt);
     }
 
     if (name === 'move_camera') {
@@ -805,18 +580,6 @@ export function createGevActionRunner({
         ...runOptions,
         placeSearch,
       });
-    }
-
-    if (name === 'track_entity') {
-      return trackEntity(viewer, dataManager, styleManager, args);
-    }
-
-    if (name === 'stop_tracking') {
-      return stopAllTracking(viewer, dataManager);
-    }
-
-    if (name === 'frame_overhead') {
-      return frameOverhead(viewer, dataManager, styleManager, args);
     }
 
     if (name === 'annotate_map') {
@@ -1712,246 +1475,6 @@ export function cctvVoiceFocusOutcome(
   return { ok: false, error: 'No active camera to focus' };
 }
 
-/**
- * Spoken name for a tracked entity descriptor.
- *
- * Aircraft follow the flight layers' label convention — callsign →
- * registration → icao24 — so the narrated name matches the readout and the
- * detection card instead of speaking a raw hex at a contact the UI is calling
- * `N123AB`.
- * @param {object} found - Layer descriptor from `findByQuery`.
- * @param {string} query - The spoken query, used as the last resort.
- * @returns {string} A non-empty display name.
- */
-export function formatTrackedEntityLabel(found, query = '') {
-  const text = (v) => String(v ?? '').trim();
-  return (
-    text(found?.callsign) ||
-    text(found?.registration) ||
-    text(found?.name) ||
-    text(found?.icao24) ||
-    String(query)
-  );
-}
-
-/** Finds and tracks/selects an entity by spoken query across layer families. */
-async function trackEntity(viewer, dataManager, styleManager, args = {}) {
-  const query = String(args.query || '').trim();
-  if (!query) throw new Error('track_entity needs a query');
-
-  const requested = args.layerId ? normalizeLayerId(args.layerId) : null;
-  const families = TRACKABLE_FAMILIES.filter(
-    (family) => !requested || family.layerId === requested,
-  );
-  const skippedDisabled = [];
-
-  for (const family of families) {
-    if (!dataManager.isEnabled(family.layerId)) {
-      skippedDisabled.push(family.layerId);
-      continue;
-    }
-    const module = dataManager.layers.get(family.layerId)?.module;
-    if (!module || typeof module.findByQuery !== 'function') continue;
-    const found = module.findByQuery(query);
-    if (!found) continue;
-
-    return runManagedVoiceNavigation(
-      styleManager,
-      family.kind,
-      'track_entity',
-      () => {
-        const trackedOk = !!module.trackById?.(found.icao24, {
-          origin: 'voice',
-        });
-
-        return {
-          ok: trackedOk,
-          action: 'track_entity',
-          layerId: family.layerId,
-          kind: family.kind,
-          // Aircraft follow the flight layers' label convention (callsign →
-          // registration → icao24) so the spoken name matches what the UI shows.
-          label: formatTrackedEntityLabel(found, query),
-          latitude: found.latitude ?? null,
-          longitude: found.longitude ?? null,
-          altitudeM: Number.isFinite(found.altitudeM)
-            ? Math.round(found.altitudeM)
-            : null,
-          error: trackedOk ? null : 'Match found but tracking failed',
-        };
-      },
-    );
-  }
-
-  const disabledNote = skippedDisabled.length
-    ? ` (disabled layers skipped: ${skippedDisabled.join(', ')})`
-    : '';
-  return {
-    ok: false,
-    action: 'track_entity',
-    query,
-    error: `Nothing matched "${query}"${disabledNote}`,
-  };
-}
-
-/** Releases tracking/selection on every entity layer family. */
-function stopAllTracking(viewer, dataManager) {
-  const released = [];
-  const failed = new Set();
-  for (const family of TRACKABLE_FAMILIES) {
-    const module = dataManager.layers.get(family.layerId)?.module;
-    if (!module) continue;
-    try {
-      if (module.getTrackedInfo?.()) {
-        if (
-          typeof module.stopTracking !== 'function' ||
-          module.stopTracking({ origin: 'voice' }) === false
-        ) {
-          failed.add(family.layerId);
-        } else {
-          released.push(family.layerId);
-        }
-      }
-    } catch {
-      failed.add(family.layerId);
-    }
-  }
-  for (const [layerId, key] of [
-    ['flights', 'selectedFlightsTrackingId'],
-    ['military', 'selectedMilitaryTrackingId'],
-  ]) {
-    try {
-      if (
-        dataManager.setLayerParams(
-          layerId,
-          { [key]: null },
-          { origin: 'voice' },
-        ) === false
-      ) {
-        failed.add(layerId);
-      }
-    } catch {
-      failed.add(layerId);
-    }
-  }
-  if (viewer) viewer.trackedEntity = undefined;
-  if (failed.size) {
-    const failedLayerIds = [...failed];
-    return {
-      ok: false,
-      action: 'stop_tracking',
-      released,
-      failedLayerIds,
-      error: `Tracking could not be cleared for: ${failedLayerIds.join(', ')}`,
-    };
-  }
-  return { ok: true, action: 'stop_tracking', released };
-}
-
-/**
- * Frames entities near the current view target with a cinematic pull-back:
- * oblique high pitch for aircraft and ships.
- * When entries are found and detection is OFF, auto-enables panoptic
- * detection so the framed entities are labeled, and reports
- * detectionEnabled so the voice agent can mention labels are on.
- */
-async function frameOverhead(viewer, dataManager, styleManager, args = {}) {
-  const targetRaw = String(args.target || 'flights').toLowerCase();
-  const layerId =
-    FRAME_TARGETS.get(targetRaw) || normalizeLayerId(targetRaw) || 'flights';
-  if (!dataManager.layers.has(layerId)) {
-    return {
-      ok: false,
-      action: 'frame_overhead',
-      error: `Unknown target layer: ${args.target}`,
-    };
-  }
-  if (!dataManager.isEnabled(layerId)) {
-    return {
-      ok: false,
-      action: 'frame_overhead',
-      layerId,
-      error: `The ${layerId} layer is not enabled`,
-    };
-  }
-  const module = dataManager.layers.get(layerId)?.module;
-  const defaultRadiusKm = 150;
-  const radiusKm = clampNumber(args.radiusKm, 10, 20000, defaultRadiusKm);
-  const center = getViewTargetCartesian(viewer) || viewer.camera.positionWC;
-
-  let entries = [];
-  if (typeof module.getNearby === 'function') {
-    entries = module.getNearby(center, radiusKm * 1000, 80) || [];
-  } else if (typeof module.getAllPositions === 'function') {
-    entries = (module.getAllPositions(800) || [])
-      .filter((entry) => entry.position)
-      .map((entry) => ({
-        ...entry,
-        distance: Cesium.Cartesian3.distance(center, entry.position),
-      }))
-      .filter((entry) => entry.distance <= radiusKm * 1000)
-      .sort((a, b) => a.distance - b.distance)
-      .slice(0, 80);
-  }
-  if (!entries.length) {
-    return {
-      ok: false,
-      action: 'frame_overhead',
-      layerId,
-      radiusKm: Math.round(radiusKm),
-      count: 0,
-      error: `No ${targetRaw} within ${Math.round(radiusKm)} km of the current view`,
-    };
-  }
-
-  const sphere = Cesium.BoundingSphere.fromPoints(
-    entries.map((entry) => entry.position),
-  );
-  sphere.radius = Math.max(sphere.radius * 1.25, 8000);
-  const pitch = Cesium.Math.toRadians(-62);
-  return runManagedVoiceNavigation(
-    styleManager,
-    'frame',
-    'frame_overhead',
-    () => {
-      viewer.camera.flyToBoundingSphere(sphere, {
-        duration: 2.0,
-        offset: new Cesium.HeadingPitchRange(
-          viewer.camera.heading,
-          pitch,
-          sphere.radius * 2.4,
-        ),
-      });
-
-      let detectionEnabled = false;
-      try {
-        const detectionState = styleManager?.getDetectionState?.();
-        if (detectionState?.detectionMode === 'OFF') {
-          const detectionResult = styleManager.setDetection({ mode: 'dense' });
-          detectionEnabled = detectionResult?.ok === true;
-        } else if (detectionState) {
-          detectionEnabled = true;
-        }
-      } catch {
-        // detection facade unavailable; framing still succeeded
-      }
-
-      return {
-        ok: true,
-        action: 'frame_overhead',
-        layerId,
-        radiusKm: Math.round(radiusKm),
-        count: entries.length,
-        detectionEnabled,
-        nearest: entries.slice(0, 5).map((entry) => ({
-          id: entry.id || entry.icao24 || null,
-          label: entry.label || entry.callsign || entry.name || null,
-        })),
-      };
-    },
-  );
-}
-
 /** Run one validated voice camera mutation through the UI-owned authority seam. */
 function runManagedVoiceNavigation(
   styleManager,
@@ -1974,23 +1497,6 @@ function runManagedVoiceNavigation(
     action,
     error: 'Camera navigation is unavailable in the current view',
   };
-}
-
-/** Gathers tracked/selected entities across layer families for read-back. */
-function collectTrackedEntities(dataManager) {
-  const tracked = [];
-  for (const family of TRACKABLE_FAMILIES) {
-    const module = dataManager.layers.get(family.layerId)?.module;
-    if (!module) continue;
-    try {
-      const info = module.getTrackedInfo?.();
-      if (info)
-        tracked.push({ kind: family.kind, layerId: family.layerId, ...info });
-    } catch {
-      // layer not ready
-    }
-  }
-  return tracked;
 }
 
 export async function getBasemapLabelContext(
@@ -2182,31 +1688,6 @@ function normalizeLayerId(value) {
   if (LAYER_ALIASES.has(raw.toLowerCase()))
     return LAYER_ALIASES.get(raw.toLowerCase());
   return raw;
-}
-
-/**
- * Normalize a spoken/typed aircraft-class filter to the class id the analyst
- * records carry.
- *
- * Every real `classifyAircraft()` id is a single unpunctuated word, so callers
- * already say them exactly and a plain lower-case is enough. The one exception
- * is the TR-3B Easter egg (`tr3b`): people write and say it hyphenated, so
- * "TR-3B" / "tr 3b" / "tr 3 b" would otherwise reach the analyst as a value no
- * record matches. Collapsing spaces and hyphens and comparing against THAT ONE
- * id keeps this surgical — no general alias table, and no other class id
- * collapses to `tr3b`, so nothing else can be caught by it.
- *
- * App-side only: the voice tool schema and the model instructions are
- * untouched, so this costs no prompt-cache churn.
- * @param {*} value Raw class filter from the tool call or an utterance hint.
- * @returns {string|null} Class id, or null when nothing was supplied.
- */
-function normalizeAircraftClassFilter(value) {
-  const raw = String(value || '')
-    .trim()
-    .toLowerCase();
-  if (!raw) return null;
-  return raw.replace(/[\s-]+/g, '') === TR3B_CLASS ? TR3B_CLASS : raw;
 }
 
 function setPanelOpen(styleManager, panelId, open) {
@@ -2448,7 +1929,6 @@ function getCurrentViewState(
         ? styleManager.getControlState()
         : null,
     scenePlayback: sceneDirector?.getPlaybackStatus?.() || null,
-    tracked: collectTrackedEntities(dataManager),
     layers: dataManager.getAll().map((layer) => ({
       id: layer.id,
       name: layer.name,
@@ -3406,160 +2886,4 @@ function clampNumber(value, min, max, fallback) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return fallback;
   return Math.max(min, Math.min(max, numeric));
-}
-
-/**
- * Analyst query — spoken questions over data already on the client
- * ("how many flights over Texas?", "which ships
- * are headed to Oakland?"). The ENGINE (analystEngine.js) does the query
- * logic; this wiring supplies live providers and compacts the result for
- * the voice payload. One engine per runner keeps follow-up memory
- * ("which of those is closest?") scoped to the session.
- */
-/** Layers whose loaded set follows the camera, so a loaded count is not a world count. */
-const VIEWPORT_LOADED_LAYERS = new Set(['flights']);
-
-function analystProviders(
-  viewer,
-  dataManager,
-  {
-    recordLimitByLayer = null,
-    placeSearch = unavailablePlaceSearch,
-    resolveRegionRing = (name) =>
-      defaultAnnotationResolver.resolveRegionRingForQuery(
-        name,
-        undefined,
-        placeSearch,
-      ),
-  } = {},
-) {
-  return {
-    getRecords(layerKey) {
-      const layer = dataManager.layers.get(layerKey);
-      if (!layer || !dataManager.isEnabled(layerKey)) return [];
-      const mod = layer.module;
-      if (typeof mod?.getAnalystRecords !== 'function') return [];
-      const requestedLimit = recordLimitByLayer?.[layerKey];
-      return Number.isFinite(requestedLimit)
-        ? mod.getAnalystRecords(requestedLimit) || []
-        : mod.getAnalystRecords() || [];
-    },
-    getLayerSnapshot(layerKey) {
-      const row = dataManager.getAll?.().find((layer) => layer.id === layerKey);
-      if (row) return layerSnapshot(row);
-      const module = dataManager.layers?.get(layerKey)?.module;
-      return layerSnapshot({
-        id: layerKey,
-        enabled: dataManager.isEnabled?.(layerKey),
-        stats: module?.getStats?.() || {},
-      });
-    },
-    resolveRegionRing,
-    getViewContext() {
-      const carto = viewer.camera.positionCartographic;
-      const altKm = carto.height / 1000;
-      // View radius scales with altitude: street-level asks stay local,
-      // country-level asks sweep wide. Clamped so "in view" is never absurd.
-      const viewRadiusKm = Math.max(25, Math.min(2500, altKm * 1.6));
-      return {
-        lat: Cesium.Math.toDegrees(carto.latitude),
-        lon: Cesium.Math.toDegrees(carto.longitude),
-        viewRadiusKm,
-      };
-    },
-  };
-}
-
-async function runAnalystQuery(
-  analystEngine,
-  dataManager,
-  args = {},
-  _layerEnabledAt,
-) {
-  const result = await analystEngine.query({
-    layers: Array.isArray(args.layers) ? args.layers : undefined,
-    scope: args.scope,
-    filters: Array.isArray(args.filters) ? args.filters : [],
-    sortBy: args.sortBy || null,
-    sortDir: args.sortDir,
-    limit: args.limit,
-    followUp: Boolean(args.followUp),
-  });
-  if (!result.ok)
-    return {
-      ok: false,
-      action: 'analyst_query',
-      ...(result.code ? { code: result.code } : {}),
-      error: result.error,
-      coverage: result.coverage,
-    };
-  // Compact payload for the voice model: identity + the fields queries sort/
-  // filter on. The full record set stays engine-side for follow-ups.
-  //
-  // `icao24` rides along because the tool instructions tell the model to
-  // hand this result straight to track_entity, and `id` is a DISPLAY label
-  // (callsign, else registration, else hex). A callsign-less contact therefore
-  // handed track_entity a tail number the lookup could not resolve, and the
-  // model burned the turn on retries (owner field session 2026-08-21, 23:48).
-  const items = result.items.map((r) => {
-    const compact = { layerKey: r.layerKey, id: r.id };
-    for (const k of [
-      'icao24',
-      'registration',
-      'label',
-      'callsign',
-      'name',
-      'altitudeM',
-      'speedMps',
-      'speedKts',
-      'operator',
-      'routeOrigin',
-      'routeDestination',
-      'aircraftClass',
-      'military',
-      'onGround',
-      'distanceKm',
-      'confidence',
-    ]) {
-      if (r[k] !== null && r[k] !== undefined) compact[k] = r[k];
-    }
-    return compact;
-  });
-  // Warm-up honesty: a layer enabled seconds ago hasn't finished its first
-  // poll (entity layers render one interval behind live BY DESIGN) — tell the
-  // model so a low count is narrated as "still loading", not as fact.
-  const warming = (result.coverage?.layersQueried || [])
-    .filter((l) => {
-      const at = _layerEnabledAt.get(l.layerKey);
-      return at && Date.now() - at < 45_000;
-    })
-    .map((l) => l.layerKey);
-  if (warming.length) {
-    result.coverage.warmup = `${warming.join(', ')} enabled moments ago — data is still loading; counts will rise for ~30-45s. Say so.`;
-  }
-  // A radius/view count over a viewport-loaded layer counts what is LOADED, and
-  // the flights layer reloads as the camera moves. Say so.
-  const scopeKind = String(args.scope?.kind || 'view').toLowerCase();
-  const viewportScoped =
-    (scopeKind === 'radius' || scopeKind === 'view') &&
-    (result.coverage?.layersQueried || []).some((l) =>
-      VIEWPORT_LOADED_LAYERS.has(l.layerKey),
-    );
-  if (viewportScoped && result.coverage) {
-    result.coverage.note = `${result.coverage.note} — counts cover loaded data; the flights layer loads by viewport`;
-  }
-  return {
-    ok: true,
-    action: 'analyst_query',
-    count: result.count,
-    // Every count names its scope in words; a bare number is what made two
-    // honest answers look like a contradiction.
-    scopeLabel: result.scopeLabel,
-    truncated: result.truncated,
-    items,
-    summary: result.summary,
-    coverage: result.coverage,
-    feedProvenance: result.coverage?.feedProvenance || null,
-    feedState: result.coverage?.feedProvenance?.overall || null,
-  };
 }

@@ -80,11 +80,11 @@ test('data setup seals the caller catalog before controls can restore and drains
 });
 
 test('controls bind catalog instances rather than similarly named defaults', () => {
-  const ids = ['traffic', 'flights', 'military', 'cctv', 'radio'];
+  const ids = ['traffic', 'cctv', 'radio'];
   const layers = ids.map((id) => ({ id }));
   const catalog = createLayerCatalog(layers, metadata(layers));
   const services = catalogControlServices(catalog);
-  assert.equal(services.flightsLayer, layers[1]);
+  assert.equal(services.cctvLayer, layers[1]);
   assert.equal(new Set(Object.values(services)).size, layers.length);
   assert.throws(
     () => catalogControlServices(createLayerCatalog([], [])),

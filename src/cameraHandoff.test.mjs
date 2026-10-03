@@ -12,7 +12,6 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const ui = readShellSource();
 const voice = fs.readFileSync(path.join(ROOT, 'src', 'voice', 'gevActions.js'), 'utf8');
 const cameraVerbs = fs.readFileSync(path.join(ROOT, 'src', 'cameraVerbs.js'), 'utf8');
-const cockpitTracking = fs.readFileSync(path.join(ROOT, 'src', 'cockpitTracking.js'), 'utf8');
 
 function body(source, pattern, label) {
   const name = pattern.source.match(/^(\w+)/)?.[1];
@@ -36,36 +35,6 @@ function ordered(source, needles, label) {
   }
 }
 
-test('one explicit tracking selection clears sibling IDs before publishing its durable replacement', () => {
-  const persist = body(
-    ui,
-    /_persistAwarenessSelection\(event, cleared = false\) \{([\s\S]*?)\n  \}/,
-    'tracking persistence',
-  );
-  assert.match(persist, /adoptLayerParams\?\.\(\s*layerId,/);
-  assert.match(persist, /\['flights', 'selectedFlightsTrackingId'\]/);
-  assert.match(persist, /\['military', 'selectedMilitaryTrackingId'\]/);
-  assert.match(persist, /if \(otherLayerId === layerId\) continue;/);
-  assert.match(
-    persist,
-    /for \(const \[otherLayerId, otherKey\][\s\S]*?setLayerParams\(\s*otherLayerId,[\s\S]*?adoptLayerParams\?\.\(\s*layerId,/,
-    'the previous family clears before Flight/Military publishes the new durable ID',
-  );
-});
-
-test('navigation clears dormant tracker IDs without aborting unrelated layer restoration', () => {
-  const stamp = body(
-    ui,
-    /_stampNavigation\(\{ cancelPendingSelection = true[^)]*\} = \{\}\) \{([\s\S]*?)\n  \}/,
-    'navigation authority stamp',
-  );
-  assert.doesNotMatch(stamp, /cancelPendingRestores\(\)/);
-  assert.match(stamp, /flightsLayer\.cancelPendingTrackingRestore\?\.\(\)/);
-  assert.match(stamp, /militaryFlightsLayer\.cancelPendingTrackingRestore\?\.\(\)/);
-  assert.match(stamp, /if \(\s*!passivelyClearedShareSelection\s*&&\s*!flightsLayer\.getTrackedInfo\?\.\(\)\s*\)[\s\S]*?selectedFlightsTrackingId: null/);
-  assert.match(stamp, /if \(\s*!passivelyClearedShareSelection\s*&&\s*!militaryFlightsLayer\.getTrackedInfo\?\.\(\)\s*\)[\s\S]*?selectedMilitaryTrackingId: null/);
-});
-
 test('accepted navigation releases through PR15-aware ownership before flight', () => {
   const run = body(
     ui,
@@ -84,32 +53,17 @@ test('accepted navigation releases through PR15-aware ownership before flight', 
     'follow release',
   );
   ordered(release, [
-    'origin: trackingOrigin',
     'this.viewer.trackedEntity = undefined;',
     "interruptCameraMotion('explicit-navigation')",
     'this.viewer.camera.cancelFlight();',
     'this.viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);',
   ], 'follow release');
-  assert.match(release, /flightsLayer\.stopTracking\?\.\(\{ origin: trackingOrigin \}\)/);
-  assert.match(release, /militaryFlightsLayer\.stopTracking\?\.\(\{ origin: trackingOrigin \}\)/);
 });
 
 test('validated voice camera destinations share the UI navigation authority facade', () => {
   assert.match(ui, /runImmediateNavigation\(noun, navigate, releaseOptions = undefined\) \{\s*return this\._runExplicitNavigation\(noun, navigate, releaseOptions\);/);
   assert.match(voice, /runManagedVoiceNavigation\(\s*styleManager,\s*'camera',\s*'move_camera',\s*navigate,\s*releaseOptions/);
   assert.match(voice, /runManagedVoiceNavigation\(\s*styleManager,\s*'route',\s*'fly_route',\s*navigate/);
-  assert.match(voice, /runManagedVoiceNavigation\(\s*styleManager,\s*family\.kind,\s*'track_entity'/);
-  assert.match(voice, /runManagedVoiceNavigation\(\s*styleManager,\s*'frame',\s*'frame_overhead'/);
-  const trackedVoice = voice.slice(
-    voice.indexOf('async function trackEntity'),
-    voice.indexOf('async function frameOverhead'),
-  );
-  const framedVoice = voice.slice(
-    voice.indexOf('async function frameOverhead'),
-    voice.indexOf('/** Gathers tracked/selected entities'),
-  );
-  assert.doesNotMatch(trackedVoice, /supersedeDeferredNavigation/);
-  assert.doesNotMatch(framedVoice, /supersedeDeferredNavigation/);
 
   const move = body(
     cameraVerbs,
@@ -181,7 +135,7 @@ test('a direct globe gesture retires delayed camera and selection restore only',
     /_stampNavigation\(\{ cancelPendingSelection = true[^)]*\} = \{\}\) \{([\s\S]*?)\n  \}/,
     'navigation stamp',
   );
-  assert.match(stamp, /if \(cancelPendingSelection\) \{[\s\S]*?cancelPendingTrackingRestore/);
+  assert.match(stamp, /if \(cancelPendingSelection\) this\.cancelShareSelection\(\);/);
   assert.doesNotMatch(stamp, /cancelPendingRestores\(\)/);
 });
 

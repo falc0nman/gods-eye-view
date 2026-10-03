@@ -162,8 +162,6 @@ function keyGuard(name, state) {
  * unmapped layer must never pass silently just because nobody added it here.
  */
 const CREDIT_EXPECTATIONS = {
-  flights: /OpenSky/i,
-  military: /adsb\.lol/i,
   traffic: /TomTom|OpenStreetMap/i,
   cctv: /Austin|Caltrans|Transport for London|TfL/i,
   'local-neighborhoods': /DataSF|San Francisco/i,
@@ -726,39 +724,6 @@ check({
 });
 
 check({
-  id: 'B2', group: 'B', desc: 'Flights proxy returns live contacts (/api/opensky)',
-  run: async () => {
-    const r = await jget('/api/opensky?lamin=24&lomin=-125&lamax=50&lomax=-66', { timeoutMs: 45000 });
-    if (!r.ok) return fail(`HTTP ${r.status}: ${r.text.slice(0, 120)}`);
-    const n = r.json?.states?.length || 0;
-    return n > 0 ? pass(`${n} states, cache=${r.headers.get('x-opensky-cache') || 'n/a'}`) : fail('0 states returned');
-  },
-});
-
-check({
-  id: 'B3', group: 'B', desc: 'OpenSky credentials are actually in use (not the anonymous/fallback path)',
-  run: async () => {
-    const r = await jget('/api/opensky?lamin=24&lomin=-125&lamax=50&lomax=-66', { timeoutMs: 45000 });
-    // Header names are exact: X-OpenSky-Auth-Mode-Used / X-OpenSky-Auth-Reason.
-    // (An earlier guess at these names made this check pass vacuously.)
-    const reason = r.headers.get('X-OpenSky-Auth-Reason') || '';
-    const used = r.headers.get('X-OpenSky-Auth-Mode-Used') || r.headers.get('X-OpenSky-Auth') || '';
-    if (!r.ok) return fail(`HTTP ${r.status} from a responsive proxy (auth=${used || 'n/a'} reason=${reason || 'n/a'}): ${r.text.slice(0, 120)}`);
-    if (!used) return fail('proxy answered 200 without the X-OpenSky-Auth headers — cannot verify which auth mode served this');
-    if (/invalid_credentials|rejected/.test(reason)) return fail(`OpenSky rejected the configured credentials (reason=${reason})`);
-    if (/missing_.*creds|invalid_or_missing/.test(reason) || used === 'anon') {
-      return skip(`OpenSky served ANONYMOUSLY (auth=${used}, reason=${reason || 'n/a'}) — the keyed claim needs configured credentials`, 'OWNER-RUN');
-    }
-    if (!/^(oauth|basic)$/.test(used)) {
-      // 'cached'/'unknown'/'adsblol-regional' etc. — real, but not proof that
-      // credentials are in use right now.
-      return fail(`served by mode "${used}" (reason=${reason || 'n/a'}) — not a live authenticated OpenSky fetch, so this check cannot confirm credentials are in use`);
-    }
-    return pass(`authenticated: auth=${used}, reason=${reason || 'n/a'}, cache=${r.headers.get('X-OpenSky-Cache') || 'n/a'}`);
-  },
-});
-
-check({
   id: 'B10', group: 'B', desc: 'TomTom traffic reports LIVE mode with budget accounting', needsKey: 'TOMTOM',
   run: async () => {
     const r = await jget('/api/tomtom/status');
@@ -928,7 +893,6 @@ const BROWSER_CHECKS = [
   ['C1', 'App boots: viewer + dataManager live, first paint under 60 s'],
   ['C2', 'Photorealistic 3D basemap attached (globe alive on arrival)'],
   ['C3', 'Boot produces no uncaught page errors'],
-  ['C4', 'Flights layer populates with live contacts'],
   ['C7', 'CCTV layer populates and its frame loop is healthy'],
   ['C10', 'Traffic: LIVE mode when keyed, clearly-labelled SIMULATION when not'],
   ['C12', 'Attribution lightbox lists a credit for every enabled layer'],
@@ -941,30 +905,6 @@ const BROWSER_CHECKS = [
 for (const [id, desc] of BROWSER_CHECKS) check({ id, group: 'C', desc, browser: true });
 
 // ─── D · EXISTING HARNESS FLEET ───────────────────────────────────────────
-check({
-  id: 'D1', group: 'D', desc: 'track-regression — the tracking/height-datum invariant gate (P1-7)',
-  heavy: true, run: harness({ id: 'D1', script: 'track-regression.mjs', args: ['--url', APP_URL], timeoutMs: 1200000 }),
-});
-check({
-  id: 'D2', group: 'D', desc: 'qa-heading-b3 — path-derived display heading',
-  heavy: true, run: harness({ id: 'D2', script: 'qa-heading-b3.mjs', args: ['--url', APP_URL], timeoutMs: 900000 }),
-});
-check({
-  id: 'D3', group: 'D', desc: 'qa-sprites-b5 — per-class billboard silhouettes',
-  heavy: true,
-  run: harness({
-    id: 'D3',
-    script: 'qa-sprites-b5.mjs',
-    args: ['--url', APP_URL],
-    timeoutMs: 900000,
-    knownConditions: [{
-      // Evidence-gated: only when its console assertion is the failing one AND
-      // the transcript actually shows a 503. Explains, never excuses.
-      when: /no console errors[\s\S]{0,300}?503/,
-      note: 'not key-tolerant — its "no console errors" assertion counts the honest keyless 503s (e.g. /api/openai/hud-summary) as errors; expected to PASS on the fully keyed server. Still a FAIL here.',
-    }],
-  }),
-});
 check({
   id: 'D4', group: 'D', desc: 'qa-cctv-v2 — camera geometry, projection, ambient cards',
   heavy: true, run: harness({ id: 'D4', script: 'qa-cctv-v2.mjs', args: ['--url', APP_URL], timeoutMs: 1500000 }),
@@ -996,20 +936,6 @@ check({
 check({
   id: 'D8', group: 'D', desc: 'qa-radio — worldwide radio browse/play surface',
   heavy: true, run: harness({ id: 'D8', script: 'qa-radio.mjs', args: ['--url', APP_URL], timeoutMs: 900000 }),
-});
-check({
-  id: 'D9', group: 'D', desc: 'qa-floor-verify — grounded contacts sit ON the rendered mesh floor',
-  heavy: true,
-  run: harness({
-    id: 'D9',
-    script: 'qa-floor-verify.mjs',
-    parse: readFloorVerdict,
-    timeoutMs: 600000,
-    knownConditions: [{
-      when: /VERDICT:\s*FAIL|buried/i,
-      note: 'EXPECTED at main 4f9d99b — the below-mesh fix is not landed, so grounded contacts sit under the floor. Annotated, never green. If fix/below-mesh-contacts has landed, PASS is expected instead and any remaining FAIL (jet-bridge / intra-cell relief residual) is a REAL failure that stays FAIL.',
-    }],
-  }),
 });
 check({
   id: 'D10', group: 'D', desc: 'qa-voice-routing (behavior layer) — tool behavior without model turns',
@@ -1251,7 +1177,7 @@ async function runBrowserGroup(record) {
     quiesced = true;
     await evalBounded(async () => {
       const dm = window.__godsEyeView.dataManager;
-      const heavy = ['cctv', 'traffic', 'flights'];
+      const heavy = ['cctv', 'traffic'];
       for (const id of heavy) {
         if (!dm.layers.has(id)) continue;
         try {
@@ -1318,16 +1244,6 @@ async function runBrowserGroup(record) {
     return { present: true, active: !!vc.isActive?.(), status: diag?.status ?? null, hasRunner: typeof vc.runner === 'function' };
   }, null, 30000);
   const voiceSnapshot = voiceSnapshotR.ok ? voiceSnapshotR.value : { probeError: voiceSnapshotR.reason };
-
-  await step('C4', async () => {
-    const r = await settle('flights', 40);
-    const s = r.stats || {};
-    if (!(s.count > 0)) return fail(`0 contacts (status=${s.status || ''} error=${s.error || ''})`);
-    const src = String(s.source || '');
-    return /adsb\.lol/i.test(src)
-      ? skip(`${s.count} contacts but via the adsb.lol FALLBACK (source=${src}) — OpenSky credentials needed for the live claim`, 'OWNER-RUN')
-      : pass(`${s.count} contacts, source=${src || 'OpenSky'}, stale=${!!s.stale}`);
-  });
 
   await step('C7', async () => {
     const r = await settle('cctv', 45);
@@ -1405,7 +1321,7 @@ async function runBrowserGroup(record) {
     // standalone (`--only C12`) nothing is on, and it would pass vacuously off
     // the static credit list — so self-arm a deterministic set first.
     const armed = (await evalBounded(() => [...(window.__godsEyeView.dataManager.getEnabledLayerIds?.() || [])], null, 20000)) || [];
-    const SELF_ARM = ['flights', 'cctv'];
+    const SELF_ARM = ['traffic', 'cctv'];
     if (armed.length === 0) {
       for (const id of SELF_ARM) {
         // eslint-disable-next-line no-await-in-loop

@@ -118,22 +118,11 @@ test('every shipped recipe declares only registered layer ids', () => {
   }
 });
 
-test('camera-tracking params never survive into the plan', () => {
-  const plan = sceneLayerPlan({
-    flights: { enabled: true, params: { models3d: true, selectedFlightsTrackingId: 'a835af' } },
-    military: { enabled: true, params: { selectedMilitaryTrackingId: 'ae1460' } },
-  }, REGISTERED);
-  assert.deepEqual(plan[0].params, { models3d: true });
-  // A params bag that was tracking and nothing else leaves nothing to push.
-  assert.equal(plan[1].params, undefined);
-});
-
 test('stripping leaves a tracking-free params object untouched', () => {
   const params = { catalog: 'dense', showOrbits: true };
   assert.equal(stripSceneTrackingParams(params), params);
   assert.equal(stripSceneTrackingParams(undefined), undefined);
   assert.equal(stripSceneTrackingParams(null), undefined);
-  assert.ok(SCENE_TRACKING_PARAM_KEYS.length >= 2);
 });
 
 test('every selection-shaped layer param is classified, whatever its spelling', () => {
@@ -144,7 +133,7 @@ test('every selection-shaped layer param is classified, whatever its spelling', 
   // any match must be explicitly stripped or explicitly kept.
   const classified = new Set([...SCENE_TRACKING_PARAM_KEYS, ...SCENE_KEPT_SELECTION_PARAM_KEYS]);
   const swept = sweepLayerParamKeys();
-  assert.ok(swept.size >= 4, `expected the known layer param surfaces, saw ${swept.size}`);
+  assert.ok(swept.size >= 2, `expected the known layer param surfaces, saw ${swept.size}`);
 
   const seen = new Set();
   for (const [file, keys] of swept) {

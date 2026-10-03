@@ -1,13 +1,10 @@
-import { openSkyProxy } from './aircraft/opensky.js';
 import { tomtomProxy } from './traffic.js';
 import { terrainHeightsProxy } from './terrain.js';
-import { adsbdbProxy } from './aircraft/enrichment.js';
 import { overpassProxy } from './overpass.js';
 import { geocodeProxy } from './regional/place.js';
 import { cctvProxy } from './cctv.js';
 import { defaultSourceRoot } from './common/source-root.js';
 import { adsbLolProxy } from './aircraft/adsb-lol.js';
-import { trackBackfillProxies } from './aircraft/tracks.js';
 import { openAiRealtimeProxy } from './openai.js';
 import { googlePlacesContextProxy } from './places.js';
 import { weatherProxy } from './weather.js';
@@ -30,17 +27,14 @@ function localProviderRegistry({ notificationTransport } = {}) {
   const registry = registerInterfaceProviders(createProviderRegistry(), {
     notificationTransport,
   });
-  registry.registerLegacy('opensky', openSkyProxy);
   registry.registerLegacy('tomtom', tomtomProxy);
   registry.registerLegacy('terrain-heights', terrainHeightsProxy);
-  registry.registerLegacy('adsbdb', adsbdbProxy);
   registry.registerLegacy('overpass', overpassProxy);
   registry.registerLegacy('geocode', geocodeProxy);
   registry.registerLegacy('cctv', () =>
     cctvProxy({ sourceRoot: defaultSourceRoot }),
   );
   registry.registerLegacy('adsb-lol', adsbLolProxy);
-  registry.registerLegacy('track-backfill', trackBackfillProxies);
   registry.registerLegacy('openai-realtime', openAiRealtimeProxy);
   registry.registerLegacy('google-places-context', googlePlacesContextProxy);
   registry.registerLegacy('wind', windProxy);
@@ -69,7 +63,6 @@ export {
 export { googlePlacesContextProxy } from './places.js';
 export { googleServerApiKey } from './places.js';
 export { keylessGooglePlacesResponse } from './places.js';
-export { adsbLolFallbackAnchor } from './aircraft/opensky.js';
 export { readResponseTextCapped } from './common/http.js';
 export { readResponseJsonCapped } from './common/http.js';
 export { coalesceProxyRequest } from './common/http.js';

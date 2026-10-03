@@ -22,22 +22,18 @@
  * Layer params that re-establish a tracked contact — and with it a SECOND
  * writer on the camera.
  *
- * A capture taken while following a plane snapshots that layer's whole param
- * set, tracking id included. Replaying it would hand the camera back to the
- * follow loop the scene just took it from (see director._claimCameraOwnership
- * and src/data/trackedCamera.js): the shot flight and the follow camera then
- * both write the frame, which is the documented jitter failure mode.
+ * A capture taken while following a contact would snapshot that layer's whole
+ * param set, tracking id included, and replaying it would hand the camera back
+ * to a follow loop while the shot flight also writes the frame. So playback
+ * NEVER re-establishes tracking: any key listed here stays in the stored
+ * capture and is dropped on the way to the layer.
  *
- * So playback NEVER re-establishes tracking. The keys stay in the stored
- * capture — a project file is a record of what the operator saw, and a future
- * reader may want it — they are simply dropped on the way to the layer.
+ * Empty since GW-57 removed the flight layers, the last ones that published a
+ * tracking id. Older captures naming them are skipped as unregistered layers.
  *
  * @constant {ReadonlyArray<string>}
  */
-export const SCENE_TRACKING_PARAM_KEYS = Object.freeze([
-  'selectedFlightsTrackingId',
-  'selectedMilitaryTrackingId',
-]);
+export const SCENE_TRACKING_PARAM_KEYS = Object.freeze([]);
 
 /**
  * Selection params that look like the ones above and are deliberately KEPT.

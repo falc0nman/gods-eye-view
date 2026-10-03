@@ -8,81 +8,12 @@ const EVENT_RECIPES = [];
 
 const PUBLIC_SCENE_RECIPES = [
   {
-    id: 'flights-radar',
-    title: 'Global Flights Radar',
-    durationSec: 30,
-    style: 'retro',
-    ui: { hidePanels: true, hudMode: 'minimal', safeFrame: '16:9' },
-    layers: {
-      flights: true,
-      traffic: false,
-    },
-    post: {
-      bloom: 62,
-      sharpen: true,
-      detectionMode: 'OFF',
-    },
-    cameraPath: [
-      {
-        lat: 20.0,
-        lon: -30.0,
-        alt: 19000000,
-        heading: 25,
-        pitch: -65,
-        roll: 0,
-        duration: 6,
-        hold: 1,
-      },
-      {
-        lat: 46.0,
-        lon: 2.0,
-        alt: 8000000,
-        heading: 40,
-        pitch: -52,
-        roll: 0,
-        duration: 5,
-        hold: 1,
-      },
-      {
-        lat: 35.0,
-        lon: 139.0,
-        alt: 4200000,
-        heading: 22,
-        pitch: -46,
-        roll: 0,
-        duration: 5,
-        hold: 1,
-      },
-      {
-        lat: 37.6,
-        lon: -122.4,
-        alt: 1700000,
-        heading: 8,
-        pitch: -40,
-        roll: 0,
-        duration: 5,
-        hold: 1,
-      },
-      {
-        lat: 0.0,
-        lon: -20.0,
-        alt: 12000000,
-        heading: -10,
-        pitch: -70,
-        roll: 0,
-        duration: 4,
-        hold: 0,
-      },
-    ],
-  },
-  {
     id: 'orbital-watch',
     title: 'Orbital Watch',
     durationSec: 32,
     style: 'surveillance',
     ui: { hidePanels: true, hudMode: 'full', safeFrame: '16:9' },
     layers: {
-      flights: false,
       traffic: false,
     },
     post: {
@@ -158,7 +89,6 @@ const PUBLIC_SCENE_RECIPES = [
     style: 'thermal',
     ui: { hidePanels: true, hudMode: 'full', safeFrame: '16:9' },
     layers: {
-      flights: false,
       traffic: false,
     },
     post: {
@@ -224,7 +154,6 @@ const PUBLIC_SCENE_RECIPES = [
     style: 'surveillance',
     ui: { hidePanels: true, hudMode: 'minimal', safeFrame: '9:16' },
     layers: {
-      flights: true,
       traffic: true,
     },
     post: {
@@ -300,7 +229,6 @@ const PUBLIC_SCENE_RECIPES = [
     style: 'retro',
     ui: { hidePanels: true, hudMode: 'full', safeFrame: '16:9' },
     layers: {
-      flights: true,
       traffic: true,
     },
     post: {

@@ -9,7 +9,6 @@ export class ShareRestoration {
     viewer,
     navigation,
     syncShareState,
-    syncModels3d,
     showStatus,
     feedback,
     updateFeedback,
@@ -18,7 +17,6 @@ export class ShareRestoration {
       viewer,
       navigation,
       syncShareState,
-      syncModels3d,
       showStatus,
       feedback,
       updateFeedback,
@@ -139,7 +137,6 @@ export class ShareRestoration {
         this._dataManager,
         this.shareLinkManager,
         {
-          onDurableStateChange: (state) => this.syncModels3d(state),
           onTrackingRestoreStatus: (result) =>
             this._handleShareTrackingRestoreStatus(result),
         },
@@ -157,9 +154,6 @@ export class ShareRestoration {
           { clearSelection: true },
         );
       }
-      void this._layerStateRestorePromise.then(() => {
-        this.syncModels3d(this._layerStateCoordinator?.getDurableState());
-      });
     }
   }
   cancelSelection() {

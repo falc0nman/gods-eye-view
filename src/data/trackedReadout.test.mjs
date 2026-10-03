@@ -1,4 +1,3 @@
-import { readLayerSource } from '../testSupport/readLayerSource.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -205,32 +204,3 @@ test('trackedReadout cannot resurrect a dedicated canvas or render listener', as
   }
 });
 
-test('tracking layers write gevLabelModel and expose only their cached display positions', async () => {
-  const files = await Promise.all([
-    'flights.js',
-    'militaryFlights.js',
-  ].map(async (name) => [name, readLayerSource(new URL(`./${name}`, import.meta.url))]));
-  const sources = Object.fromEntries(files);
-  for (const [name, source] of files) {
-    assert.ok(source.includes('.gevLabelModel ='), `${name} writes the explicit model directly`);
-    assert.ok(source.includes('.gevDisplayPosition ='), `${name} exposes a display-position cache`);
-  }
-  assert.match(sources['flights.js'], /gevDisplayPosition\s*=\s*parts\.motion\._trackedDisplayCached/);
-  assert.match(sources['militaryFlights.js'], /gevDisplayPosition\s*=\s*parts\.motion\._trackedDisplayCached/);
-  assert.equal(sources['flights.js'].includes('_trackedEntity.label.text'), false);
-  assert.equal(sources['militaryFlights.js'].includes('_trackedEntity.label.text'), false);
-});
-
-test('civilian and military trail heads use the lower-centre model anchor and weak-texture tint', async () => {
-  const files = await Promise.all(['flights.js', 'militaryFlights.js'].map(async (name) => (
-    [name, readLayerSource(new URL(`./${name}`, import.meta.url))]
-  )));
-  for (const [name, source] of files) {
-    assert.ok(
-      (/const\s*head\s*=\s*(?:parts\.motion\.)?_trackedTrailCached\(\s*,?\s*\)\s*\|\|\s*(?:parts\.motion\.)?_trackedDisplayPosition\(\s*(?:flightState\.)?_trackedIcao,?\s*\);/).test(source),
-      `${name} trail head uses the dedicated lower-centre model anchor`,
-    );
-    assert.ok(source.includes('const MODEL_COLOR_BLEND_AMOUNT = 0.94;'),
-      `${name} keeps diffuse texture contribution weak through code-side MIX`);
-  }
-});

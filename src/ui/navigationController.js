@@ -7,11 +7,10 @@ import {
   runExplicitNavigation,
 } from '../navigationPolicy.js';
 
-/** Own camera authority generations, pending search UI and tracking handoff. */
+/** Own camera authority generations, pending search UI and camera release. */
 export class NavigationController {
   constructor({
     viewer,
-    tracking,
     searchInput,
     interruptCameraMotion,
     isCockpitActive,
@@ -24,7 +23,6 @@ export class NavigationController {
   }) {
     Object.assign(this, {
       viewer,
-      tracking,
       searchInput,
       interruptCameraMotion,
       isCockpitActive,
@@ -48,7 +46,6 @@ export class NavigationController {
   } = {}) {
     cancelCameraArrival(this.viewer);
     this.cancelOrientation();
-    const { flightsLayer, militaryFlightsLayer } = this.tracking;
     this._navigationGeneration += 1;
     this._cameraHandoffs?.publish();
     // A newer destination owns the camera, so the last free-text search is no
@@ -56,42 +53,7 @@ export class NavigationController {
     // reassert seam instead: a geocode that never resolves moves no camera, and
     // a lookup that fails must not blank a readout that is still true.
     if (clearSearchedLocation) this.clearLocation();
-    if (cancelPendingSelection) {
-      const passivelyClearedShareSelection = this.cancelShareSelection();
-      try {
-        flightsLayer.cancelPendingTrackingRestore?.();
-      } catch {
-        /* best effort */
-      }
-      try {
-        militaryFlightsLayer.cancelPendingTrackingRestore?.();
-      } catch {
-        /* best effort */
-      }
-      // A deliberate destination supersedes share-selected entities that have
-      // not arrived yet. Active owners publish their clear when released.
-      if (!passivelyClearedShareSelection && !flightsLayer.getTrackedInfo?.()) {
-        this.getDataManager()?.setLayerParams(
-          'flights',
-          {
-            selectedFlightsTrackingId: null,
-          },
-          { origin: 'tool' },
-        );
-      }
-      if (
-        !passivelyClearedShareSelection &&
-        !militaryFlightsLayer.getTrackedInfo?.()
-      ) {
-        this.getDataManager()?.setLayerParams(
-          'military',
-          {
-            selectedMilitaryTrackingId: null,
-          },
-          { origin: 'tool' },
-        );
-      }
-    }
+    if (cancelPendingSelection) this.cancelShareSelection();
     if (this._activeLocationSearchGeneration !== null) {
       this._settleLocationSearchUi(this._activeLocationSearchGeneration);
     }
@@ -106,21 +68,7 @@ export class NavigationController {
     this.searchInput?.blur();
   }
 
-  _releaseFollowCamera({
-    preserveCameraFlight = false,
-    trackingOrigin = 'tool',
-  } = {}) {
-    const { flightsLayer, militaryFlightsLayer } = this.tracking;
-    try {
-      flightsLayer.stopTracking?.({ origin: trackingOrigin });
-    } catch {
-      /* best-effort release */
-    }
-    try {
-      militaryFlightsLayer.stopTracking?.({ origin: trackingOrigin });
-    } catch {
-      /* best-effort release */
-    }
+  _releaseFollowCamera({ preserveCameraFlight = false } = {}) {
     this.viewer.trackedEntity = undefined;
     this.interruptCameraMotion('explicit-navigation');
     this.stopOrbit();

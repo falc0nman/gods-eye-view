@@ -1,8 +1,4 @@
 import { createOpenFreeMapSource } from '../sources/openFreeMap.js';
-import {
-  createOpenSkySource,
-  createAdsbLolSource,
-} from '../sources/live/standalone.js';
 import { createCctvSource } from '../layers/cctv/source.js';
 import { createRadioSource } from '../layers/radio/source.js';
 import { createTrafficSource } from '../layers/traffic/source.js';
@@ -17,8 +13,6 @@ import { createWindSource } from '../layers/wind/source.js';
 export function createStandaloneLayerSources() {
   const mapTiles = createOpenFreeMapSource();
   return {
-    flights: createOpenSkySource(),
-    military: createAdsbLolSource(),
     cctv: createCctvSource(),
     radio: createRadioSource(),
     traffic: createTrafficSource({ mapTiles }),

@@ -311,19 +311,6 @@ export class VisualSettings {
       effective === 'surveillance' ||
       effective === 'thermal' ||
       effective === 'nvg';
-    this._dataManager?.setLayerParams('flights', { irBoost });
-    this._dataManager?.setLayerParams('military', { irBoost });
-    // Layers whose in-scene sprites restyle for a sensor preset need the
-    // EFFECTIVE style — a cockpit vision override sets no map style, so the
-    // map's own style event never fires for it.
-    window.dispatchEvent(
-      new CustomEvent('gev:vision-change', {
-        detail: {
-          style: effective,
-          cockpit: Boolean(cockpitMode && cockpitMode !== 'optical'),
-        },
-      }),
-    );
     // Fog blends distant geometry toward an effectively-BLACK color in this
     // app (the Cesium globe is hidden), so beyond ~100 km every 3D aircraft
     // fogs to a black silhouette — lighting and shaders can't reach past it
@@ -1590,8 +1577,6 @@ export class VisualSettings {
     if (!this._irBoostActive) return;
     if (this._irFogWasEnabled != null && this.viewer?.scene?.fog)
       this.viewer.scene.fog.enabled = this._irFogWasEnabled;
-    this._dataManager?.setLayerParams('flights', { irBoost: false });
-    this._dataManager?.setLayerParams('military', { irBoost: false });
     this._irBoostActive = false;
     this._irFogWasEnabled = null;
   }

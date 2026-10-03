@@ -33,7 +33,7 @@ test('the complete Realtime tool payload pins the additive analyst, satellite, L
     // team-chasers) and their common-name mapping.
     // Re-derived for each GW-57 removal: the removed layers leave the layer
     // enums, common-name mappings and analyst fields.
-    'f12db7f6d615c49370107c6ef2373b06baf7bd8e4f5a5aa335311d7428dbe322',
+    'cd6d52216af9c8bf927ca566f195003f56e129cf2221386dd5660bb1bafaceb6',
   );
 });
 
@@ -93,17 +93,6 @@ test('all legacy action arguments are byte-identical after removing the delibera
   const legacy = structuredClone(GEV_ACTION_SCHEMAS).filter(
     (tool) => !['next_satellite_pass', 'set_cyber_sonar'].includes(tool.name),
   );
-  const layers = legacy.find((tool) => tool.name === 'analyst_query').parameters
-    .properties.layers.items;
-  layers.enum = layers.enum.filter(
-    (key) =>
-      ![
-        'satellites',
-        'local-datacenters',
-        'local-dams',
-        'fire-perimeters',
-      ].includes(key),
-  );
   // Local ADS-B is an additive set_layer_visibility enum value.
   const visibility = legacy.find((tool) => tool.name === 'set_layer_visibility')
     .parameters.properties.layerId;
@@ -133,6 +122,6 @@ test('all legacy action arguments are byte-identical after removing the delibera
   hud.enum = hud.enum.filter((layout) => layout !== 'cyber');
   assert.equal(
     createHash('sha256').update(JSON.stringify(legacy)).digest('hex'),
-    '55f16a3c5324e481c484ff879bcd1f46ff1c7786ded56236a633e8497f4835c6',
+    '35cc32a7ea41edef8cd2a4fb936e2034266dcd790b01a4e84e8c66c48a69943f',
   );
 });

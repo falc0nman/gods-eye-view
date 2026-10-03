@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { readResponseTextCapped, coalesceProxyRequest } from './sources/httpBody.js';
 
-const source = ['local.js', 'common/http.js', 'aircraft/enrichment.js', 'terrain.js']
+const source = ['local.js', 'common/http.js', 'terrain.js']
   .map(file => readFileSync(new URL(`../server/providers/${file}`, import.meta.url), 'utf8'))
   .join('\n');
 const detail = 'fixture-secret-token /internal/example <html>';
@@ -67,19 +67,3 @@ test('terrain validation and resolver outcomes remain intact', async () => {
   assert.equal(app.logs.length, 1);
 });
 
-test('ADSBDB unexpected failures hide details', async () => {
-  const badUrl = { toString() { throw new Error(detail); } };
-  const res = await fixture('adsbdbProxy').request(badUrl);
-  assert.equal(res.status, 500);
-  assert.deepEqual(JSON.parse(res.body), { error: 'adsbdb proxy error' });
-});
-
-test('ADSBDB retains validation and missing-aircraft semantics', async () => {
-  const app = fixture('adsbdbProxy');
-  assert.equal((await app.request('/route/!')).status, 400);
-  assert.equal((await app.request('/type/nope')).status, 400);
-  assert.equal((await app.request('/unknown')).status, 404);
-  const absent = await app.request('/type/abcdef');
-  assert.equal(absent.status, 200);
-  assert.deepEqual(JSON.parse(absent.body), { found: false });
-});

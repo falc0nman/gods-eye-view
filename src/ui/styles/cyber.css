@@ -532,16 +532,6 @@
 }
 
 :root[data-ui-theme='cyber']
-  .data-toggle-row[data-layer-id='flights']
-  .data-icon::before {
-  content: '△';
-}
-:root[data-ui-theme='cyber']
-  .data-toggle-row[data-layer-id='military']
-  .data-icon::before {
-  content: '✦';
-}
-:root[data-ui-theme='cyber']
   .data-toggle-row[data-layer-id='traffic']
   .data-icon::before {
   content: '◈';

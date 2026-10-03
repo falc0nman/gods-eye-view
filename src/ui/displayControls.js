@@ -23,7 +23,6 @@ export function bindDisplayControls({ elements, actions }) {
     ['hudButton', 'toggleHud'],
     ['sonarButton', 'toggleSonar'],
     ['detectionButton', 'cycleDetection'],
-    ['modelsButton', 'toggleModels'],
   ])
     listen(elements[name], 'click', action);
   for (const [name, action] of [
@@ -46,10 +45,6 @@ export function bindDisplayControls({ elements, actions }) {
     listen(el, 'click', 'setStyle', (el) => el.dataset.style);
   for (const el of elements.allocationButtons || [])
     listen(el, 'click', 'setAllocation', (el) => el.dataset.allocation);
-  for (const el of elements.modelModeButtons || [])
-    listen(el, 'click', 'setModelsMode', (el) =>
-      el.dataset.mode === 'all' ? 'all' : 'proximity',
-    );
   for (const el of elements.fadeSliders || []) listen(el, 'input', 'setFade');
   return {
     destroy() {

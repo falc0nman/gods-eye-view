@@ -9,30 +9,6 @@ export class ShellFacade {
     return this._navigation.subscribeCameraHandoff(listener);
   }
 
-  get _models3dModeBtns() {
-    return this._aircraftDisplay._models3dModeBtns;
-  }
-
-  set _models3dModeBtns(value) {
-    this._aircraftDisplay._models3dModeBtns = value;
-  }
-
-  get _models3dEnabled() {
-    return this._aircraftDisplay._models3dEnabled;
-  }
-
-  set _models3dEnabled(value) {
-    this._aircraftDisplay._models3dEnabled = value;
-  }
-
-  get _models3dMode() {
-    return this._aircraftDisplay._models3dMode;
-  }
-
-  set _models3dMode(value) {
-    this._aircraftDisplay._models3dMode = value;
-  }
-
   get _dataManager() {
     return this._layerBindings?._dataManager;
   }
@@ -1314,35 +1290,6 @@ export class ShellFacade {
    */
   _showToast(message) {
     return this._feedback._showToast(message);
-  }
-
-  /** One 3D toggle drives BOTH aircraft layers (commercial + military) so all planes flip together. */
-  _setModels3dParams(...args) {
-    return this._aircraftDisplay._setModels3dParams(...args);
-  }
-
-  _syncModels3dFromLayerState(...args) {
-    return this._aircraftDisplay._syncModels3dFromLayerState(...args);
-  }
-
-  _syncModels3dModeRow(...args) {
-    return this._aircraftDisplay._syncModels3dModeRow(...args);
-  }
-
-  _initModels3dToggle(...args) {
-    return this._aircraftDisplay._initModels3dToggle(...args);
-  }
-
-  _setModels3dEnabled(...args) {
-    return this._aircraftDisplay._setModels3dEnabled(...args);
-  }
-
-  _setModels3dMode(...args) {
-    return this._aircraftDisplay._setModels3dMode(...args);
-  }
-
-  _syncModels3dButtonState(...args) {
-    return this._aircraftDisplay._syncModels3dButtonState(...args);
   }
 
   /**
