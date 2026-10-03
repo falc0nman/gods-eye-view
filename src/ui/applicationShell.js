@@ -78,7 +78,6 @@ export class StyleManager extends ShellFacade {
       militaryFlightsLayer,
       cctvLayer,
       aisLiveVesselsLayer,
-      militaryAwarenessLayer,
       localAdsbLayer,
     } = services;
     this.services = services;
@@ -124,7 +123,6 @@ export class StyleManager extends ShellFacade {
         flightsLayer,
         militaryFlightsLayer,
         aisLiveVesselsLayer,
-        militaryAwarenessLayer,
       },
       searchInput: this._locationSearch,
       interruptCameraMotion: services.interruptCameraMotion,
@@ -305,7 +303,6 @@ export class StyleManager extends ShellFacade {
         flightsLayer: services.flightsLayer,
         militaryFlightsLayer: services.militaryFlightsLayer,
         aisLiveVesselsLayer: services.aisLiveVesselsLayer,
-        militaryAwarenessLayer: services.militaryAwarenessLayer,
       },
       elements: {
         _locationPills: this._locationPills,

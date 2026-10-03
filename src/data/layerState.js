@@ -542,11 +542,6 @@ export const LAYER_STATE_REGISTRY = Object.freeze([
     optionOwner: 'flights',
   }),
   Object.freeze({
-    id: 'military-awareness',
-    token: 'g',
-    disposition: 'enabled-only',
-  }),
-  Object.freeze({
     id: 'military-installations',
     token: 'i',
     disposition: 'enabled-only',

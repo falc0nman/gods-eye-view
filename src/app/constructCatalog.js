@@ -18,7 +18,6 @@ import { createApplicationDirections } from './layers/directions.js';
 import { createApplicationRecentImagery } from './layers/recentImagery.js';
 import { createApplicationInstallations } from './layers/militaryInstallations.js';
 import { createApplicationLocalAdsb } from './layers/localAdsb.js';
-import { createApplicationAwareness } from './layers/militaryAwareness.js';
 
 const SOURCE_METHODS = Object.freeze({
   flights: ['getSnapshot'],
@@ -127,12 +126,6 @@ export function createApplicationCatalog({
         createApplicationRecentImagery(),
         vessels,
         installations,
-        createApplicationAwareness({
-          flights,
-          military,
-          vessels,
-          installations,
-        }),
         createWindLayer({ feed: sources.wind, clock: weatherClock }),
         createWeatherLayer({
           feed: sources.weather,

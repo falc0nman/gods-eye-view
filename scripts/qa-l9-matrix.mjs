@@ -178,7 +178,6 @@ const CREDIT_EXPECTATIONS = {
  * Anything here is an explicit decision, not an oversight.
  */
 const CREDIT_EXEMPT_LAYERS = {
-  'military-awareness': 'derived view over other layers; it ships no data of its own and its sources carry their own credits',
   detection: 'a rendering treatment over already-credited layers, not a data source',
   annotations: 'user-drawn marks; no third-party data',
 };

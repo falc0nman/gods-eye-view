@@ -147,7 +147,7 @@ test('every selection-shaped layer param is classified, whatever its spelling', 
   // any match must be explicitly stripped or explicitly kept.
   const classified = new Set([...SCENE_TRACKING_PARAM_KEYS, ...SCENE_KEPT_SELECTION_PARAM_KEYS]);
   const swept = sweepLayerParamKeys();
-  assert.ok(swept.size >= 5, `expected the known layer param surfaces, saw ${swept.size}`);
+  assert.ok(swept.size >= 4, `expected the known layer param surfaces, saw ${swept.size}`);
 
   const seen = new Set();
   for (const [file, keys] of swept) {

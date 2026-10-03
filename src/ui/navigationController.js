@@ -111,37 +111,23 @@ export class NavigationController {
     preserveCameraFlight = false,
     trackingOrigin = 'tool',
   } = {}) {
-    const {
-      flightsLayer,
-      militaryFlightsLayer,
-      aisLiveVesselsLayer,
-      militaryAwarenessLayer,
-    } = this.tracking;
-    let contactSelected = false;
+    const { flightsLayer, militaryFlightsLayer, aisLiveVesselsLayer } =
+      this.tracking;
     try {
-      contactSelected = Boolean(
-        militaryAwarenessLayer.releaseCameraOwnership?.({
-          preserveVesselSelection,
-          origin: trackingOrigin,
-        }),
-      );
+      flightsLayer.stopTracking?.({ origin: trackingOrigin });
     } catch {
+      /* best-effort release */
+    }
+    try {
+      militaryFlightsLayer.stopTracking?.({ origin: trackingOrigin });
+    } catch {
+      /* best-effort release */
+    }
+    if (!preserveVesselSelection) {
       try {
-        flightsLayer.stopTracking?.({ origin: trackingOrigin });
+        aisLiveVesselsLayer.clearSelection?.();
       } catch {
         /* best-effort release */
-      }
-      try {
-        militaryFlightsLayer.stopTracking?.({ origin: trackingOrigin });
-      } catch {
-        /* best-effort release */
-      }
-      if (!preserveVesselSelection) {
-        try {
-          aisLiveVesselsLayer.clearSelection?.();
-        } catch {
-          /* best-effort release */
-        }
       }
     }
     this.viewer.trackedEntity = undefined;
@@ -153,7 +139,7 @@ export class NavigationController {
     } catch {
       /* teardown race */
     }
-    return contactSelected;
+    return false;
   }
 
   _runExplicitNavigation(noun, navigate, releaseOptions = undefined) {

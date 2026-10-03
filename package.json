@@ -146,7 +146,6 @@
     "./layers/vessels": "./src/layers/vessels/index.js",
     "./layers/recent-imagery": "./src/layers/recentImagery/index.js",
     "./layers/installations": "./src/layers/installations/index.js",
-    "./layers/awareness": "./src/layers/awareness/index.js",
     "./layers/traffic": "./src/layers/traffic/index.js",
     "./layers/directions": "./src/layers/directions/index.js",
     "./layers/cctv": "./src/layers/cctv/index.js",

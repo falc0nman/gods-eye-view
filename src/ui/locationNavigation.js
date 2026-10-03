@@ -309,7 +309,6 @@ export class LocationNavigation {
       flightsLayer,
       militaryFlightsLayer,
       aisLiveVesselsLayer,
-      militaryAwarenessLayer,
     } = this.services;
     if (this._disposed)
       return Promise.resolve({
@@ -323,24 +322,19 @@ export class LocationNavigation {
     this._stopOrbit();
     this.cockpitView?.exit({ restoreTracking: false });
     try {
-      militaryAwarenessLayer.releaseCameraOwnership?.({ origin: 'tool' });
+      flightsLayer.stopTracking?.({ origin: 'tool' });
     } catch {
-      // Keep reset available if Context has not initialized completely.
-      try {
-        flightsLayer.stopTracking?.({ origin: 'tool' });
-      } catch {
-        /* best-effort release */
-      }
-      try {
-        militaryFlightsLayer.stopTracking?.({ origin: 'tool' });
-      } catch {
-        /* best-effort release */
-      }
-      try {
-        aisLiveVesselsLayer.clearSelection?.();
-      } catch {
-        /* best-effort release */
-      }
+      /* best-effort release */
+    }
+    try {
+      militaryFlightsLayer.stopTracking?.({ origin: 'tool' });
+    } catch {
+      /* best-effort release */
+    }
+    try {
+      aisLiveVesselsLayer.clearSelection?.();
+    } catch {
+      /* best-effort release */
     }
     this.viewer.trackedEntity = undefined;
     this.viewer.camera.cancelFlight();
