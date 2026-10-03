@@ -1,4 +1,3 @@
-import { isExplicitLayerStateOrigin } from '../data/layerState.js';
 import {
   registerCctvFocusRequestListener,
   routeCctvFocusRequest,
@@ -40,8 +39,6 @@ export class LayerBindings {
     this._removeWorldRequestFocusListener = null;
     this._removeNavigationAuthorityListener = null;
     this._navigationOwnerChangedRemover = null;
-    this._awarenessSelectedHandler = null;
-    this._awarenessClearedHandler = null;
   }
   get hud() {
     return this.readControls().hud;
@@ -79,18 +76,14 @@ export class LayerBindings {
     );
     this._navigationOwnerChangedRemover =
       this.viewer.trackedEntityChanged.addEventListener((entity) => {
-        if (entity && !this._disposed)
-          this._stampNavigation({ cancelPendingSelection: false });
+        if (entity && !this._disposed) this._stampNavigation();
       });
     // Vessel/installation focus flies without ever assigning a tracked entity,
     // so it cannot reach the listener above. It announces instead.
     this._removeNavigationAuthorityListener =
-      registerNavigationAuthorityListener(window, (event) => {
+      registerNavigationAuthorityListener(window, () => {
         if (this._disposed) return;
-        this._stampNavigation({
-          cancelPendingSelection:
-            event?.detail?.cancelPendingSelection !== false,
-        });
+        this._stampNavigation();
       });
   }
   _connectDirectionsCamera() {
@@ -139,81 +132,6 @@ export class LayerBindings {
     }
   }
 
-  _persistAwarenessSelection(event, cleared = false) {
-    if (!this._dataManager) return;
-    const origin = String(event?.detail?.origin || 'programmatic');
-    if (!isExplicitLayerStateOrigin(origin)) return;
-    const layerId = String(event?.detail?.layerId || '');
-    const config = {
-      flights: {
-        key: 'selectedFlightsTrackingId',
-        normalize: (value) =>
-          String(value ?? '')
-            .trim()
-            .toLowerCase() || null,
-      },
-      military: {
-        key: 'selectedMilitaryTrackingId',
-        normalize: (value) =>
-          String(value ?? '')
-            .trim()
-            .toLowerCase() || null,
-      },
-      satellites: {
-        key: 'selectedSatTrackingId',
-        normalize: (value) => {
-          const candidate = Number(value);
-          return Number.isFinite(candidate) && candidate > 0
-            ? Math.trunc(candidate)
-            : null;
-        },
-      },
-    }[layerId];
-    if (!config) return;
-    const selectedValue = cleared ? null : config.normalize(event?.detail?.id);
-    if (cleared || selectedValue === null) {
-      this._dataManager.adoptLayerParams?.(
-        layerId,
-        {
-          [config.key]: selectedValue,
-        },
-        { origin },
-      );
-      return;
-    }
-    // A direct selection promotes a Context-owned tracker dependency into
-    // durable visibility before its selected ID is normalized. Context exit
-    // also keeps this adopted layer instead of tearing down the user's track.
-    const visibilityAdopted = this._dataManager.adoptLayerVisibility?.(
-      layerId,
-      true,
-      { origin, adoptedFromSelection: true },
-    );
-    if (visibilityAdopted === false) return;
-    // Clear the prior family before publishing the replacement. Otherwise the
-    // coordinator briefly sees two IDs and correctly treats them as an
-    // ambiguous incoming state, which would discard the new durable target.
-    for (const [otherLayerId, otherKey] of [
-      ['flights', 'selectedFlightsTrackingId'],
-      ['military', 'selectedMilitaryTrackingId'],
-      ['satellites', 'selectedSatTrackingId'],
-    ]) {
-      if (otherLayerId === layerId) continue;
-      this._dataManager.setLayerParams(
-        otherLayerId,
-        { [otherKey]: null },
-        { origin },
-      );
-    }
-    this._dataManager.adoptLayerParams?.(
-      layerId,
-      {
-        [config.key]: selectedValue,
-      },
-      { origin },
-    );
-  }
-
   attachDataManager(dataManager) {
     if (this._disposed) return;
     this._dataManager = dataManager || null;
@@ -231,44 +149,15 @@ export class LayerBindings {
       });
     }
     this._updateGlobalLoadingFeedback(performance.now());
-    this._syncContextModeButtons();
     this._cctvControls.connect();
     this._radioControls.connect();
     this._connectDirectionsCamera();
     this._connectWeatherCamera();
-    if (!this._awarenessSelectedHandler) {
-      this._awarenessSelectedHandler = (event) =>
-        this._persistAwarenessSelection(event, false);
-      this._awarenessClearedHandler = (event) =>
-        this._persistAwarenessSelection(event, true);
-      window.addEventListener(
-        'gev:awareness-subject-selected',
-        this._awarenessSelectedHandler,
-      );
-      window.addEventListener(
-        'gev:awareness-subject-cleared',
-        this._awarenessClearedHandler,
-      );
-    }
     this._shareRestoration.connect(this._dataManager);
   }
   stop() {
     if (this._disposed) return;
     this._disposed = true;
-    if (this._awarenessSelectedHandler) {
-      window.removeEventListener(
-        'gev:awareness-subject-selected',
-        this._awarenessSelectedHandler,
-      );
-      this._awarenessSelectedHandler = null;
-    }
-    if (this._awarenessClearedHandler) {
-      window.removeEventListener(
-        'gev:awareness-subject-cleared',
-        this._awarenessClearedHandler,
-      );
-      this._awarenessClearedHandler = null;
-    }
 
     this._removeCctvRequestFocusListener?.();
     this._removeCctvRequestFocusListener = null;

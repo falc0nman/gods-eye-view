@@ -5,7 +5,6 @@ import {
   presetDotRgba,
   presetSizeDelta,
   presetDotOutline,
-  trafficBucketTier,
 } from './trafficPresetStyle.js';
 
 /** Rec.601 luma of an rgba tuple (rgb 0–255), normalized 0–1. */
@@ -83,16 +82,6 @@ test('outlines: mono buckets ALL get a dark halo (bright core + dark ring is the
   for (const b of ['jam', 'slow']) {
     assert.ok(presetDotOutline('retro', b)?.width >= 1, `retro/${b} outlined`);
   }
-});
-
-test('trafficBucketTier: flow buckets map to veh_* tiers, sim to veh_nodata, keyless (null) to null', () => {
-  assert.equal(trafficBucketTier('jam'), 'veh_jam');
-  assert.equal(trafficBucketTier('slow'), 'veh_slow');
-  assert.equal(trafficBucketTier('free'), 'veh_free');
-  assert.equal(trafficBucketTier('sim'), 'veh_nodata');
-  assert.equal(trafficBucketTier(null), null);
-  assert.equal(trafficBucketTier(undefined), null);
-  assert.equal(trafficBucketTier('garbage'), null);
 });
 
 test('outlines: never under the normal profile, never for sim dots', () => {

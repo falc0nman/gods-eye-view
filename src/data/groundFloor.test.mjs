@@ -14,10 +14,6 @@ import {
   setMeshFloorPreferred, meshFloorPreferred, _clearMeshFloorCellsForTest,
   neighborFloorM,
 } from './groundFloor.js';
-import {
-  corridorPathLatLon, projectGroundArcLatLon,
-  CORRIDOR_SAMPLE_SPACING_M, CORRIDOR_MAX_LENGTH_M,
-} from './motionModel.js';
 
 test('coarseFloorCoord rounds to a 3-decimal (~111 m) grid cell', () => {
   const c = coarseFloorCoord(35.049876, -106.591432);
@@ -350,36 +346,6 @@ test('allocateCorridorCells: no budget, no allocation', () => {
 
 // --- F1: the corridor covers the ARC, not the chord -------------------------
 
-test('corridorFloorCells walks a turning path\'s arc, not the chord across it', () => {
-  const path = corridorPathLatLon({
-    extrapolating: true,
-    displayLat: 30.200, displayLon: -97.660, courseDeg: 0, speedMps: 12, turnRateDps: 3,
-    fixLat: 30.199, fixLon: -97.660, lookaheadSec: 30,
-  });
-  const arcCells = corridorFloorCells(path);
-  const chordCells = corridorFloorCells([path[0], path[path.length - 1]]);
-  const chordKeys = new Set(chordCells.map((c) => `${c.lat},${c.lon}`));
-  const offChord = arcCells.filter((c) => !chordKeys.has(`${c.lat},${c.lon}`));
-  assert.ok(offChord.length > 0,
-    'the turn leaves the chord — those cells are the ground a straight corridor left cold');
-});
-
-test('corridorFloorCells keeps a multi-leg path gap-free', () => {
-  const path = corridorPathLatLon({
-    extrapolating: true,
-    displayLat: 30.200, displayLon: -97.660, courseDeg: 0, speedMps: 12, turnRateDps: 2,
-    fixLat: 30.199, fixLon: -97.660, lookaheadSec: 40,
-  });
-  const cells = corridorFloorCells(path);
-  const prefix = cells.slice(0, -1);
-  for (let i = 1; i < prefix.length; i++) {
-    const dLat = Math.abs(Math.round((prefix[i].lat - prefix[i - 1].lat) * 1000));
-    const dLon = Math.abs(Math.round((prefix[i].lon - prefix[i - 1].lon) * 1000));
-    assert.ok(dLat <= 1 && dLon <= 1 && (dLat + dLon) > 0,
-      `non-adjacent step ${JSON.stringify(prefix[i - 1])} -> ${JSON.stringify(prefix[i])}`);
-  }
-});
-
 // --- F2-shifted: a tie larger than the budget must not starve its tail ------
 // Need-ranking alone left the stable ranked tail with nothing, poll after poll:
 // starvation moved rather than being removed. The epoch rotates equal-ranked
@@ -416,58 +382,6 @@ const TURNING_COAST = {
   fixLat: 30.199, fixLon: -97.660,
   lookaheadSec: 60,
 };
-
-test('corridorFloorCells covers the cell a slow sustained turn actually occupies', () => {
-  const cells = corridorFloorCells(corridorPathLatLon(TURNING_COAST));
-  const keys = new Set(cells.map((c) => `${c.lat},${c.lon}`));
-  assert.ok(keys.has('30.202,-97.659'),
-    `the arc sits in 30.202,-97.659 for ~22 m; collected ${JSON.stringify(cells)}`);
-});
-
-test('corridorFloorCells: every cell the sampled arc passes through is collected', () => {
-  // Independent oracle: re-walk the arc at 2 m granularity and demand that any
-  // cell it occupies for a meaningful stretch is in the corridor.
-  const cells = corridorFloorCells(corridorPathLatLon(TURNING_COAST));
-  const keys = new Set(cells.map((c) => `${c.lat},${c.lon}`));
-  const dwell = new Map();
-  const stepSec = 60 / 500;
-  for (let i = 0; i <= 500; i++) {
-    const p = projectGroundArcLatLon(
-      TURNING_COAST.displayLat, TURNING_COAST.displayLon, TURNING_COAST.courseDeg,
-      TURNING_COAST.speedMps, TURNING_COAST.turnRateDps, (60 * i) / 500,
-    );
-    const c = coarseFloorCoord(p.lat, p.lon);
-    const key = `${c.lat},${c.lon}`;
-    dwell.set(key, (dwell.get(key) || 0) + stepSec * TURNING_COAST.speedMps);
-  }
-  // The walk guarantees cells occupied for at least a step's worth of ground.
-  const guaranteedM = CORRIDOR_WALK_STEP_DEG * 111320;
-  const missed = [...dwell.entries()]
-    .filter(([key, metres]) => metres >= guaranteedM * 1.5 && !keys.has(key))
-    .map(([key]) => key);
-  assert.deepEqual(missed, [], `cells the arc occupies but the corridor missed: ${missed.join(' ')}`);
-});
-
-test('corridorPathLatLon spacing stays cell-sized as speed rises', () => {
-  const fast = corridorPathLatLon({ ...TURNING_COAST, speedMps: 25, turnRateDps: 0 });
-  for (let i = 1; i < fast.length; i++) {
-    const dM = Math.hypot(
-      (fast[i].lat - fast[i - 1].lat) * 111320,
-      (fast[i].lon - fast[i - 1].lon) * 111320 * Math.cos(30.2 * Math.PI / 180),
-    );
-    assert.ok(dM <= CORRIDOR_SAMPLE_SPACING_M + 1, `sample gap ${dM.toFixed(1)} m`);
-  }
-});
-
-test('corridorPathLatLon truncates a very long arc instead of thinning it', () => {
-  const path = corridorPathLatLon({ ...TURNING_COAST, speedMps: 120, lookaheadSec: 60 });
-  const end = path[path.length - 1];
-  const lenM = Math.hypot(
-    (end.lat - TURNING_COAST.displayLat) * 111320,
-    (end.lon - TURNING_COAST.displayLon) * 111320 * Math.cos(30.2 * Math.PI / 180),
-  );
-  assert.ok(lenM <= CORRIDOR_MAX_LENGTH_M + 50, `projected ${lenM.toFixed(0)} m`);
-});
 
 // --- F2: fairness under PRODUCTION `seen` semantics -------------------------
 // Production's `seen` holds only the CURRENT poll's batch, so a cell warmed on

@@ -92,7 +92,7 @@ test('a deferred lookup that never flies leaves the readout standing', () => {
   assert.ok(begin > 0, '_beginDeferredNavigation is missing');
   assert.match(
     shellMethod('_beginDeferredNavigation').toString(),
-    /stamp: \(\) =>\s*this\._stampNavigation\(\{\s*cancelPendingSelection,\s*clearSearchedLocation: false,?\s*\}\)/,
+    /stamp: \(\) =>\s*this\._stampNavigation\(\{\s*clearSearchedLocation: false,?\s*\}\)/,
   );
 
   const reassert = ui.indexOf('  _reassertNavigationHandoff(generation) {');

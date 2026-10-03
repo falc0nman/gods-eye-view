@@ -11,17 +11,6 @@ export const LAYER_STATE_TOKEN_ALPHABET =
   '0123456789abcdefghijklmnopqrstuvwxyz';
 const LAYER_STATE_TOKEN_PATTERN = /^[a-z0-9]{1,2}$/;
 const NEW_SINGLE_CHARACTER_TOKEN_PATTERN = /^[0-9]$/;
-/** Re-check cadence while a shared subject waits for its feed row to arrive. */
-const PENDING_TRACKING_POLL_MS = 1_000;
-/**
- * A tracking ID is a transponder address, not free text: 6 hex digits for an
- * ICAO24, with slack for TIS-B (`~abc123`) and similar prefixed forms. Bounding
- * it at the codec keeps an arbitrarily long string out of durable state, the
- * generated URL, and local storage. Identity is never TRUNCATED to fit — an
- * out-of-grammar ID is rejected outright, because half an address is a
- * DIFFERENT aircraft, not a shorter name for the same one.
- */
-const TRACKING_ID_GRAMMAR = /^[0-9a-z~_-]{1,16}$/;
 /**
  * Ceilings for the untrusted v2 layer fields. The layer ceiling covers the
  * complete reserved one-character space plus every two-character base-36
@@ -132,29 +121,6 @@ function absentTokenValue(spec) {
     : spec.defaultValue;
 }
 
-function trackingIdOption(key, token, defaultValue = null) {
-  const bounded = (candidate) => {
-    if (candidate === null || candidate === undefined) return null;
-    const raw =
-      typeof candidate === 'number' && Number.isFinite(candidate)
-        ? String(candidate)
-        : typeof candidate === 'string'
-          ? candidate
-          : null;
-    if (raw === null) return null;
-    const normalized = raw.trim().toLowerCase();
-    return TRACKING_ID_GRAMMAR.test(normalized) ? normalized : null;
-  };
-  return Object.freeze({
-    key,
-    token,
-    defaultValue,
-    normalize: bounded,
-    encode: (value) => String(value),
-    decode: bounded,
-  });
-}
-
 function stringOption(key, token, defaultValue) {
   return Object.freeze({
     key,
@@ -194,28 +160,6 @@ function enumOption(
     normalize: (value) => normalizeEnum(values, value),
     encode: (value) => codes[value],
     decode: (value) => reverse[value] || null,
-  });
-}
-
-function integerOption(key, token, defaultValue) {
-  return Object.freeze({
-    key,
-    token,
-    defaultValue,
-    normalize: (value) => {
-      if (typeof value === 'number' && Number.isInteger(value) && value > 0)
-        return value;
-      const candidate = typeof value === 'string' ? value.trim() : '';
-      const parsed = Number(candidate);
-      if (!candidate || !Number.isInteger(parsed) || parsed <= 0) return null;
-      return parsed;
-    },
-    encode: (value) => String(Math.trunc(value)),
-    decode: (value) => {
-      const candidate = Number(value);
-      if (!Number.isInteger(candidate) || candidate <= 0) return null;
-      return candidate;
-    },
   });
 }
 
@@ -351,41 +295,6 @@ const OPTION_GROUPS = Object.freeze({
     }),
     booleanOption('paused', 'p', false),
   ]),
-  flights: Object.freeze([
-    // Owner directive 2026-08-22: the fleet's 3D models are DEFAULT-ON in
-    // PROXIMITY mode. Proximity is itself the altitude/count gate — models only
-    // materialize once the camera is close enough and only for the nearest
-    // contacts in view — so "on" costs nothing at globe scale, and an operator
-    // who wants every in-view plane still opts into `all` deliberately.
-    // This default must stay in lockstep with `_models3dEnabled` in BOTH flight
-    // layers, `this._models3dEnabled` in ui.js, and the `active` / `visible`
-    // classes in index.html: the fresh-boot path skips restoration entirely (see
-    // `start()` below), so nothing ever pushes this value into the layers — those
-    // four initializers ARE the agreement, and they are pinned together in
-    // layerState.test.mjs.
-    //
-    // `absentValue: false` is what keeps the flip out of links already in the
-    // wild. Schema v2 shipped with OFF as the omitted default, so `v=2&l=f`
-    // MEANS off — and it has to keep meaning that. Moving the default without
-    // this would have silently turned 3D on for every existing v2 link, and
-    // `v=2&l=f&lo=f.m.a` (an OFF link that remembered mode All) would have come
-    // back as ON+All. The price is that ON is now written explicitly (`f.e.1`)
-    // instead of ridden in on the omission; see `absentTokenValue`.
-    booleanOption('models3d', 'e', true, { absentValue: false }),
-    enumOption('models3dMode', 'm', 'proximity', ['proximity', 'all'], {
-      proximity: 'p',
-      all: 'a',
-    }),
-    trackingIdOption('selectedFlightsTrackingId', 't', null),
-    trackingIdOption('selectedMilitaryTrackingId', 'u', null),
-  ]),
-  satellites: Object.freeze([
-    enumOption('catalog', 'c', 'core', ['core', 'dense'], {
-      core: 'c',
-      dense: 'd',
-    }),
-    integerOption('selectedSatTrackingId', 't', null),
-  ]),
   cctv: Object.freeze([
     enumOption('coverageMode', 'c', 'on', ['off', 'on', 'viewshed'], {
       off: '0',
@@ -431,33 +340,6 @@ const OPTION_GROUPS = Object.freeze({
         /^\d{1,3}$/.test(value) ? normalizeVolume(Number(value) / 100) : null,
     }),
   ]),
-});
-
-const TRACKING_OPTION_KEY_BY_LAYER = Object.freeze({
-  flights: 'selectedFlightsTrackingId',
-  military: 'selectedMilitaryTrackingId',
-  satellites: 'selectedSatTrackingId',
-});
-
-export const SHARE_TRACKING_RESTORE_POLICIES = Object.freeze({
-  flights: Object.freeze({
-    optionOwner: 'flights',
-    optionKey: 'selectedFlightsTrackingId',
-    expiryWindowMs: 90_000,
-    label: 'flight',
-  }),
-  military: Object.freeze({
-    optionOwner: 'flights',
-    optionKey: 'selectedMilitaryTrackingId',
-    expiryWindowMs: 45_000,
-    label: 'military flight',
-  }),
-  satellites: Object.freeze({
-    optionOwner: 'satellites',
-    optionKey: 'selectedSatTrackingId',
-    expiryWindowMs: 300_000,
-    label: 'satellite',
-  }),
 });
 
 /**
@@ -554,68 +436,12 @@ export const LAYER_STATE_TOKEN_RESERVATIONS =
  */
 export const LAYER_STATE_REGISTRY = Object.freeze([
   Object.freeze({
-    id: 'ais-live-vessels',
-    token: 'a',
-    disposition: 'enabled-only',
-  }),
-  Object.freeze({
-    id: 'alpr-cameras',
-    token: 'p',
-    disposition: 'enabled-only',
-  }),
-  Object.freeze({
-    id: 'bhote-koshi-2026',
-    token: 'h',
-    disposition: 'enabled-only',
-  }),
-  Object.freeze({
-    id: 'bhote-koshi-locator',
-    token: 'z',
-    disposition: 'enabled-only',
-  }),
-  Object.freeze({ id: 'bikeshare', token: 'b', disposition: 'enabled-only' }),
-  Object.freeze({
     id: 'cctv',
     token: 'c',
     disposition: 'enabled+options',
     optionOwner: 'cctv',
   }),
   Object.freeze({ id: 'directions', token: 'n', disposition: 'enabled-only' }),
-  Object.freeze({ id: 'earthquakes', token: 'e', disposition: 'enabled-only' }),
-  Object.freeze({
-    id: 'fire-perimeters',
-    token: '2',
-    disposition: 'enabled-only',
-  }),
-  Object.freeze({
-    id: 'flights',
-    token: 'f',
-    disposition: 'enabled+options',
-    optionOwner: 'flights',
-  }),
-  Object.freeze({ id: 'local-dams', token: 'q', disposition: 'enabled-only' }),
-  Object.freeze({
-    id: 'local-datacenters',
-    token: 'd',
-    disposition: 'enabled-only',
-  }),
-  Object.freeze({ id: 'local-firms', token: 'w', disposition: 'enabled-only' }),
-  Object.freeze({
-    id: 'military',
-    token: 'm',
-    disposition: 'enabled+mirrored-options',
-    optionOwner: 'flights',
-  }),
-  Object.freeze({
-    id: 'military-awareness',
-    token: 'g',
-    disposition: 'enabled-only',
-  }),
-  Object.freeze({
-    id: 'military-installations',
-    token: 'i',
-    disposition: 'enabled-only',
-  }),
   Object.freeze({ id: 'nexrad', token: '0', disposition: 'enabled-only' }),
   Object.freeze({
     id: 'nws-warnings',
@@ -635,24 +461,8 @@ export const LAYER_STATE_REGISTRY = Object.freeze([
     optionOwner: 'recent-imagery',
   }),
   Object.freeze({
-    id: 'rocket-launches',
-    token: 'x',
-    disposition: 'enabled-only',
-  }),
-  Object.freeze({
-    id: 'satellites',
-    token: 's',
-    disposition: 'enabled+options',
-    optionOwner: 'satellites',
-  }),
-  Object.freeze({
     id: 'team-chasers',
     token: '4',
-    disposition: 'enabled-only',
-  }),
-  Object.freeze({
-    id: 'telegeography-submarine-cables',
-    token: 'u',
     disposition: 'enabled-only',
   }),
   Object.freeze({
@@ -661,7 +471,6 @@ export const LAYER_STATE_REGISTRY = Object.freeze([
     disposition: 'enabled+options',
     optionOwner: 'traffic',
   }),
-  Object.freeze({ id: 'transit', token: 'j', disposition: 'enabled-only' }),
   Object.freeze({
     id: 'weather-cyclones',
     token: 'y',
@@ -756,6 +565,16 @@ const REGISTRY_BY_ID = new Map(
 );
 const REGISTRY_BY_TOKEN = new Map(
   LAYER_STATE_REGISTRY.map((entry) => [entry.token, entry]),
+);
+/**
+ * Tokens of removed layers (GW-53): still reserved in the ledger, so never
+ * reused, but no longer registered. A share link that names one is not
+ * malformed; the removed layer is skipped and the rest of the link restores.
+ */
+const RETIRED_IDS_BY_TOKEN = new Map(
+  Object.entries(LAYER_STATE_TOKEN_RESERVATIONS)
+    .filter(([, token]) => !REGISTRY_BY_TOKEN.has(token))
+    .map(([id, token]) => [token, id]),
 );
 const OPTION_OWNER_IDS = Object.freeze([
   ...new Set(
@@ -890,27 +709,6 @@ export function normalizeLayerState(candidate) {
       normalizeOwnerOptions(ownerId, input.options?.[ownerId]),
     ]),
   );
-  // A selected entity cannot outlive an explicitly disabled owner layer.
-  // Keeping these IDs would resurrect tracking when that layer is enabled
-  // later, even though OFF was newer explicit intent.
-  if (!enabled.has('flights')) options.flights.selectedFlightsTrackingId = null;
-  if (!enabled.has('military'))
-    options.flights.selectedMilitaryTrackingId = null;
-  if (!enabled.has('satellites'))
-    options.satellites.selectedSatTrackingId = null;
-  // The codec has no cross-family recency field, so multiple tracking IDs are
-  // ambiguous rather than an ordered handoff. Fail closed instead of letting
-  // asynchronous feed arrival decide which tracker and camera owner wins.
-  const trackingSelectionCount = [
-    options.flights.selectedFlightsTrackingId,
-    options.flights.selectedMilitaryTrackingId,
-    options.satellites.selectedSatTrackingId,
-  ].filter((value) => value !== null).length;
-  if (trackingSelectionCount > 1) {
-    options.flights.selectedFlightsTrackingId = null;
-    options.flights.selectedMilitaryTrackingId = null;
-    options.satellites.selectedSatTrackingId = null;
-  }
   return {
     version: LAYER_STATE_VERSION,
     enabledLayerIds,
@@ -974,15 +772,24 @@ export function decodeLayerStateParams(params) {
   // Fail closed on an oversized payload rather than decoding a truncated one.
   if (rawLayers.length > MAX_ENABLED_LAYERS_CHARS) return null;
   if (rawOptionsField.length > MAX_LAYER_OPTIONS_CHARS) return null;
-  const layerTokens = rawLayers ? rawLayers.split('.') : [];
+  const allTokens = rawLayers ? rawLayers.split('.') : [];
   // `l=` is the one valid explicit-empty representation. Reject repeated
   // fields, empty members, duplicate members, or unknown members; silently
   // removing one would turn a malformed share into a different state.
+  // Retired tokens are known, so they are skipped rather than rejected.
   if (
-    layerTokens.some((token) => !token || !REGISTRY_BY_TOKEN.has(token)) ||
-    new Set(layerTokens).size !== layerTokens.length
+    allTokens.some(
+      (token) =>
+        !token ||
+        (!REGISTRY_BY_TOKEN.has(token) && !RETIRED_IDS_BY_TOKEN.has(token)),
+    ) ||
+    new Set(allTokens).size !== allTokens.length
   )
     return null;
+  const layerTokens = allTokens.filter((token) => REGISTRY_BY_TOKEN.has(token));
+  const retiredLayerIds = allTokens
+    .filter((token) => RETIRED_IDS_BY_TOKEN.has(token))
+    .map((token) => RETIRED_IDS_BY_TOKEN.get(token));
   const enabledLayerIds = layerTokens.map(
     (token) => REGISTRY_BY_TOKEN.get(token).id,
   );
@@ -1017,7 +824,8 @@ export function decodeLayerStateParams(params) {
       rawOptions[ownerId][spec.key] = absentTokenValue(spec);
     }
   }
-  return normalizeLayerState({ enabledLayerIds, options: rawOptions });
+  const state = normalizeLayerState({ enabledLayerIds, options: rawOptions });
+  return retiredLayerIds.length ? { ...state, retiredLayerIds } : state;
 }
 
 /** Options with share-link-only values reset to their defaults. */
@@ -1096,12 +904,6 @@ export class LayerStateCoordinator {
       storage = safeStorage(),
       restoreGate = null,
       onDurableStateChange = null,
-      onTrackingRestoreStatus = null,
-      now = () => Date.now(),
-      // Injectable so the pending-window behavior is deterministically testable
-      // without sleeping out a 90 s expiry.
-      setTimer = (fn, ms) => setTimeout(fn, ms),
-      clearTimer = (handle) => clearTimeout(handle),
     } = {},
   ) {
     if (!dataManager?.registrationsFinalized) {
@@ -1114,19 +916,10 @@ export class LayerStateCoordinator {
     this.storage = storage;
     this.restoreGate = restoreGate;
     this.onDurableStateChange = onDurableStateChange;
-    this.onTrackingRestoreStatus = onTrackingRestoreStatus;
-    this.now = now;
-    this.setTimer = setTimer;
-    this.clearTimer = clearTimer;
     this._durableState = createDefaultLayerState();
     this._source = 'defaults';
     this._destroyed = false;
     this._restoreControllers = new Map();
-    this._shareCreatedAtMs = null;
-    this._trackingRestoreController = null;
-    this._trackingRestoreGeneration = 0;
-    this._pendingTrackingTimer = null;
-    this._pendingTrackingContext = null;
     this._unsubscribe = this.dataManager.subscribe((change) =>
       this._handleManagerChange(change),
     );
@@ -1138,11 +931,7 @@ export class LayerStateCoordinator {
     this.lastRestoreResults = [];
   }
 
-  start({
-    shareLayerState = null,
-    allowLocalState = true,
-    shareCreatedAtMs = null,
-  } = {}) {
+  start({ shareLayerState = null, allowLocalState = true } = {}) {
     if (this._destroyed)
       throw new Error('Layer-state coordinator is destroyed');
     let selected = shareLayerState
@@ -1150,9 +939,6 @@ export class LayerStateCoordinator {
       : null;
     if (selected) {
       this._source = 'share';
-      this._shareCreatedAtMs = Number.isFinite(shareCreatedAtMs)
-        ? shareCreatedAtMs
-        : null;
     } else if (allowLocalState) {
       let stored = null;
       try {
@@ -1208,30 +994,12 @@ export class LayerStateCoordinator {
     this._restoreControllers
       .get(change.layerId)
       ?.abort('superseded-by-explicit-visibility');
-    if (SHARE_TRACKING_RESTORE_POLICIES[change.layerId]) {
-      this._revokePendingTrackingWatch('superseded-by-explicit-visibility');
-    }
   }
 
   /** Revoke every passive restore before explicit navigation can be reclaimed. */
   cancelPendingRestores(reason = 'superseded-by-explicit-navigation') {
     for (const controller of this._restoreControllers.values())
       controller.abort(reason);
-    this._revokePendingTrackingWatch(reason);
-  }
-
-  /**
-   * Revoke a pending shared Follow. Physical navigation may also clear only
-   * the exact passive selection, without writing recipient preferences.
-   */
-  cancelPendingShareTracking(
-    reason = 'superseded-by-explicit-navigation',
-    { clearSelection = false } = {},
-  ) {
-    this._revokePendingTrackingWatch(reason);
-    if (!clearSelection) return false;
-    const selected = this._selectedShareTrackingTarget();
-    return selected ? this._passivelyClearTrackingSelection(selected) : false;
   }
 
   _handleManagerChange(change) {
@@ -1239,33 +1007,12 @@ export class LayerStateCoordinator {
     // Parameter and visibility ownership are independent. A newer explicit
     // option request may replace passive share options, but it must not abort
     // the same layer's visibility lifecycle.
-    if (change.type === 'params-requested') {
-      if (
-        isExplicitLayerStateOrigin(change.origin) &&
-        SHARE_TRACKING_RESTORE_POLICIES[change.layerId]
-      ) {
-        this._revokePendingTrackingWatch('superseded-by-explicit-params');
-      }
-      return;
-    }
-    // A layer that goes away takes its latch with it, at ANY origin — a
-    // programmatic disable or teardown never reaches the explicit-intent path
-    // below, so revoke here before that early return.
-    if (
-      change.type === 'visibility' &&
-      change.enabled === false &&
-      SHARE_TRACKING_RESTORE_POLICIES[change.layerId]
-    ) {
-      this._revokePendingTrackingWatch('owner-layer-disabled');
-    }
+    if (change.type === 'params-requested') return;
     if (!isExplicitLayerStateOrigin(change.origin)) return;
     if (change.type === 'visibility') {
       this._restoreControllers
         .get(change.layerId)
         ?.abort('superseded-by-explicit-visibility');
-      if (SHARE_TRACKING_RESTORE_POLICIES[change.layerId]) {
-        this._revokePendingTrackingWatch('superseded-by-explicit-visibility');
-      }
       const enabled = new Set(this._durableState.enabledLayerIds);
       if (change.enabled) enabled.add(change.layerId);
       else enabled.delete(change.layerId);
@@ -1281,27 +1028,14 @@ export class LayerStateCoordinator {
     const ownerId = entry.optionOwner;
     const nextOwnerOptions = { ...this._durableState.options[ownerId] };
     const requestedParams = change.requestedParams || {};
-    const trackingOptionKey =
-      TRACKING_OPTION_KEY_BY_LAYER[change.layerId] || null;
     let changed = false;
     for (const spec of optionSpecs(ownerId)) {
       // Only persist keys present in this explicit request. getLayerParams()
       // can return a wider live snapshot containing transient or passively
-      // changed values that this user action did not own. Tracking is the one
-      // exception: an unrelated explicit option cancels a pending restoration
-      // in that family, so its wider live value (active ID or null) must replace
-      // the formerly durable pending ID instead of allowing reload resurrection.
-      const explicitlyRequested = Object.hasOwn(requestedParams, spec.key);
-      const implicitTrackingSync =
-        !explicitlyRequested && spec.key === trackingOptionKey;
-      if (!explicitlyRequested && !implicitTrackingSync) continue;
+      // changed values that this user action did not own.
+      if (!Object.hasOwn(requestedParams, spec.key)) continue;
       const value = spec.normalize(change.params[spec.key]);
       if (value === null) {
-        if (implicitTrackingSync) {
-          nextOwnerOptions[spec.key] = null;
-          changed = true;
-          continue;
-        }
         if (spec.defaultValue !== null || change.params[spec.key] !== null)
           continue;
       }
@@ -1348,13 +1082,6 @@ export class LayerStateCoordinator {
           const controller = this._restoreControllers.get(entry.id);
           const targetEnabled = enabled.has(entry.id);
           const options = layerOptionsForRestore(this._durableState, entry.id);
-          if (origin === LAYER_RESTORE_ORIGINS.share && options) {
-            for (const trackingKey of Object.values(
-              TRACKING_OPTION_KEY_BY_LAYER,
-            )) {
-              delete options[trackingKey];
-            }
-          }
           if (this._destroyed || controller?.signal.aborted) {
             return {
               layerId: entry.id,
@@ -1419,363 +1146,17 @@ export class LayerStateCoordinator {
     }
   }
 
-  _selectedShareTrackingTarget() {
-    if (this._source !== 'share') return null;
-    for (const [layerId, policy] of Object.entries(
-      SHARE_TRACKING_RESTORE_POLICIES,
-    )) {
-      const targetId =
-        this._durableState.options?.[policy.optionOwner]?.[policy.optionKey];
-      if (targetId !== null && targetId !== undefined && targetId !== '') {
-        return { layerId, targetId, ...policy };
-      }
-    }
-    return null;
-  }
-
-  _passivelyClearTrackingSelection(selected) {
-    const current =
-      this._durableState.options?.[selected.optionOwner]?.[selected.optionKey];
-    if (String(current) !== String(selected.targetId)) return false;
-    const ownerOptions = {
-      ...this._durableState.options[selected.optionOwner],
-      [selected.optionKey]: null,
-    };
-    this._durableState = normalizeLayerState({
-      ...this._durableState,
-      options: {
-        ...this._durableState.options,
-        [selected.optionOwner]: ownerOptions,
-      },
-    });
-    this.dataManager.setLayerParams?.(
-      selected.layerId,
-      { [selected.optionKey]: null },
-      { origin: LAYER_RESTORE_ORIGINS.share },
-    );
-    this.shareLinkManager?.onLayerStateChange?.();
-    this._notifyDurableState();
-    return true;
-  }
-
-  /**
-   * `atMs` is the moment the subject was first found ABSENT, not the moment the
-   * verdict is delivered. Waiting out the pending window must not by itself
-   * push a fresh link into the "expired" wording — that word describes the
-   * SHARE's age, not how long this client watched for the subject.
-   */
-  _classifyMissingTrackingTarget(selected, atMs = this.now()) {
-    const copiedAt = this._shareCreatedAtMs;
-    if (!Number.isFinite(copiedAt)) return 'unavailable';
-    const ageMs = atMs - copiedAt;
-    return ageMs > selected.expiryWindowMs ? 'expired' : 'unavailable';
-  }
-
-  /** Whether the owning layer currently follows the shared subject. */
-  _trackingTargetLatched(selected) {
-    const params = this.dataManager.getLayerParams?.(selected.layerId);
-    const active = params?.[selected.optionKey];
-    return (
-      active !== null &&
-      active !== undefined &&
-      String(active) === String(selected.targetId)
-    );
-  }
-
-  /** Stop watching a pending shared subject without deciding its fate. */
-  _cancelPendingTrackingWatch() {
-    if (this._pendingTrackingTimer !== null)
-      this.clearTimer(this._pendingTrackingTimer);
-    this._pendingTrackingTimer = null;
-    const pending = this._pendingTrackingContext;
-    if (pending?.signal && pending.abortHandler) {
-      pending.signal.removeEventListener('abort', pending.abortHandler);
-      pending.abortHandler = null;
-    }
-  }
-
-  /** Publish a share-follow lifecycle update without allowing UI errors to own state. */
-  _publishTrackingRestoreStatus(status) {
-    try {
-      this.onTrackingRestoreStatus?.(status);
-    } catch {
-      /* status UI is best effort */
-    }
-  }
-
-  /**
-   * Revoke a pending shared Follow wholesale.
-   *
-   * The watch and the LAYER's own deferred-restore latch are two halves of one
-   * mechanism, so they must die together. Aborting only the restore controller
-   * left the timer alive: the controller has already settled by the time the
-   * watch exists, so the abort was a no-op and the orphaned timer went on to
-   * announce "Shared … unavailable" for a subject whose latch had been
-   * cancelled — a notice about work no longer being attempted.
-   */
-  _revokePendingTrackingWatch(reason) {
-    this._trackingRestoreController?.abort(reason);
-    this._trackingRestoreGeneration += 1;
-    this._cancelPendingTrackingWatch();
-    const pending = this._pendingTrackingContext;
-    this._pendingTrackingContext = null;
-    if (pending) {
-      this.dataManager.cancelPendingLayerRestore?.(pending.selected.layerId, {
-        origin: LAYER_RESTORE_ORIGINS.share,
-        reason: String(reason || 'cancelled'),
-      });
-      this._publishTrackingRestoreStatus({
-        ...pending.probe,
-        ...pending.selected,
-        status: 'cancelled',
-        classification: 'cancelled',
-        reason: String(reason || 'cancelled'),
-        cleared: false,
-      });
-    }
-  }
-
-  /**
-   * Hold a not-yet-arrived shared subject PENDING instead of declaring it gone.
-   *
-   * A recipient's first authoritative refresh routinely lands without a given
-   * contact — the feed is polled, coverage is partial, and rendering trails the
-   * snapshot by a poll. Reload-from-local already survives this: its restore
-   * arms the layer's own deferred-restore latch, which re-attempts on every
-   * later poll. The shared path used to decide on that single refresh, clear
-   * the subject from durable state AND from the URL, then post a failure notice
-   * seconds into startup — so the same link healed on reload but never on the
-   * share.
-   *
-   * Arm the SAME latch, then watch it in the background: the caller is never
-   * blocked (startup must not wait out a 90 s window before it may write the
-   * URL again), and the terminal verdict is deferred until the source-specific
-   * window has genuinely expired. The existing wordings are unchanged.
-   */
-  async _beginPendingTrackingRestore(selected, probe, signal = null) {
-    const generation = this._trackingRestoreGeneration;
-    const absentAtMs = this.now();
-    // Arm the layer's deferred-restore latch under the passive share origin, so
-    // it re-attempts each poll and never rewrites recipient preferences.
-    let armed = false;
-    let armError = null;
-    try {
-      armed =
-        (await this.dataManager.setLayerParams?.(
-          selected.layerId,
-          { [selected.optionKey]: selected.targetId },
-          { origin: LAYER_RESTORE_ORIGINS.share },
-        )) === true;
-    } catch (error) {
-      armError = error;
-    }
-    if (
-      this._destroyed ||
-      generation !== this._trackingRestoreGeneration ||
-      signal?.aborted
-    ) {
-      if (armed) {
-        this.dataManager.cancelPendingLayerRestore?.(selected.layerId, {
-          origin: LAYER_RESTORE_ORIGINS.share,
-          reason: String(signal?.reason || 'superseded'),
-        });
-      }
-      return {
-        ...probe,
-        ...selected,
-        status: 'cancelled',
-        classification: 'cancelled',
-        reason: String(signal?.reason || 'superseded'),
-        cleared: false,
-      };
-    }
-    if (!armed) {
-      const terminal = {
-        ...probe,
-        ...selected,
-        status: 'source-unavailable',
-        classification: 'source-unavailable',
-        reason: String(
-          armError?.message || armError || 'tracking restore latch rejected',
-        ),
-        cleared: this._passivelyClearTrackingSelection(selected),
-      };
-      this._publishTrackingRestoreStatus(terminal);
-      return terminal;
-    }
-    const deadline = this.now() + selected.expiryWindowMs;
-    const settle = (terminal) => {
-      if (this._pendingTrackingContext?.generation !== generation) return;
-      this._cancelPendingTrackingWatch();
-      this._pendingTrackingContext = null;
-      this._publishTrackingRestoreStatus(terminal);
-    };
-    const poll = () => {
-      this._pendingTrackingTimer = null;
-      if (this._destroyed || generation !== this._trackingRestoreGeneration)
-        return;
-      // The layer that owns the latch may have gone away since the last tick
-      // (disable, teardown, replacement). There is nothing left attempting this
-      // restore, so abandon it silently rather than announcing a verdict.
-      if (this.dataManager.isEffectivelyEnabled?.(selected.layerId) === false) {
-        this._revokePendingTrackingWatch('owner-layer-disabled');
-        return;
-      }
-      if (this._trackingTargetLatched(selected)) {
-        settle({
-          ...probe,
-          ...selected,
-          status: 'found',
-          classification: 'followed',
-          cleared: false,
-        });
-        return;
-      }
-      if (this.now() >= deadline) {
-        // The window really has elapsed — only now does the verdict apply.
-        const classification =
-          probe.status === 'missing'
-            ? this._classifyMissingTrackingTarget(selected, absentAtMs)
-            : 'source-unavailable';
-        const cleared = this._passivelyClearTrackingSelection(selected);
-        settle({ ...probe, ...selected, classification, cleared });
-        return;
-      }
-      this._pendingTrackingTimer = this.setTimer(
-        poll,
-        PENDING_TRACKING_POLL_MS,
-      );
-      this._pendingTrackingTimer?.unref?.();
-    };
-    this._cancelPendingTrackingWatch();
-    const pending = {
-      ...probe,
-      ...selected,
-      status: 'pending',
-      classification: 'pending',
-      cleared: false,
-    };
-    const pendingContext = {
-      generation,
-      selected,
-      probe,
-      signal,
-      abortHandler: null,
-    };
-    if (signal) {
-      pendingContext.abortHandler = () => {
-        if (this._pendingTrackingContext?.generation !== generation) return;
-        this._revokePendingTrackingWatch(signal.reason || 'aborted');
-      };
-      signal.addEventListener('abort', pendingContext.abortHandler, {
-        once: true,
-      });
-    }
-    this._pendingTrackingContext = pendingContext;
-    this._publishTrackingRestoreStatus(pending);
-    this._pendingTrackingTimer = this.setTimer(poll, PENDING_TRACKING_POLL_MS);
-    this._pendingTrackingTimer?.unref?.();
-    return pending;
-  }
-
-  /**
-   * Refresh and restore the one shareable tracked target after destination
-   * camera and ordinary layer restoration have settled.
-   */
-  async restoreShareTrackingSelection({ signal = null } = {}) {
-    const selected = this._selectedShareTrackingTarget();
-    if (!selected || this._destroyed)
-      return { status: 'skipped', reason: 'no-shared-target' };
-    this._revokePendingTrackingWatch('superseded-by-newer-restore');
-    const controller = new AbortController();
-    const combinedSignal = signal
-      ? AbortSignal.any([signal, controller.signal])
-      : controller.signal;
-    this._trackingRestoreController = controller;
-    const generation = ++this._trackingRestoreGeneration;
-    let result;
-    try {
-      result = await this.dataManager.resolveLayerTrackingTarget(
-        selected.layerId,
-        selected.targetId,
-        { signal: combinedSignal, origin: LAYER_RESTORE_ORIGINS.share },
-      );
-    } catch (error) {
-      result = combinedSignal.aborted
-        ? {
-            status: 'cancelled',
-            reason: String(combinedSignal.reason || 'aborted'),
-          }
-        : {
-            status: 'source-unavailable',
-            reason: String(error?.message || error),
-          };
-    }
-    if (
-      generation !== this._trackingRestoreGeneration ||
-      this._destroyed ||
-      combinedSignal.aborted
-    ) {
-      if (this._trackingRestoreController === controller)
-        this._trackingRestoreController = null;
-      return {
-        ...result,
-        status: 'cancelled',
-        reason: String(combinedSignal.reason || 'superseded'),
-      };
-    }
-    if (this._trackingRestoreController === controller)
-      this._trackingRestoreController = null;
-
-    if (result.status === 'found') {
-      const terminal = {
-        ...result,
-        ...selected,
-        classification: 'followed',
-        cleared: false,
-      };
-      this._publishTrackingRestoreStatus(terminal);
-      return terminal;
-    }
-    if (['cancelled', 'superseded', 'destroyed'].includes(result.status))
-      return result;
-
-    // A subject that is simply not here YET is not a subject that is gone. Hold
-    // it on the layer's own deferred-restore latch for its source-specific
-    // window before any verdict is reached or shown. `unsupported` layers have
-    // no latch to arm, so they still decide immediately.
-    if (result.status === 'missing' || result.status === 'source-unavailable') {
-      return this._beginPendingTrackingRestore(
-        selected,
-        result,
-        combinedSignal,
-      );
-    }
-
-    const classification =
-      result.status === 'missing'
-        ? this._classifyMissingTrackingTarget(selected)
-        : 'source-unavailable';
-    const cleared = this._passivelyClearTrackingSelection(selected);
-    const terminal = { ...result, ...selected, classification, cleared };
-    this._publishTrackingRestoreStatus(terminal);
-    return terminal;
-  }
-
   destroy() {
     if (this._destroyed) return;
     this._destroyed = true;
     for (const controller of this._restoreControllers.values())
       controller.abort('coordinator-destroyed');
     this._restoreControllers.clear();
-    this._revokePendingTrackingWatch('coordinator-destroyed');
-    this._trackingRestoreController = null;
     this._unsubscribe?.();
     this._unsubscribe = null;
     this._unsubscribeVisibilityRequests?.();
     this._unsubscribeVisibilityRequests = null;
     this.shareLinkManager?.setLayerStateProvider?.(null);
     this.onDurableStateChange = null;
-    this.onTrackingRestoreStatus = null;
   }
 }

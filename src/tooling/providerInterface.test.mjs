@@ -315,7 +315,7 @@ test('every local provider registers centrally', () => {
     .map((entry) => entry.id);
   assert.equal(new Set(ids).size, ids.length);
   assert.ok(ids.includes('nexrad-level3'));
-  assert.equal(ids.at(-1), 'fire-perimeters');
+  assert.equal(ids.at(-1), 'life360-chasers');
 });
 
 test('provenance availableAt yields availability-to-ingest latency', async () => {

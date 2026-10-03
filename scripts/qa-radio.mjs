@@ -167,27 +167,6 @@ async function main() {
     page.on('request', (request) => {
       const url = new URL(request.url());
 
-    // These scenarios exercise Context lifecycle and keyboard ownership, not
-    // live orbit accuracy. Reuse the tracking suite's fixed element sets so
-    // CelesTrak outages cannot invalidate an otherwise clean UI run.
-    if (url.origin === APP_ORIGIN
-      && ['/api/celestrak/active', '/api/celestrak/starlink'].includes(url.pathname)) {
-      const dense = url.pathname.endsWith('/starlink');
-      request.respond({
-        status: 200,
-        contentType: 'text/plain',
-        body: (dense ? [
-          'STARLINK-1007',
-          '1 44713U 19074A   24001.50000000  .00016717  00000-0  10270-3 0  9004',
-          '2 44713  53.0000 247.4627 0006703 130.5360 325.0288 15.06000000 12345',
-        ] : [
-          'ISS (ZARYA)',
-          '1 25544U 98067A   24001.50000000  .00016717  00000-0  10270-3 0  9004',
-          '2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.49814310 12345',
-        ]).join('\n') + '\n',
-      });
-      return;
-    }
       if (url.origin === APP_ORIGIN && url.pathname === '/api/radio/stations') {
         const response = {
           status: 200,
@@ -800,7 +779,7 @@ async function main() {
         styleManager._contextControls._captureContextSessionSnapshot = () => {};
         const runContextFailure = async (mode, phase, outcome) => {
           enabled.clear();
-          enabled.add('local-datacenters');
+          enabled.add('cctv');
           styleManager._contextControls._contextMode = null;
           styleManager._contextControls._contextSessionSnapshot = {
             enabledLayerIds: new Set(enabled),
@@ -811,7 +790,7 @@ async function main() {
           let failureUsed = false;
           const entryLayerId = mode === 'flights' ? 'military-awareness' : 'rocket-launches';
           dataManager.setEnabled = async (layerId, shouldEnable) => {
-            const failsIsolation = phase === 'isolation' && layerId === 'local-datacenters' && !shouldEnable;
+            const failsIsolation = phase === 'isolation' && layerId === 'cctv' && !shouldEnable;
             const failsActivation = phase === 'activation' && layerId === entryLayerId && shouldEnable;
             if (!failureUsed && (failsIsolation || failsActivation)) {
               failureUsed = true;
@@ -833,7 +812,7 @@ async function main() {
             result,
             visibleMode: styleManager._contextControls._contextMode,
             snapshotCleared: styleManager._contextControls._contextSessionSnapshot === null,
-            priorLayerRestored: enabled.has('local-datacenters'),
+            priorLayerRestored: enabled.has('cctv'),
             entryEnabled: enabled.has(entryLayerId),
             flightsButtonDisabled: document.getElementById('global-context-flights-btn').disabled,
             missionsButtonDisabled: document.getElementById('global-context-missions-btn').disabled,
@@ -869,7 +848,7 @@ async function main() {
         for (const layerId of ['military-awareness', 'rocket-launches']) {
           for (const outcome of ['false', 'reject']) {
             enabled.clear();
-            enabled.add('local-datacenters');
+            enabled.add('cctv');
             styleManager._contextControls._contextMode = null;
             styleManager._contextControls._contextSessionSnapshot = {
               enabledLayerIds: new Set(enabled),
@@ -884,7 +863,7 @@ async function main() {
               originalShowToast.call(styleManager, message);
             };
             dataManager.setEnabled = async (candidateId, shouldEnable, options = {}) => {
-              if (!failureUsed && candidateId === 'local-datacenters' && !shouldEnable) {
+              if (!failureUsed && candidateId === 'cctv' && !shouldEnable) {
                 failureUsed = true;
                 styleManager._contextControls._handleContextLayerChange({
                   type: 'visibility-failed',
@@ -912,7 +891,7 @@ async function main() {
               origin: 'user',
               reason,
             });
-            const priorLayerRestored = enabled.has('local-datacenters');
+            const priorLayerRestored = enabled.has('cctv');
             const retryReason = await dataManager._visibilityBlockReason({
               type: 'visibility-will-change',
               layerId,
@@ -939,7 +918,7 @@ async function main() {
           enabled.clear();
           styleManager._contextControls._contextMode = null;
           styleManager._contextControls._contextSessionSnapshot = {
-            enabledLayerIds: new Set(['local-datacenters']),
+            enabledLayerIds: new Set(['cctv']),
             userAdded: new Set(),
             userRemoved: new Set(),
             params: {},
@@ -959,7 +938,7 @@ async function main() {
             layerId,
             mode: styleManager._contextControls._contextMode,
             snapshotCleared: styleManager._contextControls._contextSessionSnapshot === null,
-            priorLayerRestored: enabled.has('local-datacenters'),
+            priorLayerRestored: enabled.has('cctv'),
             failedLayerDisabled: !enabled.has(layerId),
           });
         }
@@ -969,7 +948,7 @@ async function main() {
           enabled.clear();
           styleManager._contextControls._contextMode = null;
           styleManager._contextControls._contextSessionSnapshot = {
-            enabledLayerIds: new Set(['local-datacenters']),
+            enabledLayerIds: new Set(['cctv']),
             userAdded: new Set(),
             userRemoved: new Set(),
             params: {},
@@ -981,7 +960,7 @@ async function main() {
             showToastBeforeRollbackFailure.call(styleManager, message);
           };
           dataManager.setEnabled = async (candidateId, shouldEnable) => {
-            if (candidateId === 'local-datacenters' && shouldEnable) return false;
+            if (candidateId === 'cctv' && shouldEnable) return false;
             shouldEnable ? enabled.add(candidateId) : enabled.delete(candidateId);
             return true;
           };
@@ -996,7 +975,7 @@ async function main() {
           directActivationRollbackFailures.push({
             layerId,
             toastMessages,
-            retryRetained: styleManager._contextControls._contextSessionSnapshot?.enabledLayerIds?.has('local-datacenters') === true,
+            retryRetained: styleManager._contextControls._contextSessionSnapshot?.enabledLayerIds?.has('cctv') === true,
           });
         }
 

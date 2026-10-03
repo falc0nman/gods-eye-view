@@ -10,56 +10,6 @@ This guide covers the work hardened over **4 adversarial-review batches** on
 `feat/annotate-hybrid`. Record a voice note + screenshots as you go; each scenario
 lists what **✅ pass** looks like and (where it applies) the **❌ old bug** it replaces.
 
-## Focus/horizon moving evidence
-
-With the Vite development server already running on port 4173, capture all four
-focus/recession scenarios with a deterministic virtual frame clock:
-
-```sh
-node scripts/qa-focus-evidence.mjs --url http://localhost:4173 \
-  --screenshots-dir qa-shots/focus-evidence \
-  --json qa-shots/focus-evidence/report.json
-```
-
-For a quick operator loop, `--smoke` captures only S1 in six frames. For visual
-sign-off, add `--headful`; this removes the SwiftShader launch flags and uses
-the machine's real GPU. The harness brings its page to the foreground at the
-start of every scenario so a headful Chromium run keeps streaming tiles.
-
-Google 3D remains the default basemap. If its tile stream is the bottleneck
-rather than the behavior under test, select an existing map stack explicitly:
-
-```sh
---basemap bing-aerial
---basemap osm
-```
-
-Accepted values are `photoreal`, `bing-aerial`, `bing-labels`, and `osm`; Bing
-stacks still require the app's usual Cesium ion token.
-
-Tune both systems without editing source by adding, for example:
-
-```sh
---params '{"focus":{"dimFloor":0.35,"nearerBehavior":"partial"},"horizon":{"scaleFloor":0.5,"alphaFloor":0.4}}'
-```
-
-The script never starts the server. During scenarios it pauses Cesium's default
-render loop, advances focus time explicitly, and renders each frame before the
-screenshot, so computed alpha/scale sequences repeat for identical parameters.
-Headless Chromium still forces SwiftShader, so its pixels are relative CI/A-B
-evidence only; headful real-GPU output is the sign-off surface. Screenshots use
-scenario/frame names and the JSON report records effective tuning plus
-per-contact alpha, scale, and screen data. Before each scenario's first capture,
-the harness gives the active Google photoreal tileset up to 45 seconds to reach
-Cesium's `tilesLoaded`/`allTilesLoaded` condition. Every frame records
-`tilesSettled: true|false` and whether that gate applied; a timeout is recorded
-as false, never promoted to a pass. Non-photoreal stacks record the gate as
-settled and not applicable because no Google 3D tileset is active.
-
-> [!IMPORTANT]
-> Do not use a screenshot for visual judgment unless its report frame records
-> `tilesSettled: true`.
-
 ## Setup
 
 - **URL:** http://localhost:4173 — auto-flies to Austin on load. Give photoreal tiles ~10s.

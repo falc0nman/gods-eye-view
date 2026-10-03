@@ -30,6 +30,6 @@
 
 DISPLAY ▸ **Draw** adds marks, areas and routes to the map with pointer controls.
 
-Nineteen layers and map sources. **Seventeen have a keyless path.** Provider provenance and courtesy attribution for open realtime transit vehicle data are documented in [DATA_SOURCES.md](DATA_SOURCES.md).
+Nineteen layers and map sources. **Seventeen have a keyless path.** Provider provenance and attribution are documented in [DATA_SOURCES.md](DATA_SOURCES.md).
 
 **Sits on the real ground.** Entity heights are aligned to work with Google 3D tiles, so aircraft park on aprons and cameras stand on street corners instead of floating.

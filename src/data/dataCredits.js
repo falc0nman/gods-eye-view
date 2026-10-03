@@ -6,8 +6,7 @@ import * as Cesium from 'cesium';
  * Legal requirement (see DATA_SOURCES.md, findings H10/H11 in
  * docs/pre-ship-audit-2026-07-01.md): every third-party data layer this app can
  * display carries its own license and required attribution — ODbL (OSM
- * datacenters/dams, adsb.lol, Overpass roads), CC BY-NC-SA (TeleGeography
- * cables), NASA FIRMS, CelesTrak, USGS, City of Austin, Fintraffic (CC BY 4.0),
+ * adsb.lol, Overpass roads), City of Austin, Fintraffic (CC BY 4.0),
  * The MIT code license does NOT cover this data.
  *
  * These credits are registered ONCE at init as STATIC credits with
@@ -94,56 +93,6 @@ export function hideOsmCredit(viewer, owner) {
 export const DATA_CREDITS = [
   // ── Live sources ────────────────────────────────────────────────
   {
-    key: 'opensky',
-    html:
-      'Flights: OpenSky Network — Schäfer et al., ' +
-      '“Bringing Up OpenSky”, IPSN 2014 · ' +
-      '<a href="https://opensky-network.org" target="_blank" rel="noopener">opensky-network.org</a> ' +
-      '(non-commercial)',
-  },
-  {
-    key: 'adsblol',
-    html:
-      'Military flights, aircraft traces &amp; bounded regional flight fallback: ' +
-      '<a href="https://adsb.lol" target="_blank" rel="noopener">adsb.lol</a> ' +
-      '(ODbL 1.0)',
-  },
-  {
-    key: 'adsbdb',
-    html:
-      'Aircraft type, registration &amp; flight routes: ' +
-      '<a href="https://www.adsbdb.com" target="_blank" rel="noopener">adsbdb</a> ' +
-      '· aircraft data from PlaneBase · ICAO-to-N-number conversion by ' +
-      'Guillaume Michel · route data is the work of ' +
-      'David Taylor, Edinburgh, and Jim Mason, Glasgow, and may not be ' +
-      'copied, published, or incorporated into other databases without the ' +
-      'explicit permission of David J Taylor, Edinburgh',
-  },
-  {
-    key: 'aisstream',
-    html:
-      'Live vessels (AIS): ' +
-      '<a href="https://aisstream.io" target="_blank" rel="noopener">AISStream.io</a>',
-  },
-  {
-    key: 'celestrak',
-    html:
-      'Satellites (TLEs): CelesTrak ' +
-      '(<a href="https://celestrak.org" target="_blank" rel="noopener">celestrak.org</a>), ' +
-      'Dr. T.S. Kelso',
-  },
-  {
-    key: 'launch-library-2',
-    html:
-      'Space mission launch, payload &amp; recovery metadata: ' +
-      '<a href="https://ll.thespacedevs.com/docs/" target="_blank" rel="noopener">Launch Library 2 — The Space Devs</a> ' +
-      '(API documentation and rate limits)',
-  },
-  {
-    key: 'usgs',
-    html: 'Earthquakes: Data courtesy of the U.S. Geological Survey',
-  },
-  {
     key: 'nws-alerts',
     html: 'Storm warnings: National Weather Service (api.weather.gov), U.S. public domain',
   },
@@ -163,14 +112,6 @@ export const DATA_CREDITS = [
       'Data and Information System (ESDIS). ' +
       '<a href="https://gibs.earthdata.nasa.gov" target="_blank" rel="noopener">gibs.earthdata.nasa.gov</a> · ' +
       '<a href="https://lpdaac.usgs.gov/products/hlss30v002/" target="_blank" rel="noopener">HLS product page</a>',
-  },
-  {
-    key: 'wfigs',
-    html:
-      'Wildfire perimeters: ' +
-      '<a href="https://data-nifc.opendata.arcgis.com/" target="_blank" rel="noopener">National Interagency Fire Center (WFIGS)</a>' +
-      ' · Incident information: ' +
-      '<a href="https://inciweb.wildfire.gov/" target="_blank" rel="noopener">InciWeb</a>',
   },
   OSM_CREDIT,
   OPENMAPTILES_CREDIT,
@@ -253,10 +194,6 @@ export const DATA_CREDITS = [
       '<a href="https://data.calgary.ca/stories/s/Open-Calgary-Terms-of-Use/u45n-7awa" target="_blank" rel="noopener">Open Government Licence – City of Calgary</a>',
   },
   {
-    key: 'gbfs',
-    html: 'Bikeshare availability: GBFS operator feeds (e.g. Austin BCycle)',
-  },
-  {
     key: 'osrm-routing',
     // The service asks for its attribution to carry a "fix the map" link, so
     // a reader who spots a wrong turn can go and correct the data it came from.
@@ -264,17 +201,6 @@ export const DATA_CREDITS = [
       'Routing (voice routes and Directions): OSRM on the FOSSGIS servers — ' +
       '<a href="https://routing.openstreetmap.de/about.html" target="_blank" rel="noopener">routing.openstreetmap.de</a> · ' +
       '<a href="https://www.openstreetmap.org/fixthemap" target="_blank" rel="noopener">fix the map</a>',
-  },
-  {
-    key: 'gtfs-rt',
-    html: 'Transit vehicles: operator GTFS-Realtime feeds (each operator is credited below when its vehicles are shown)',
-  },
-  {
-    key: 'radio-browser',
-    html:
-      'Internet-radio station directory: ' +
-      '<a href="https://www.radio-browser.info/" target="_blank" rel="noopener">Radio Browser</a> ' +
-      '(public domain; audio delivered directly by each broadcaster)',
   },
   {
     key: 'reearth-terrain',
@@ -313,18 +239,6 @@ export const DATA_CREDITS = [
   },
   // ── Bundled snapshots ───────────────────────────────────────────
   {
-    key: 'dams',
-    html: 'Dams: Open Infrastructure Map',
-  },
-  {
-    key: 'firms',
-    html:
-      'Active fires: NASA FIRMS — we acknowledge the use of data and/or imagery ' +
-      'from NASA’s Fire Information for Resource Management System ' +
-      '(<a href="https://earthdata.nasa.gov/firms" target="_blank" rel="noopener">earthdata.nasa.gov/firms</a>), ' +
-      'part of NASA’s Earth Observing System Data and Information System (EOSDIS)',
-  },
-  {
     key: 'drivebc-cctv',
     html:
       'CCTV cameras &amp; frames (British Columbia): ' +
@@ -355,13 +269,6 @@ export const DATA_CREDITS = [
       'CCTV cameras &amp; frames (New South Wales): ' +
       '<a href="https://www.livetraffic.com/" target="_blank" rel="noopener">Live Traffic NSW</a> — Transport for NSW ' +
       '(<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>)',
-  },
-  {
-    key: 'telegeography',
-    html:
-      'Submarine cables: © TeleGeography — ' +
-      '<a href="https://www.submarinecablemap.com" target="_blank" rel="noopener">submarinecablemap.com</a> ' +
-      '(CC BY-NC-SA 3.0 — NonCommercial)',
   },
 ];
 
@@ -396,46 +303,6 @@ export const US_CENSUS_CREDIT = {
   html:
     'US county boundaries from the ' +
     '<a href="https://www.census.gov/geographies/mapping-files/time-series/geo/cartographic-boundary.html" target="_blank" rel="noopener">U.S. Census Bureau</a> (public domain)',
-};
-
-/**
- * Per-feed transit credit, registered the first time that feed's vehicles
- * render (see `src/data/transitFeeds.js` for the license of each).
- * @param {{ id: string, attribution: string, license: string, licenseUrl: string }} feed
- * @returns {{ key: string, html: string }}
- */
-export function transitFeedCredit(feed) {
-  const escape = (text) =>
-    String(text)
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;');
-  return {
-    key: `transit-${feed.id}`,
-    html:
-      `Transit (${escape(feed.attribution)}): ` +
-      `<a href="${escape(feed.licenseUrl)}" target="_blank" rel="noopener">${escape(feed.license)}</a>`,
-  };
-}
-
-/** Registered when the Bhote Koshi event reconstruction activates. */
-export const BHOTE_KOSHI_CREDIT = {
-  key: 'bhote-koshi-2026',
-  html:
-    'Bhote Koshi 2026 event imagery and derived reconstruction: ' +
-    '<a href="https://vantor.com/company/open-data-program" target="_blank" rel="noopener">Vantor Open Data</a> ' +
-    'and <a href="https://github.com/geo-pera/bhotekoshi-2026-reconstruction" target="_blank" rel="noopener">GeoPera</a> ' +
-    '(CC BY-NC 4.0); terrain © Re:Earth / Mapterhorn (CC BY 4.0)',
-};
-
-/** Registered when the scene-friendly Nepal incident locator activates. */
-export const BHOTE_KOSHI_LOCATOR_CREDIT = {
-  key: 'bhote-koshi-locator',
-  html:
-    'Flood corridor derived from the ' +
-    '<a href="https://github.com/geo-pera/bhotekoshi-2026-reconstruction/blob/main/vectors/river_centerline.geojson" target="_blank" rel="noopener">GeoPera river centerline</a> ' +
-    '(CC BY-NC 4.0)',
 };
 
 /** @type {Set<string>} Keys of dynamic credits already registered this session. */

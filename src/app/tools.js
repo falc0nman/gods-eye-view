@@ -28,16 +28,13 @@ export function createApplicationTools({
   defer,
 }) {
   const { viewer, tileset, mapStackController, operations } = scene;
-  const { styleManager, weatherEffects, cockpitCloudEffects } = controls;
+  const { styleManager, weatherEffects } = controls;
   const { dataManager } = data;
   const sceneDirector = new SceneDirector(viewer, styleManager, dataManager, {
     dataPacks: sceneDataPacks,
     isMapStackAvailable: (id) =>
       mapStackController?.isStackAvailable(id) === true,
   });
-  dataManager.layers
-    .get('bhote-koshi-2026')
-    ?.module.attachSceneController(sceneDirector);
   defer(() => sceneDirector.destroy());
   onSceneDirector?.(sceneDirector);
   const annotations = initAnnotations({
@@ -120,7 +117,6 @@ export function createApplicationTools({
   const syncVisibilitySuspension = () => {
     const hidden = document.hidden;
     viewer.useDefaultRenderLoop = !hidden;
-    cockpitCloudEffects?.setSuspended?.(hidden);
     if (!hidden) {
       data.presentation.flushVisible();
       governorRequestRender('visibility-restore');
@@ -148,7 +144,6 @@ export function createApplicationTools({
     mapStackController,
     annotations,
     weatherEffects,
-    cockpitCloudEffects,
     getRenderGovernorDiagnostics,
     surfaceServices: operations.surface,
     requestRender: governorRequestRender,

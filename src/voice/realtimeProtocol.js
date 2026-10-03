@@ -113,45 +113,11 @@ export function responseInstructionForToolResult(result) {
     return 'Briefly confirm any other completed GEV actions, then say “Turning on the radio.” Do not claim Radio is already playing.';
   }
   if (result?.action === 'get_entity_context') {
-    const selectedLayerId = result.selected?.layerId;
-    const selectedProperties = result.selected?.properties || {};
-    const isAircraft =
-      selectedLayerId === 'flights' || selectedLayerId === 'military';
-    const aircraftRules = [];
-    if (isAircraft) {
-      aircraftRules.push(
-        'Begin with the returned callsign and include the returned registration when available.',
-      );
-      aircraftRules.push(
-        'For the selected aircraft, explicitly cover operator, aircraft type, and route before finishing.',
-      );
-      aircraftRules.push(
-        selectedProperties.operator
-          ? 'State the operator value returned in selected.properties.'
-          : 'Say exactly “Operator details are unavailable.”',
-      );
-      aircraftRules.push(
-        selectedProperties.type
-          ? 'State the aircraft type returned in selected.properties; a concise family name may omit a subtype suffix.'
-          : 'Say exactly “Aircraft type is unavailable.”',
-      );
-      aircraftRules.push(
-        selectedProperties.route ||
-          selectedProperties.routeOrigin ||
-          selectedProperties.routeDestination
-          ? 'State the route endpoint codes exactly as returned; do not expand airport codes into city names.'
-          : 'Say exactly “Route details are unavailable.”',
-      );
-      aircraftRules.push(
-        'Never infer operator, type, or route from the callsign.',
-      );
-    }
     return [
       'Answer the user naturally using the returned GEV entity context.',
       'If selected context is present, prioritize it. Otherwise summarize the most relevant in-view entities.',
       'If no entities are returned, identify the target from nearbyPlaces, place labels, streetLabels, knownLandmarks, and the viewport image.',
       'Mention only useful building/place names, streets, layer/type, location, enabled layers, and notable properties. Be concise.',
-      ...aircraftRules,
     ].join(' ');
   }
   if (result?.action === 'get_current_view_state') {

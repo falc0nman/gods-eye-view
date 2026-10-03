@@ -211,9 +211,7 @@ try {
   const a = await boot();
   const others = await a.page.evaluate(() =>
     [...window.__godsEyeView.dataManager.layers.keys()].filter((id) =>
-      /^flights$|^satellites$|vessel|firms|earthquake|cables|^military$/.test(
-        id,
-      ),
+      /^flights$|^satellites$|vessel|^military$/.test(id),
     ),
   );
   console.log('other layers under test:', others.join(', '));

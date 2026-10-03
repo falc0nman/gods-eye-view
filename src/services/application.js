@@ -9,8 +9,6 @@ const slots = Object.fromEntries(
   Object.entries({
     boundaries: ['query'],
     terrain: ['getHeights'],
-    regional: ['getBrief'],
-    weather: ['getConditions'],
     summary: ['summarize'],
   }).map(([name, methods]) => [
     name,

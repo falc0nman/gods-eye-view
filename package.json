@@ -2,7 +2,7 @@
   "name": "gods-eye-view",
   "private": true,
   "version": "0.1.1",
-  "description": "A real-time intelligence console for planet Earth — photorealistic 3D globe, live aircraft/ships/satellites/earthquakes/CCTV, and hands-free voice control. Runs in a browser.",
+  "description": "A real-time intelligence console for planet Earth — photorealistic 3D globe, live weather and CCTV, and hands-free voice control. Runs in a browser.",
   "type": "module",
   "license": "MIT",
   "author": "Bilawal Sidhu",
@@ -25,8 +25,6 @@
     "spatial-intelligence",
     "photorealistic-3d-tiles",
     "adsb",
-    "ais",
-    "satellites",
     "voice-control",
     "openai-realtime",
     "visualization"
@@ -39,14 +37,11 @@
     "layer-token:check": "node scripts/check-layer-state-tokens.mjs",
     "dev": "vite",
     "dev:secure": "./scripts/dev-secure.sh",
-    "opensky:import": "./scripts/opensky-import-client.sh",
     "build": "vite build",
     "preview": "vite preview",
     "test": "node scripts/run-unit-tests.mjs",
-    "test:track": "node scripts/track-regression.mjs",
     "qa:map-source-tray": "node scripts/qa-map-source-tray.mjs",
     "check:boundaries": "node scripts/check-import-directions.mjs && node scripts/check-package-boundaries.mjs",
-    "qa:transit": "node scripts/qa-transit.mjs",
     "db:secrets": "node scripts/db-secrets.mjs",
     "db:migrate": "node server/database/migrate.js",
     "db:up": "docker compose up --build -d",
@@ -82,9 +77,6 @@
     "ws": "^8.21.0"
   },
   "exports": {
-    "./infrastructure": "./src/data/infrastructure.js",
-    "./infrastructure/geojson": "./src/data/localGeojsonCore.js",
-    "./infrastructure/lod": "./src/data/localGeojsonLod.js",
     "./application": "./src/app/application.js",
     "./application/viewer": "./src/app/viewer.js",
     "./build/vite": {
@@ -93,15 +85,10 @@
     "./server/providers/live": {
       "node": "./server/providers/live.js"
     },
-    "./sources/adsb-lol": "./src/data/adsbLolFallback.js",
     "./server/providers/places": {
       "node": "./server/providers/places.js"
     },
     "./sources/places": "./src/data/placeProviderPayloads.js",
-    "./server/providers/space": {
-      "node": "./server/providers/space.js"
-    },
-    "./sources/space": "./src/data/spaceProviderRequests.js",
     "./server/providers/terrain": {
       "node": "./server/providers/terrain.js"
     },
@@ -110,24 +97,11 @@
       "node": "./server/providers/traffic.js"
     },
     "./sources/traffic": "./src/data/tomtomTiles.js",
-    "./server/providers/firms": {
-      "node": "./server/providers/firms.js"
-    },
-    "./server/providers/gbfs": {
-      "node": "./server/providers/gbfs.js"
-    },
-    "./sources/gbfs": "./src/data/gbfsSource.js",
     "./server/providers/cctv": {
       "node": "./server/providers/cctv.js"
     },
-    "./server/providers/radio": {
-      "node": "./server/providers/radio.js"
-    },
     "./server/providers/overpass": {
       "node": "./server/providers/overpass.js"
-    },
-    "./server/providers/military-installations": {
-      "node": "./server/providers/military-installations.js"
     },
     "./server/providers/regional": {
       "node": "./server/providers/regional.js"
@@ -150,38 +124,17 @@
     "./ui/radio": "./src/ui/radio.js",
     "./ui/cctv": "./src/ui/cctv.js",
     "./ui/context": "./src/ui/context.js",
-    "./ui/context/policy": "./src/contextModePolicy.js",
-    "./ui/cockpit": "./src/ui/cockpit.js",
-    "./ui/cockpit/math": "./src/cockpitMath.js",
-    "./ui/cockpit/layout": "./src/cockpitUtilityLayout.js",
     "./ui/cockpit/vision": "./src/cockpitVisionPolicy.js",
     "./ui/scenes": "./src/ui/scenes.js",
     "./ui/shell": "./src/ui/applicationShell.js",
     "./ui/styles": "./src/ui/styles.js",
     "./director": "./src/director/playback.js",
     "./scenes": "./src/scenes/director.js",
-    "./sources/live": "./src/sources/live/index.js",
-    "./layers/flights": "./src/layers/flights/index.js",
-    "./layers/military": "./src/layers/military/index.js",
-    "./aircraft": "./src/layers/aircraft/index.js",
-    "./layers/vessels": "./src/layers/vessels/index.js",
-    "./layers/earthquakes": "./src/layers/earthquakes/index.js",
     "./layers/recent-imagery": "./src/layers/recentImagery/index.js",
-    "./layers/perimeters": "./src/layers/perimeters/index.js",
-    "./sources/firms-csv": "./src/data/firmsCsv.js",
-    "./layers/firms": "./src/layers/firms/index.js",
-    "./layers/satellites": "./src/layers/satellites/index.js",
-    "./layers/launches": "./src/layers/launches/index.js",
-    "./layers/installations": "./src/layers/installations/index.js",
-    "./layers/awareness": "./src/layers/awareness/index.js",
     "./layers/traffic": "./src/layers/traffic/index.js",
-    "./layers/bikeshare": "./src/layers/bikeshare/index.js",
     "./layers/directions": "./src/layers/directions/index.js",
     "./layers/cctv": "./src/layers/cctv/index.js",
-    "./layers/alpr": "./src/layers/alpr/index.js",
     "./layers/radio": "./src/layers/radio/index.js",
-    "./layers/submarine-cables": "./src/layers/submarineCables/index.js",
-    "./sources/bundled-cables": "./src/layers/submarineCables/bundledSource.js",
     "./geography/natural-earth": "./src/data/naturalEarthRegions.js",
     "./geography/neighborhoods": "./src/data/neighborhoodPolygons.js",
     "./maps/controller": "./src/maps/controller.js",
@@ -221,44 +174,19 @@
     "./ui/share-restoration": "./src/ui/shareRestoration.js",
     "./ui/visual-settings": "./src/ui/visualSettings.js",
     "./ui/panel-chrome": "./src/ui/panelChrome.js",
-    "./layers/flights/records": "./src/layers/flights/records.js",
-    "./layers/flights/ingestion": "./src/layers/flights/ingestion.js",
-    "./layers/military/records": "./src/layers/military/records.js",
-    "./layers/military/ingestion": "./src/layers/military/ingestion.js",
-    "./layers/vessels/records": "./src/layers/vessels/records.js",
-    "./layers/vessels/ingestion": "./src/layers/vessels/ingestion.js",
-    "./sources/radio-browser": "./src/sources/radioBrowser.js",
     "./sources/cctv-types": "./src/sources/cctvTypes.js",
     "./sources/regional": "./src/data/regionalModel.js",
     "./voice/action-schemas": "./src/voice/actionSchemas.js",
     "./voice/session": "./src/voice/session.js",
     "./voice/session-controls": "./src/voice/sessionCommands.js",
     "./voice/realtime-session": "./src/voice/realtimeSession.js",
-    "./layers/alpr/source": "./src/layers/alpr/source.js",
-    "./layers/bikeshare/source": "./src/layers/bikeshare/source.js",
     "./layers/cctv/source": "./src/layers/cctv/source.js",
-    "./layers/earthquakes/source": "./src/layers/earthquakes/source.js",
-    "./layers/perimeters/source": "./src/layers/perimeters/source.js",
-    "./layers/firms/source": "./src/layers/firms/source.js",
-    "./layers/installations/source": "./src/layers/installations/source.js",
-    "./layers/launches/source": "./src/layers/launches/source.js",
     "./layers/radio/source": "./src/layers/radio/source.js",
-    "./layers/satellites/source": "./src/layers/satellites/source.js",
     "./layers/traffic/source": "./src/layers/traffic/source.js",
-    "./sources/reference": "./src/sources/reference.js",
-    "./layers/submarine-cables/source": "./src/layers/submarineCables/bundledSource.js",
     "./sources/http-body": "./src/sources/httpBody.js",
     "./sources/overpass": "./src/sources/overpass.js",
     "./search/nominatim": "./src/search/nominatim.js",
     "./sources/nominatim": "./src/sources/nominatim.js",
-    "./server/providers/transit": {
-      "node": "./server/providers/transit.js"
-    },
-    "./sources/transit": "./src/data/transitProxy.js",
-    "./layers/transit": "./src/layers/transit/index.js",
-    "./layers/transit/standalone": "./src/data/transit.js",
-    "./layers/transit/source": "./src/layers/transit/source.js",
-    "./sources/transit-service": "./src/sources/transitService.js",
     "./sources/map-features": "./src/sources/overpassFeatures.js",
     "./server/providers/database": {
       "node": "./server/providers/database.js"

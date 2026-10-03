@@ -1,49 +1,12 @@
-import { ShareRestoration } from './ui/shareRestoration.js';
-import { readShellSource, shellMethod } from './testSupport/readShellSource.mjs';
+import { readShellSource } from './testSupport/readShellSource.mjs';
 import { expandApplicationHtml } from '../build/application-html.js';
 import { readStylesheet } from './testSupport/readStylesheet.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-const retrySite = (stats = {}) => ({ id: 'military-installations', name: 'Mapped Installations', enabled: true,
-  stats: { status: 'unavailable', error: 'Unavailable', retryAt: Date.now() + 30000, ...stats } });
 
-test('installation retry remains visible after failure dwell without a false spinner', () => {
-  const summary = aggregateLayerLoading([retrySite()]);
-  const view = presentLoadingFeedback(createLoadingFeedbackState(), summary, 100);
-  assert.equal(view.state, 'retry');
-  assert.equal(view.label, 'OVERPASS TEMPORARILY UNAVAILABLE');
-  assert.match(view.detail, /retrying in 30s/);
-  assert.equal(presentLoadingFeedback(createLoadingFeedbackState(), aggregateLayerLoading([{ ...retrySite(), enabled: false }]), 100), null);
-});
-test('an installation retry never conceals another participant failure', () => {
-  const state = { visible: true, phase: 'terminal', terminal: 'error', activeIds: ['military-installations', 'flights'] };
-  const summary = aggregateLayerLoading([retrySite(), { id: 'flights', enabled: true, stats: { error: 'Failed' } }]);
-  assert.equal(presentLoadingFeedback(state, summary, 100).label, 'LOAD FAILED');
-  const healthyNow = aggregateLayerLoading([retrySite()]);
-  assert.equal(presentLoadingFeedback({ ...state, failedEventIds: ['flights'] }, healthyNow, 100).label, 'LOAD FAILED');
-});
-test('a fresh installation retry can finish successfully without inheriting the old error', () => {
-  let state = { ...createLoadingFeedbackState(), phase: 'terminal', terminal: 'error', visible: true, activeIds: ['military-installations'] };
-  const loading = aggregateLayerLoading([retrySite({ status: 'loading', error: null, loading: true, retryAt: 0, retrying: true })]);
-  state = reduceLoadingFeedback(state, loading, 1000);
-  state = reduceLoadingFeedback(state, loading, 1200);
-  assert.equal(presentLoadingFeedback(state, loading, 1200).label, 'RETRYING MAPPED SITES');
-  const done = aggregateLayerLoading([retrySite({ status: 'ready', error: null, loading: false, retryAt: 0, retrying: false, count: 3 })]);
-  state = reduceLoadingFeedback(state, done, 1500);
-  assert.equal(presentLoadingFeedback(state, done, 1500).label, 'MAPPED SITES LOADED');
-});
-test('turning off a retrying installation layer does not report the old fetch failure as a disable failure', () => {
-  const stopping = aggregateLayerLoading([{ ...retrySite(), lifecycleState: 'disabling' }]);
-  let state = reduceLoadingFeedback(createLoadingFeedbackState(), stopping, 1000);
-  state = reduceLoadingFeedback(state, stopping, 1200);
-  const off = aggregateLayerLoading([{ ...retrySite({ status: 'idle', error: null, retryAt: 0 }), enabled: false }]);
-  state = reduceLoadingFeedback(state, off, 1400);
-  assert.equal(presentLoadingFeedback(state, off, 1400).label, 'LIVE DATA OFF');
-});
 import {
   aggregateLayerLoading,
-  canPresentDeferredStatusNotice,
   createGlobalStatusNotice,
   createLoadingFeedbackState,
   createTrafficSyncFeedbackState,
@@ -82,33 +45,6 @@ test('acquiring notices persist without a dwell until explicitly cleared', () =>
     label: 'ACQUIRING',
     detail: 'SHARED FLIGHT',
   });
-});
-
-test('deferred terminal notices lose ownership to newer acquisition epochs and disposal', () => {
-  assert.equal(canPresentDeferredStatusNotice(4, 4, false), true);
-  assert.equal(canPresentDeferredStatusNotice(4, 5, false), false,
-    'a newer ACQUIRING epoch blocks the older deferred failure');
-  assert.equal(canPresentDeferredStatusNotice(5, 5, true), false,
-    'disposal blocks even the current deferred notice');
-});
-
-test('share-follow failures use the universal top-center status instead of the bottom toast', () => {
-  const ui = readShellSource();
-  const handler = shellMethod('_handleShareTrackingRestoreStatus').toString();
-  assert.match(handler, /this\.showStatus\(message\)/);
-  assert.match(handler, /this\.initialRestorePromise\.then\(showAfterStartupCover\)/);
-  assert.match(handler, /this\._lifetime\.frame\(\(\) => \{/);
-  assert.match(handler, /this\._lifetime\.listen\(\s*startupCover,\s*'transitionend',\s*showOnce,\s*\{ once: true \},?\s*\)/);
-  assert.match(handler, /fallbackTimer = this\._lifetime\.timeout\(showOnce, 1000\)/);
-  assert.doesNotMatch(handler, /this\._showToast\(message\)/);
-  assert.doesNotMatch(handler, /pushCockpitSignal/);
-  assert.match(handler, /result\.classification === 'pending'/);
-  assert.match(handler, /state: 'acquiring'/);
-  assert.match(handler, /persistent: true/);
-  assert.match(handler, /this\._shareTrackingNoticeGeneration \+= 1/);
-  assert.match(handler, /canPresentDeferredStatusNotice\(/);
-  assert.match(handler, /if \(this\._shareTrackingAcquiringKey\) return/);
-  assert.match(handler, /result\.classification === 'followed'\s*\|\|\s*result\.classification === 'cancelled'/);
 });
 
 test('universal notice masks active loading only for its own fixed dwell', () => {
@@ -205,7 +141,6 @@ test('universal notice lifecycle clears on dispose and uses the one top-center l
 
   assert.match(dispose, /this\._feedback\._globalStatusNotice = null;/);
   assert.match(dispose, /this\._shareRestoration\.destroy\(\)/);
-  assert.match(ShareRestoration.prototype.destroy.toString(), /this\._shareTrackingNoticeGeneration \+= 1;/);
   assert.match(html, /<div id="global-loading-status" role="status" aria-live="polite" aria-atomic="true" hidden>/);
 });
 
@@ -690,8 +625,8 @@ test('the loading ticker never runs hidden and stops after loading and notices s
 });
 
 test('a guidance status such as zoom-in never counts as a participant failure', () => {
-  const zoomIn = { id: 'military-installations', name: 'Mapped Installations', enabled: true,
-    stats: { status: 'zoom-in', error: 'Zoom in to load mapped installation context', loading: true, count: 0 } };
+  const zoomIn = { id: 'traffic', name: 'Street Traffic', enabled: true,
+    stats: { status: 'zoom-in', error: 'Zoom in to load street traffic', loading: true, count: 0 } };
   const loading = aggregateLayerLoading([zoomIn]);
   assert.equal(loading.records[0].error, null);
   assert.equal(loading.records[0].degraded, false);
@@ -700,44 +635,16 @@ test('a guidance status such as zoom-in never counts as a participant failure', 
   const settled = aggregateLayerLoading([{ ...zoomIn, stats: { ...zoomIn.stats, loading: false } }]);
   state = reduceLoadingFeedback(state, settled, 1500);
   assert.equal(state.terminal, 'complete');
-  assert.equal(presentLoadingFeedback(state, settled, 1500).label, 'MAPPED SITES LOADED');
+  assert.equal(presentLoadingFeedback(state, settled, 1500).label, 'LOAD COMPLETE');
 });
 
 
 test('guidance does not suppress independent manager and feed failures', () => {
   for (const field of ['lastError', 'managerRefreshError']) {
     const record = normalizeLayerLoading({
-      id: 'militaryInstallations', enabled: true,
-      stats: { status: 'zoom-in', error: 'Zoom in to load mapped sites.', [field]: 'Network unavailable' },
+      id: 'traffic', enabled: true,
+      stats: { status: 'zoom-in', error: 'Zoom in to load street traffic.', [field]: 'Network unavailable' },
     });
     assert.equal(record.error, 'Network unavailable');
   }
-});
-
-test('ALPR retries show a countdown, preserve other failures, and clear when disabled', () => {
-  const camera = { ...retrySite({ error: 'Overpass rate-limited' }), id: 'alpr-cameras', name: 'ALPR cameras' };
-  const summary = aggregateLayerLoading([camera]);
-  const view = presentLoadingFeedback(createLoadingFeedbackState(), summary, 0);
-  assert.equal(view.state, 'retry');
-  assert.equal(view.label, 'OVERPASS RATE-LIMITED');
-  assert.match(view.detail, /ALPR cameras · retrying in 30s/);
-  const failed = { visible: true, phase: 'terminal', terminal: 'error', activeIds: ['alpr-cameras', 'flights'] };
-  const otherFailure = aggregateLayerLoading([camera, { id: 'flights', enabled: true, stats: { error: 'Failed' } }]);
-  assert.equal(presentLoadingFeedback(failed, otherFailure, 0).label, 'LOAD FAILED');
-  assert.equal(presentLoadingFeedback({ ...failed, failedEventIds: ['flights'] }, summary, 0).label, 'LOAD FAILED');
-  assert.equal(presentLoadingFeedback(createLoadingFeedbackState(), aggregateLayerLoading([{ ...camera, enabled: false }]), 0), null);
-});
-
-test('ALPR retry success does not inherit its prior error, including turning the layer off', () => {
-  const camera = stats => ({ id: 'alpr-cameras', enabled: true, stats });
-  const loading = aggregateLayerLoading([camera({ status: 'loading', loading: true, retrying: true })]);
-  let state = reduceLoadingFeedback(createLoadingFeedbackState(), loading, 0);
-  state = reduceLoadingFeedback(state, loading, 200);
-  assert.equal(presentLoadingFeedback(state, loading, 200).label, 'RETRYING ALPR CAMERAS');
-  const done = aggregateLayerLoading([camera({ status: 'ready', count: 3 })]);
-  state = reduceLoadingFeedback(state, done, 300);
-  assert.equal(presentLoadingFeedback(state, done, 300).label, 'LOAD COMPLETE');
-  const stopping = normalizeLayerLoading({ ...camera({ status: 'unavailable', error: 'Old failure' }), lifecycleState: 'disabling' });
-  assert.equal(stopping.error, null);
-  assert.equal(stopping.unavailable, false);
 });

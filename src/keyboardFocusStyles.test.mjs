@@ -56,13 +56,6 @@ test('Location city, POI, search toggle and search field use an inset ring', () 
   }
 });
 
-test('Cockpit Display and Radio launcher glyphs have a complete inset ring', () => {
-  const body = ruleBody('.cockpit-utility-glyph:focus-visible');
-  assert.match(body, /outline:\s*2px solid var\(--text-primary\)/);
-  assert.match(body, /outline-offset:\s*-3px/);
-  assert.doesNotMatch(body, /outline:\s*none/);
-});
-
 test('focusable controls do not animate the global outline', () => {
   for (const selector of [
     '.panel-collapse-btn {',

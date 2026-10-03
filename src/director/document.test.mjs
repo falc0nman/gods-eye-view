@@ -135,7 +135,7 @@ test('document byte, nesting, collection, finite-number and string bounds are en
   );
 });
 
-test('captured scope and extended detection edits survive migration', () => {
+test('captured scope and keyhole fade edits survive migration', () => {
   const project = fixture();
   project.scenes[0].shots[0].visual = {
     scope: { enabled: true, featherPct: 11 },
@@ -154,8 +154,9 @@ test('captured scope and extended detection edits survive migration', () => {
     migrated.scenes[0].shots[0].visual.scope,
     project.scenes[0].shots[0].visual.scope,
   );
-  assert.deepEqual(
-    migrated.scenes[0].shots[0].visual.detection,
-    project.scenes[0].shots[0].visual.detection,
-  );
+  // GW-57 removed the detection overlay; only its keyhole fade survives.
+  assert.deepEqual(migrated.scenes[0].shots[0].visual.detection, {
+    fadePct: 7,
+    outsideOpacityPct: 1,
+  });
 });

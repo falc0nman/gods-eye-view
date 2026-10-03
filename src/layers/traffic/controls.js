@@ -3,10 +3,7 @@ import {
   resolveRoadMode,
   TRAFFIC_ROAD_MODES,
 } from './roadModes.js';
-import {
-  trafficBucketTier,
-  trafficStyleProfile,
-} from '../../data/trafficPresetStyle.js';
+import { trafficStyleProfile } from '../../data/trafficPresetStyle.js';
 import { TRAFFIC_TIMING_ENABLED } from './policy.js';
 
 export function createControls({ state: layerState, services, parts, source }) {
@@ -177,52 +174,6 @@ export function createControls({ state: layerState, services, parts, source }) {
           params: { roadMode: mode },
         })),
       };
-    },
-
-    /**
-     * Return a sub-sampled list of active dot positions for detection overlays
-     * (e.g. CCTV bounding-box rendering).
-     *
-     * Uses a deterministic stride-based sampling so different seeds yield
-     * non-overlapping subsets without sorting or shuffling.
-     *
-     * @param {Object}  [options]
-     * @param {number}  [options.maxCount] - Maximum objects to return (defaults to all).
-     * @param {number}  [options.seed]     - Integer seed to offset the sampling start.
-     * @returns {Array<{position:Cesium.Cartesian3, id:string, type:string}>}
-     */
-    getDetectableObjects(options = {}) {
-      if (!layerState._enabled || layerState._dots.length === 0) return [];
-      const maxCount = Number.isFinite(options.maxCount)
-        ? Math.max(1, Math.floor(options.maxCount))
-        : layerState._dots.length;
-      const seed = Number.isFinite(options.seed) ? Math.floor(options.seed) : 0;
-      // Stride-based sampling: step through dots evenly to get ~maxCount samples
-      const stride = Math.max(1, Math.ceil(layerState._dots.length / maxCount));
-      const start = seed % stride;
-
-      const result = [];
-      for (let i = start; i < layerState._dots.length; i += stride) {
-        const pos = layerState._dots[i].point.position;
-        if (!pos) continue;
-        const entry = {
-          position: pos,
-          id: `VEH-${String(layerState._dots[i].id).padStart(4, '0')}`,
-          type: 'VEH',
-        };
-        // Live mode: the detection bracket carries the congestion signal —
-        // its canvas sits ABOVE the post-FX chain, so tier colors survive
-        // every preset (owner round 2: "bounding boxes do the heavy
-        // lifting"). Keyless mode sets no tier: contacts keep the stock
-        // 'vehicle' bracket and the keyless experience stays untouched.
-        if (layerState._liveMode) {
-          const tier = trafficBucketTier(layerState._dots[i].bucket || 'sim');
-          if (tier) entry.tier = tier;
-        }
-        result.push(entry);
-        if (result.length >= maxCount) break;
-      }
-      return result;
     },
 
     /** Visit stable dot identities and their owning geometry without allocating snapshots. */

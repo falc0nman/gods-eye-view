@@ -1,9 +1,4 @@
 import * as Cesium from 'cesium';
-import { getOverlayPaintRect } from '../overlays/worldOverlay.js';
-import {
-  getActiveTrackedReadoutId,
-  TRACKED_OVERLAY_SOURCE_ID,
-} from '../data/trackedReadout.js';
 
 /**
  * Screen-space annotation renderer (Direction B — the "whiteboard" aesthetic).
@@ -51,13 +46,7 @@ function markScale(h) {
   return 1 - t * (1 - MARK_SCALE_MIN);
 }
 
-export function createScreenAnnotationRenderer(
-  viewer,
-  {
-    overlayPaintRect = getOverlayPaintRect,
-    activeTrackedReadoutId = getActiveTrackedReadoutId,
-  } = {},
-) {
+export function createScreenAnnotationRenderer(viewer) {
   injectStyles();
   const { layer, svg, defs } = buildOverlay();
   document.body.appendChild(layer);
@@ -380,89 +369,9 @@ export function createScreenAnnotationRenderer(
     return { x: win.x, y: win.y };
   }
 
-  // Tracked-entity z-order: the tracked aircraft is a Cesium billboard in the
-  // CANVAS, which sits BELOW this SVG overlay (z-90, HTML over canvas). So a screen mark
-  // could hide it. After layout, any mark whose ACTUAL projected bounding box (rings,
-  // leader, polygon, route line, callout card — not just the anchor) INTERSECTS the
-  // tracked subject's screen FOOTPRINT is faded. The complete card footprint comes
-  // from the host's ACTUAL painted rectangle after final layout; the billboard extent
-  // is unioned for aircraft/satellites that also own a native tracked graphic.
-  const TRACKED_BBOX_MARGIN = 8; // px buffer added around the footprint
-  const TRACKED_FADE_EASE = 0.22; // per-frame ease toward hidden(0) / visible(1)
-  const TRACKED_HYSTERESIS_PX = 18; // dead-band so the overlap test can't flip-flop
-  const _scratchTrackedWin = new Cesium.Cartesian2();
-
-  // Evaluate a NearFarScalar (billboard scaleByDistance) at a camera distance.
-  function nearFarValue(nfs, dist) {
-    if (dist <= nfs.near) return nfs.nearValue;
-    if (dist >= nfs.far) return nfs.farValue;
-    const t = (dist - nfs.near) / (nfs.far - nfs.near);
-    return nfs.nearValue + t * (nfs.farValue - nfs.nearValue);
-  }
-  // Tracked-subject screen footprint, or null when neither host card nor native
-  // tracked graphic painted. The host rectangle is authoritative for the card.
-  function trackedEntityRect() {
-    const trackedId = activeTrackedReadoutId();
-    const painted = trackedId
-      ? overlayPaintRect(TRACKED_OVERLAY_SOURCE_ID, trackedId)
-      : null;
-    let left = painted?.x;
-    let right = painted ? painted.x + painted.w : undefined;
-    let top = painted?.y;
-    let bottom = painted ? painted.y + painted.h : undefined;
-
-    const ent = viewer.trackedEntity;
-    const now = Cesium.JulianDate.now();
-    const world =
-      typeof ent?.gevDisplayPosition === 'function'
-        ? ent.gevDisplayPosition()
-        : null;
-    const win = world
-      ? Cesium.SceneTransforms.worldToWindowCoordinates(
-          scene,
-          world,
-          _scratchTrackedWin,
-        )
-      : null;
-
-    // Billboard box — centered on the anchor, magnified by scaleByDistance.
-    const bb = ent?.billboard;
-    if (bb && win && Number.isFinite(win.x) && Number.isFinite(win.y)) {
-      const baseW = bb.width?.getValue?.(now) ?? 28;
-      const baseH = bb.height?.getValue?.(now) ?? 28;
-      let scale = 1;
-      const sbd = bb.scaleByDistance?.getValue?.(now);
-      if (sbd)
-        scale = nearFarValue(
-          sbd,
-          Cesium.Cartesian3.distance(scene.camera.positionWC, world),
-        );
-      const hw = (baseW * scale) / 2;
-      const hh = (baseH * scale) / 2;
-      const bbLeft = win.x - hw;
-      const bbRight = win.x + hw;
-      const bbTop = win.y - hh;
-      const bbBottom = win.y + hh;
-      left = Number.isFinite(left) ? Math.min(left, bbLeft) : bbLeft;
-      right = Number.isFinite(right) ? Math.max(right, bbRight) : bbRight;
-      top = Number.isFinite(top) ? Math.min(top, bbTop) : bbTop;
-      bottom = Number.isFinite(bottom) ? Math.max(bottom, bbBottom) : bbBottom;
-    }
-    if (![left, right, top, bottom].every(Number.isFinite)) return null;
-
-    const m = TRACKED_BBOX_MARGIN;
-    return {
-      left: left - m,
-      right: right + m,
-      top: top - m,
-      bottom: bottom + m,
-    };
-  }
-
   function projectAll() {
     if (!records.size) return;
     projGen += 1; // new frame: entries touched below are "hot" and survive trimming
-    const trackedRect = trackedEntityRect();
     occluder.cameraPosition = scene.camera.positionWC;
     const h = scene.canvas.clientHeight || scene.canvas.height;
     const w = scene.canvas.clientWidth || scene.canvas.width;
@@ -622,54 +531,6 @@ export function createScreenAnnotationRenderer(
       }
     }
     if (placed.length > 1) decollideCallouts(placed);
-
-    // Tracked-entity z-order — runs AFTER all geometry + callout de-collision so each
-    // group's bbox reflects its final on-screen extent. Any mark whose bbox INTERSECTS
-    // the tracked entity's screen footprint is faded toward FULLY HIDDEN (target 0, not a
-    // partial dim) so the tracked plane/ship reads as genuinely ON TOP. The fade is EASED
-    // per frame (no abrupt pop as the entity crosses a mark) and reverses smoothly when
-    // it moves off. Every screen mark here is point-like (pins/labels/reticles/arrows) —
-    // the big area/route footprints live in the world layer — so fully hiding an
-    // overlapped one is safe and not jarring.
-    for (const rec of records.values()) {
-      const { anno, group } = rec;
-      if (group.style.display === 'none') continue;
-      const cur = rec._trackedFade ?? 1;
-      let overlapping = false;
-      if (trackedRect) {
-        let bb = null;
-        try {
-          bb = group.getBBox();
-        } catch {
-          bb = null;
-        }
-        if (bb && (bb.width !== 0 || bb.height !== 0)) {
-          // HYSTERESIS: a mark that's already hidden must clear the rect by
-          // TRACKED_HYSTERESIS_PX before it starts showing again; one that's visible fades
-          // as soon as it touches. The dead-band stops the overlap test from flip-flopping
-          // frame-to-frame (the pulsing reticle stroke + de-collided cards keep the bbox in
-          // motion), which was the source of the flicker.
-          const m = cur < 0.5 ? TRACKED_HYSTERESIS_PX : 0;
-          overlapping =
-            bb.x <= trackedRect.right + m &&
-            bb.x + bb.width >= trackedRect.left - m &&
-            bb.y <= trackedRect.bottom + m &&
-            bb.y + bb.height >= trackedRect.top - m;
-        }
-      }
-      const target = overlapping ? 0 : 1;
-      const next = cur + (target - cur) * TRACKED_FADE_EASE;
-      rec._trackedFade = Math.abs(next - target) < 0.02 ? target : next;
-      // Only override when faded — otherwise leave the base alpha (set above) intact.
-      // (The CSS `transition: opacity` was removed from .gev-anno so this per-frame JS ease
-      // is the ONLY easing — previously the two fought and produced an opacity oscillation.)
-      if (rec._trackedFade !== 1) {
-        group.setAttribute(
-          'opacity',
-          String((anno.alpha ?? 1) * rec._trackedFade),
-        );
-      }
-    }
   }
 
   function remove(anno) {
@@ -855,9 +716,9 @@ function injectStyles() {
   .gev-screen-whiteboard { position: fixed; inset: 0; pointer-events: none; z-index: 90; }
   .gev-screen-whiteboard-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
   /* No CSS opacity transition here on purpose: group opacity is driven per-frame in JS
-     (the 260ms fade-in via computeAlpha, and the tracked-entity z-order ease). A CSS
-     transition fought those per-frame writes and made the tracked-fade opacity oscillate
-     (flicker). Fade-OUT keeps its own transition via .gev-anno.gev-out below. */
+     (the 260ms fade-in via computeAlpha). A CSS transition fought those per-frame writes
+     and made the opacity oscillate (flicker). Fade-OUT keeps its own transition via
+     .gev-anno.gev-out below. */
   .gev-anno-ring { filter: drop-shadow(0 0 6px currentColor); }
   .gev-anno-dot { filter: drop-shadow(0 0 5px rgba(255,255,255,0.6)); }
   .gev-anno-area { filter: drop-shadow(0 0 5px currentColor); }

@@ -4,27 +4,16 @@ import { createRadioSource, createRadioLayer } from './index.js';
 
 const id = '00000000-0000-4000-8000-000000000001';
 
-test('radio source confines directory and click requests to their existing routes', async () => {
-  const calls = [];
-  const body = { stations: [], stale: false };
-  const source = createRadioSource({
-    fetchImpl: async (path, options) => {
-      calls.push({ path, options });
-      return new Response(JSON.stringify(body));
-    },
+test('the stub radio source never fetches and reports an unconfigured directory', async (t) => {
+  t.mock.method(globalThis, 'fetch', () => {
+    throw new Error('the stub must not fetch');
   });
-  const controller = new AbortController();
-  assert.deepEqual(
-    await source.getDirectory({ signal: controller.signal }),
-    body,
+  const source = createRadioSource();
+  await assert.rejects(
+    source.getDirectory(),
+    /No radio directory is configured/,
   );
-  await source.recordClick(id, { signal: controller.signal });
-  assert.deepEqual(
-    calls.map((call) => call.path),
-    ['/api/radio/stations', `/api/radio/click/${id}`],
-  );
-  assert.equal(calls[1].options.method, 'POST');
-  assert.ok(calls.every((call) => call.options.signal === controller.signal));
+  await source.recordClick(id);
   for (const invalid of [
     '../stations',
     'https://example.com',
@@ -36,38 +25,12 @@ test('radio source confines directory and click requests to their existing route
       source.recordClick(invalid),
       /Invalid radio station id/,
     );
-  assert.equal(calls.length, 2);
-});
-
-test('radio source propagates denial and cancels completed body parsing', async () => {
-  const denied = createRadioSource({
-    fetchImpl: async () => new Response('', { status: 403 }),
-  });
-  await assert.rejects(denied.getDirectory(), /403/);
-  await assert.rejects(denied.recordClick(id), /403/);
   const controller = new AbortController();
-  const source = createRadioSource({
-    fetchImpl: async () => ({
-      ok: true,
-      json: async () => {
-        controller.abort();
-        return { stations: [] };
-      },
-    }),
-  });
+  controller.abort();
   await assert.rejects(source.getDirectory({ signal: controller.signal }), {
     name: 'AbortError',
   });
-  let called = false;
-  const idle = createRadioSource({
-    fetchImpl: async () => {
-      called = true;
-    },
-  });
-  await assert.rejects(idle.recordClick(id, { signal: controller.signal }), {
-    name: 'AbortError',
-  });
-  assert.equal(called, false);
+  assert.equal(globalThis.fetch.mock.callCount(), 0);
 });
 
 test('radio factories keep settings and subscriptions independent without fetching or audio startup', () => {

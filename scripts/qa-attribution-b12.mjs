@@ -10,7 +10,6 @@
  * This script drives the REAL app headless and proves:
  *   (i)   per-layer credits are registered in viewer.creditDisplay (H11),
  *         and appear in the "Data attribution" lightbox when opened;
- *   (ii)  enabling datacenters + submarine cables keeps their credits present;
  *   (iii) toggling clean-view keeps #cesium-credits visible (screenshot);
  *   (iv)  toggling recording-mode keeps #cesium-credits visible (screenshot).
  *
@@ -57,16 +56,8 @@ function check(name, ok, detail) {
 
 // Substrings that MUST be present across the registered per-layer credits.
 const REQUIRED_CREDIT_SUBSTRINGS = [
-  'OpenStreetMap contributors', // ODbL — datacenters/dams/roads
-  'adsb.lol',                    // ODbL — military traces
-  'TeleGeography',               // CC BY-NC-SA — cables
-  'NASA FIRMS',                  // fires
-  'CelesTrak',                   // satellites
-  'U.S. Geological Survey',      // earthquakes
-  'OpenSky Network',             // flights
-  'AISStream',                   // vessels
+  'OpenStreetMap contributors', // ODbL — roads
   'City of Austin',              // CCTV
-  'Radio Browser',               // internet-radio directory
 ];
 
 async function main() {
@@ -298,33 +289,6 @@ async function main() {
   await page.screenshot({ path: resolve(SHOT_DIR, 'attribution-lightbox-mobile.png') });
   await page.evaluate(() => window.__godsEyeView.viewer.creditDisplay.hideLightbox());
   await page.setViewport({ width: 1440, height: 900, deviceScaleFactor: 1 });
-
-  // ── (ii) enable datacenters + cables; credits still present ────────
-  console.log('\nH11 — enabling datacenters + submarine cables');
-  const layerIds = await page.evaluate(() => {
-    const dm = window.__godsEyeView.dataManager;
-    return [...dm.layers.keys()];
-  });
-  // Find the datacenter + cable layer ids by fuzzy match on the id string.
-  const dcId = layerIds.find((id) => /datacenter/i.test(id));
-  const cableId = layerIds.find((id) => /cable|submarine|telegeo/i.test(id));
-  check('found datacenter + cable layer ids', !!dcId && !!cableId, `dc=${dcId} cable=${cableId}`);
-  if (dcId) await page.evaluate((id) => window.__godsEyeView.dataManager.setEnabled(id, true), dcId);
-  if (cableId) await page.evaluate((id) => window.__godsEyeView.dataManager.setEnabled(id, true), cableId);
-  await new Promise((r) => setTimeout(r, 800));
-  const afterEnableHtml = await page.evaluate(() =>
-    (window.__godsEyeView.viewer.creditDisplay._staticCredits || []).map((c) => c.html),
-  );
-  check(
-    'datacenter credit (OSM/ODbL) still present after enable',
-    afterEnableHtml.some((h) => h.includes('OpenStreetMap contributors')),
-    '',
-  );
-  check(
-    'cable credit (TeleGeography) still present after enable',
-    afterEnableHtml.some((h) => h.includes('TeleGeography')),
-    '',
-  );
 
   // helper: is #cesium-credits visible (line rendered, not display:none)?
   const creditVisibility = async () =>

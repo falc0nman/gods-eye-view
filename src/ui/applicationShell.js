@@ -1,6 +1,5 @@
 import { resolveImageryHost } from '../layers/weather/imageryHost.js';
 import { ShellFacade } from './shellFacade.js';
-import { AircraftDisplay } from './aircraftDisplay.js';
 import { LayerBindings } from './layerBindings.js';
 import { PanelChrome } from './panelChrome.js';
 import { VisualSettings } from './visualSettings.js';
@@ -12,11 +11,9 @@ import { setSplitFlapText } from '../splitFlap.js';
 import { UiLifetime } from './uiLifetime.js';
 import { RecordingControls } from './recordingControls.js';
 import { readShellElements } from './shellElements.js';
-import { CockpitCoordinator } from './cockpitCoordinator.js';
 import { ContextControls } from './context.js';
 import { CctvControls } from './cctv.js';
 import { RadioControls } from './radio.js';
-import { LocalSdrControls } from './localSdrControls.js';
 import { LocationNavigation } from './locationNavigation.js';
 import { bindClearLayersControl } from './layers.js';
 import { bindCameraOrientationControls } from './cameraOrientationControls.js';
@@ -29,8 +26,6 @@ import {
 } from './cyberSonarControls.js';
 
 import * as Cesium from 'cesium';
-
-import { aircraftTrackingTarget } from '../cockpitTracking.js';
 
 import { ShellFeedback } from './shellFeedback.js';
 
@@ -51,7 +46,6 @@ import { runCctvLayerEnableTransition } from '../cctvFocusPolicy.js';
  * - Orbit controller integration for POI fly-around.
  * - Recording mode with safe-frame overlay and HUD mode switching.
  * - Share link encoding/decoding (delegates to ShareLinkManager).
- * - Detection overlay mode cycling and density tuning.
  * - Toast notification system.
  * - Intel HUD lifecycle and variant switching.
  */
@@ -66,25 +60,8 @@ export class StyleManager extends ShellFacade {
     { mapStackController = null, placeSearch, services, requestServices } = {},
   ) {
     super();
-    const {
-      IntelHUD,
-      ShareLinkManager,
-      CelestialRing,
-      initTrackedReadout,
-      initWorldOverlay,
-      initDetection,
-      setDetectionStyle,
-      trafficLayer,
-      flightsLayer,
-      militaryFlightsLayer,
-      satellitesLayer,
-      cctvLayer,
-      bikeshareLayer,
-      transitLayer,
-      aisLiveVesselsLayer,
-      militaryAwarenessLayer,
-      localAdsbLayer,
-    } = services;
+    const { IntelHUD, ShareLinkManager, CelestialRing, initWorldOverlay } =
+      services;
     this.services = services;
     this._lifetime = new UiLifetime();
     this._recording = new RecordingControls({
@@ -124,19 +101,10 @@ export class StyleManager extends ShellFacade {
 
     this._navigation = new NavigationController({
       viewer,
-      tracking: {
-        flightsLayer,
-        militaryFlightsLayer,
-        satellitesLayer,
-        aisLiveVesselsLayer,
-        militaryAwarenessLayer,
-        rocketLaunchesLayer: services.rocketLaunchesLayer,
-      },
       searchInput: this._locationSearch,
       interruptCameraMotion: services.interruptCameraMotion,
       isCockpitActive: () => !!this.cockpitView?.active,
       clearLocation: () => this.clearSearchedLocation(),
-      cancelShareSelection: () => this._shareRestoration.cancelSelection(),
       getDataManager: () => this._dataManager,
       stopOrbit: () => this._stopOrbit(),
       cancelOrientation: () => this._cameraOrientationControls?.cancel(),
@@ -146,11 +114,6 @@ export class StyleManager extends ShellFacade {
       viewer,
       navigation: this._navigation,
       syncShareState: () => this._syncShareState(),
-      syncModels3d: (state) => this._syncModels3dFromLayerState(state),
-      showStatus: (message, options) =>
-        this._showGlobalStatusNotice(message, options),
-      feedback: this._feedback,
-      updateFeedback: () => this._updateGlobalLoadingFeedback(),
     });
 
     this._visualSettings = new VisualSettings({
@@ -159,8 +122,6 @@ export class StyleManager extends ShellFacade {
       services: {
         setScopeTerminusOverride: services.setScopeTerminusOverride,
         clampScopeTerminusPct: services.clampScopeTerminusPct,
-        getDetectionMode: services.getDetectionMode,
-        getDetectionTuning: services.getDetectionTuning,
         getKeyholeFadeTuning: services.getKeyholeFadeTuning,
         getScopeMaskFeather: services.getScopeMaskFeather,
         getScopeTerminusOverride: services.getScopeTerminusOverride,
@@ -168,11 +129,7 @@ export class StyleManager extends ShellFacade {
         holdContinuousRender: services.holdContinuousRender,
         isCelestialRingStyleSupported: services.isCelestialRingStyleSupported,
         isScopeMaskEnabled: services.isScopeMaskEnabled,
-        readDetectionDiagnostics: services.readDetectionDiagnostics,
         releaseContinuousRender: services.releaseContinuousRender,
-        setDetectionModeByLabel: services.setDetectionModeByLabel,
-        setDetectionStyle: services.setDetectionStyle,
-        setDetectionTuning: services.setDetectionTuning,
         setKeyholeFadeTuning: services.setKeyholeFadeTuning,
         setScopeMaskEnabled: services.setScopeMaskEnabled,
         setScopeMaskFeather: services.setScopeMaskFeather,
@@ -184,17 +141,12 @@ export class StyleManager extends ShellFacade {
         _bloomSliderValue: this._bloomSliderValue,
         _celestialBtn: this._celestialBtn,
         _cockpitDisplayToggleBtn: this._cockpitDisplayToggleBtn,
-        _detectionAllocationRow: this._detectionAllocationRow,
-        _detectionBtn: this._detectionBtn,
-        _detectionDensitySlider: this._detectionDensitySlider,
-        _detectionDensityValue: this._detectionDensityValue,
-        _detectionFadeRow: this._detectionFadeRow,
-        _detectionFadeSlider: this._detectionFadeSlider,
-        _detectionFadeValue: this._detectionFadeValue,
-        _detectionOpacityRow: this._detectionOpacityRow,
-        _detectionOpacitySlider: this._detectionOpacitySlider,
-        _detectionOpacityValue: this._detectionOpacityValue,
-        _detectionSliderRow: this._detectionSliderRow,
+        _keyholeFadeRow: this._keyholeFadeRow,
+        _keyholeFadeSlider: this._keyholeFadeSlider,
+        _keyholeFadeValue: this._keyholeFadeValue,
+        _keyholeOpacityRow: this._keyholeOpacityRow,
+        _keyholeOpacitySlider: this._keyholeOpacitySlider,
+        _keyholeOpacityValue: this._keyholeOpacityValue,
         _hudBtn: this._hudBtn,
         _cyberSonarBtn: this._cyberSonarBtn,
         _cyberSonarRings: this._cyberSonarRings,
@@ -241,8 +193,6 @@ export class StyleManager extends ShellFacade {
       readDataManager: () => this._dataManager,
       readShareLinks: () => this.shareLinkManager,
       readCelestialRing: () => this.celestialRing,
-      readContextMode: () => this._contextMode,
-      readContextChanging: () => this._contextModeChanging,
       readDisplayPortalActive: () => this._cockpitDisplayPortalActive,
     });
 
@@ -269,8 +219,6 @@ export class StyleManager extends ShellFacade {
           this._updateTrafficSyncChip(...args),
         _updateGlobalLoadingFeedback: (...args) =>
           this._updateGlobalLoadingFeedback(...args),
-        _syncContextModeButtons: (...args) =>
-          this._syncContextModeButtons(...args),
         _stampNavigation: (...args) => this._stampNavigation(...args),
         _runExplicitCctvFocus: (...args) => this._runExplicitCctvFocus(...args),
         _runExplicitWorldFocus: (...args) =>
@@ -300,20 +248,12 @@ export class StyleManager extends ShellFacade {
         searchAndFlyTo: services.searchAndFlyTo,
         LocationSearch: services.LocationSearch,
         OrbitController: services.OrbitController,
-        suspendDetection: services.suspendDetection,
-        resumeDetection: services.resumeDetection,
         trafficLayer: services.trafficLayer,
         flyToPresetLocation: services.flyToPresetLocation,
         flyToPOI: services.flyToPOI,
         GLOBE_VIEW: services.GLOBE_VIEW,
         flyToGlobeView: services.flyToGlobeView,
         interruptCameraMotion: services.interruptCameraMotion,
-        flightsLayer: services.flightsLayer,
-        militaryFlightsLayer: services.militaryFlightsLayer,
-        satellitesLayer: services.satellitesLayer,
-        aisLiveVesselsLayer: services.aisLiveVesselsLayer,
-        militaryAwarenessLayer: services.militaryAwarenessLayer,
-        rocketLaunchesLayer: services.rocketLaunchesLayer,
       },
       elements: {
         _locationPills: this._locationPills,
@@ -349,54 +289,9 @@ export class StyleManager extends ShellFacade {
       summaryService: requestServices?.summary,
     });
     this._recording.hud = this.hud;
-    this._cockpitCoordinator = new CockpitCoordinator({
-      viewer,
-      services: {
-        flightsLayer: services.flightsLayer,
-        militaryFlightsLayer: services.militaryFlightsLayer,
-        isTr3b: services.isTr3b,
-        toggleTr3b: services.toggleTr3b,
-        militaryAwarenessLayer: services.militaryAwarenessLayer,
-        cachedGroundFloor: services.cachedGroundFloor,
-        cachedMeshFloor: services.cachedMeshFloor,
-        GROUND_FLOOR_LIFT_M: services.GROUND_FLOOR_LIFT_M,
-        meshFloorPreferred: services.meshFloorPreferred,
-        warmGroundFloor: services.warmGroundFloor,
-        sampleMeshFloorCells: services.sampleMeshFloorCells,
-        holdContinuousRender: services.holdContinuousRender,
-        releaseContinuousRender: services.releaseContinuousRender,
-        fetchRegionalBrief: services.fetchRegionalBrief,
-        regionalDistanceM: services.regionalDistanceM,
-        weatherCodeLabel: services.weatherCodeLabel,
-      },
-      elements: {
-        _ppToggles: this._ppToggles,
-        _cockpitDisplayPanel: this._cockpitDisplayPanel,
-        _hudBtn: this._hudBtn,
-        _detectionBtn: this._detectionBtn,
-        _sliderPanel: this._sliderPanel,
-        _models3dBtn: this._models3dBtn,
-      },
-      operations: {
-        _layoutRightPanels: (...args) => this._layoutRightPanels(...args),
-        _setCockpitVision: (...args) => this._setCockpitVision(...args),
-        _stampNavigation: (...args) => this._stampNavigation(...args),
-        getAircraftTrackingTarget: (...args) =>
-          this.getAircraftTrackingTarget(...args),
-        _scheduleRightPanelLayout: (...args) =>
-          this._scheduleRightPanelLayout(...args),
-        _syncContextRadioLauncherState: (...args) =>
-          this._syncContextRadioLauncherState(...args),
-      },
-      readDataManager: () => this._dataManager,
-      readContext: () => this.getContextModeState(),
-      readActiveStyle: () => this.activeStyle,
-      enterPanels: () => this._panelChrome.enterCockpit(),
-      exitPanels: () => this._panelChrome.exitCockpit(),
-    });
 
     // Full-globe sun/moon ring. It is a crisp screen-space overlay above the
-    // Cesium canvas but below the HUD/detection/readout z ladder.
+    // Cesium canvas but below the HUD/readout z ladder.
     this.celestialRing = new CelestialRing(viewer, {
       enabled: false,
       onAutoDisable: () =>
@@ -445,49 +340,15 @@ export class StyleManager extends ShellFacade {
     // preferences. Encoded panel fields are applied after all panels exist.
     this._shareRestoration.attachLinks(this.shareLinkManager);
 
-    this._aircraftDisplay = new AircraftDisplay({
-      elements: {
-        _models3dBtn: this._models3dBtn,
-        _models3dModeRow: this._models3dModeRow,
-      },
-      readDataManager: () => this._dataManager,
-      layout: () => this._layoutRightPanels(),
-    });
-
-    // The shared world-overlay host must own its one postRender lane before
-    // detection and tracked-readout initialize. It stays transparent until a
-    // production source explicitly registers entries.
+    // The shared world-overlay host owns its one postRender lane. It stays
+    // transparent until a production source explicitly registers entries.
     initWorldOverlay(viewer);
-
-    // Initialize detection overlay BEFORE style stages so the composite
-    // stage is first in the post-process pipeline
-    initDetection(
-      viewer,
-      [
-        trafficLayer,
-        flightsLayer,
-        militaryFlightsLayer,
-        localAdsbLayer,
-        satellitesLayer,
-        cctvLayer,
-        bikeshareLayer,
-        transitLayer,
-        aisLiveVesselsLayer,
-      ].filter(Boolean),
-      (modeLabel) => {
-        this._updateDetectionButton(modeLabel);
-      },
-    );
-    initTrackedReadout(viewer);
-    setDetectionStyle(this.activeStyle);
-    this._applyDetectionDensityFromUi();
 
     this._initStages();
     this._initBloomSharpen();
     this._displayBindings = new DisplayBindings({
       viewer,
       services: {
-        cycleDetectionMode: services.cycleDetectionMode,
         setScopeMaskEnabled: services.setScopeMaskEnabled,
         isScopeMaskEnabled: services.isScopeMaskEnabled,
         setScopeMaskFeather: services.setScopeMaskFeather,
@@ -510,15 +371,11 @@ export class StyleManager extends ShellFacade {
         _cyberSonarSector: this._cyberSonarSector,
         _cleanViewBtn: this._cleanViewBtn,
         _cleanViewExitBtn: this._cleanViewExitBtn,
-        _detectionDensitySlider: this._detectionDensitySlider,
-        _detectionBtn: this._detectionBtn,
-        _detectionFadeSlider: this._detectionFadeSlider,
-        _detectionOpacitySlider: this._detectionOpacitySlider,
+        _keyholeFadeSlider: this._keyholeFadeSlider,
+        _keyholeOpacitySlider: this._keyholeOpacitySlider,
         _celestialBtn: this._celestialBtn,
-        _models3dBtn: this._models3dBtn,
         _scopeFeatherValue: this._scopeFeatherValue,
         _sharpenSliderValue: this._sharpenSliderValue,
-        _detectionDensityValue: this._detectionDensityValue,
       },
       operations: {
         setStyle: (...args) => this.setStyle(...args),
@@ -535,17 +392,10 @@ export class StyleManager extends ShellFacade {
         _setHudVariant: (...args) => this._setHudVariant(...args),
         _setCyberSonarEnabled: (...args) => this._setCyberSonarEnabled(...args),
         _setCyberSonarSetting: (...args) => this._setCyberSonarSetting(...args),
-        _applyDetectionDensityFromUi: (...args) =>
-          this._applyDetectionDensityFromUi(...args),
-        _setDetectionAllocation: (...args) =>
-          this._setDetectionAllocation(...args),
-        _applyDetectionFadeFromUi: (...args) =>
-          this._applyDetectionFadeFromUi(...args),
+        _applyKeyholeFadeFromUi: (...args) =>
+          this._applyKeyholeFadeFromUi(...args),
         setCelestialRingEnabled: (...args) =>
           this.setCelestialRingEnabled(...args),
-        _setModels3dEnabled: (...args) => this._setModels3dEnabled(...args),
-        _syncModels3dModeRow: (...args) => this._syncModels3dModeRow(...args),
-        _setModels3dMode: (...args) => this._setModels3dMode(...args),
       },
       readState: () => ({
         shareLinkManager: this.shareLinkManager,
@@ -554,13 +404,7 @@ export class StyleManager extends ShellFacade {
         sharpenEnabled: this.sharpenEnabled,
         celestialRing: this.celestialRing,
         celestialRingEnabled: this.celestialRingEnabled,
-        _models3dEnabled: this._models3dEnabled,
-        _models3dModeBtns: this._models3dModeBtns,
-        _detectionAllocationBtns: this._detectionAllocationBtns,
       }),
-      claimDetection: () => {
-        this._visualSettings._detectionUserOverridden = true;
-      },
     });
     this._initUI();
     this._initMapStackControl();
@@ -575,7 +419,6 @@ export class StyleManager extends ShellFacade {
     this._initCameraOrientationControls();
     this._initClearSelectedLayersButton();
     this._initHUDToggle();
-    this._initModels3dToggle();
     this._applyGlobalPostDefaults();
     this._initOrbit();
     this._initRecordingOverlay();
@@ -606,16 +449,12 @@ export class StyleManager extends ShellFacade {
   // Compatibility reads for existing controls, scene snapshots and Cockpit.
 
   /** Advance camera authority and settle any older search UI immediately. */
-  _stampNavigation({
-    cancelPendingSelection = true,
-    clearSearchedLocation = true,
-  } = {}) {
+  _stampNavigation({ clearSearchedLocation = true } = {}) {
     return this._navigation._stampNavigation(...arguments);
   }
 
-  /** Release every follow owner while preserving Contact and vessel selection. */
+  /** Release every follow owner. */
   _releaseFollowCamera({
-    preserveVesselSelection = true,
     preserveCameraFlight = false,
     trackingOrigin = 'tool',
   } = {}) {
@@ -623,10 +462,7 @@ export class StyleManager extends ShellFacade {
   }
 
   /** Accept a delayed lookup without releasing its current camera owner. */
-  _beginDeferredNavigation(
-    noun = 'location',
-    { cancelPendingSelection = true } = {},
-  ) {
+  _beginDeferredNavigation(noun = 'location') {
     return this._navigation._beginDeferredNavigation(...arguments);
   }
 
@@ -660,11 +496,6 @@ export class StyleManager extends ShellFacade {
     return this._runExplicitNavigation(detail?.kind || 'target', fly);
   }
 
-  /** Return the aircraft tracker owned before a multi-step Cockpit transaction. */
-  getAircraftTrackingTarget() {
-    return aircraftTrackingTarget(this.cockpitView?.readAircraftInfo?.());
-  }
-
   /** Apply a temporary cockpit-only CRT/NVG/FLIR/NOIR post-process override. */
   _setCockpitVision(mode, active, { revealParameters = false } = {}) {
     return this._visualSettings._setCockpitVision(...arguments);
@@ -688,8 +519,8 @@ export class StyleManager extends ShellFacade {
 
   /**
    * Wires up all primary UI event listeners: style buttons, keyboard shortcuts
-   * (1-8 style keys, H/O/V/F/D/C hotkeys, Escape), AI prompt input with
-   * debounce, bloom/sharpen/HUD toggles, detection density slider, and
+   * (1-8 style keys, H/O/V/F/C hotkeys, Escape), AI prompt input with
+   * debounce, bloom/sharpen/HUD toggles, keyhole fade sliders, and
    * clean-view toggle.
    * @returns {void}
    */
@@ -744,12 +575,8 @@ export class StyleManager extends ShellFacade {
     this._mapSourceControls?.render(state);
   }
 
-  _setDetectionAllocation(strategy, { syncShare = true, persist = true } = {}) {
-    return this._visualSettings._setDetectionAllocation(...arguments);
-  }
-
   /**
-   * Pushes the current visual state (bloom, sharpen, HUD, detection) to
+   * Pushes the current visual state (bloom, sharpen, HUD, keyhole fade) to
    * the ShareLinkManager so the URL hash stays in sync.
    * @returns {void}
    */
@@ -786,26 +613,8 @@ export class StyleManager extends ShellFacade {
   }
 
   _initGlobalContextPanel() {
-    const { radioLayer, militaryInstallationsLayer } = this.services;
     this._contextControls = new ContextControls({
-      elements: {
-        _globalContextPanel: document.getElementById('global-context-panel'),
-        _globalContextFlightsBtn: this._globalContextFlightsBtn,
-        _globalContextMissionsBtn: this._globalContextMissionsBtn,
-        _contextModeStandby: this._contextModeStandby,
-        _contextFlightsView: this._contextFlightsView,
-        _contextMissionsView: this._contextMissionsView,
-        _installationsSearchBtn: this._installationsSearchBtn,
-      },
-      installations: militaryInstallationsLayer,
       actions: {
-        getCockpit: () => this.cockpitView,
-        refreshRadio: () => this._renderRadioState(radioLayer.getUIState()),
-        claimVisualAuthority: () =>
-          this.shareLinkManager?.claimRestoreLane?.('visual'),
-        syncDetection: () => this._syncContactsDetection(),
-        scheduleLayout: () => this._scheduleRightPanelLayout(),
-        setPanelCollapsed: (...args) => this.setPanelCollapsed(...args),
         showToast: (message) => {
           if (!this._disposed) this._showToast(message);
         },
@@ -887,33 +696,11 @@ export class StyleManager extends ShellFacade {
         isCockpitActive: () => this.cockpitView?.active,
         signalUserCollapsed: () => this.cockpitView?.signalUserCollapsed,
         layoutCockpit: () => this.cockpitView?.scheduleContextLayout(),
-        // An open local receiver keeps the shared Radio panel expanded.
         preservePanelStateDuringClear: () =>
-          this._preservePanelStateDuringLayerClear ||
-          Boolean(this._localSdrControls?.isActive()),
+          this._preservePanelStateDuringLayerClear,
         scheduleLayout: () => this._scheduleRightPanelLayout(),
       },
     });
-    this._localSdrControls?.destroy();
-    this._localSdrControls = null;
-    const receiver = this.services.localAdsbLayer?.receiver;
-    if (receiver) {
-      this._localSdrControls = new LocalSdrControls({
-        document,
-        receiver,
-        feeds: this.services.localAdsbLayer?.feeds || null,
-        radio: radioLayer,
-        actions: {
-          isLocalAdsbEnabled: () =>
-            Boolean(this._dataManager?.isEnabled('local-adsb')),
-          setLocalAdsbEnabled: (enabled) =>
-            this._dataManager?.setEnabled('local-adsb', enabled, {
-              origin: 'user',
-            }),
-          scheduleLayout: () => this._scheduleRightPanelLayout(),
-        },
-      });
-    }
   }
 
   /**
@@ -1113,30 +900,6 @@ export class StyleManager extends ShellFacade {
   }
 
   /**
-   * Controls the detection overlay: on/off, mode, and density percent.
-   * Density writes the slider AND the engine so share links and scene
-   * snapshots stay truthful.
-   * @param {object} [options]
-   * @param {boolean} [options.enabled] - false forces OFF; true restores the current density profile.
-   * @param {'sparse'|'balanced'|'dense'|'panoptic'} [options.mode] - Profile (legacy aliases accepted).
-   * @param {number} [options.densityPct] - 0-100 density percent.
-   * @param {'elastic'|'weighted'} [options.allocationStrategy] - Layer-capacity policy.
-   * @param {number} [options.fadePct] - Fade distance as 0-40% of the keyhole radius.
-   * @param {number} [options.outsideOpacityPct] - Opacity beyond the fade distance, 0-100%.
-   * @returns {{ok: boolean, detectionMode?: string, densityPct?: number|null, error?: string}}
-   */
-  setDetection({
-    enabled,
-    mode,
-    densityPct,
-    allocationStrategy,
-    fadePct,
-    outsideOpacityPct,
-  } = {}) {
-    return this._visualSettings.setDetection(...arguments);
-  }
-
-  /**
    * Switches the basemap stack and reports whether the switch landed.
    * @param {string} stackId - One of mapStackController.getStacks() ids.
    * @returns {Promise<{ok: boolean, activeStack?: string, error?: string|null, available?: string[]}>}
@@ -1228,7 +991,7 @@ export class StyleManager extends ShellFacade {
   /**
    * Full control-state snapshot — single source for voice read-back so the
    * agent confirms from the same state it acted on.
-   * @returns {object} Current style/stack/HUD/detection/post-processing state.
+   * @returns {object} Current style/stack/HUD/post-processing state.
    */
   getControlState() {
     return {
@@ -1239,7 +1002,6 @@ export class StyleManager extends ShellFacade {
         layout: this.hud?.getVariant?.() || null,
         sonar: getCyberSonarControlState(),
       },
-      detection: this.getDetectionState(),
       bloom: {
         enabled: !!this.bloomEnabled,
         intensityPct: this._bloomSlider
@@ -1257,10 +1019,6 @@ export class StyleManager extends ShellFacade {
         visible: !!this.celestialRing?.visible,
       },
       orbiting: !!this.orbitController?.active,
-      models3d: {
-        enabled: !!this._models3dEnabled,
-        mode: this._models3dMode || 'proximity',
-      },
       recording: !!this._recording._recordingMode,
       cleanView: document.body.classList.contains('ui-clean-view'),
     };
@@ -1309,7 +1067,7 @@ export class StyleManager extends ShellFacade {
 
   /**
    * Restores a full visual state snapshot, applying style, bloom, sharpen,
-   * HUD, detection, and per-style shader uniforms. Used by scene recipes
+   * HUD, and per-style shader uniforms. Used by scene recipes
    * and share-link restore. Async so the map-stack switch resolves before
    * the share state is synced; callers may fire-and-forget.
    * @param {object} [state={}] - Visual state object (as returned by getVisualState).
@@ -1355,7 +1113,7 @@ export class StyleManager extends ShellFacade {
    * 1. Crossfades the previous shader stage intensity to 0.
    * 2. Crossfades the new shader stage intensity to 1.
    * 3. Applies style preset defaults (bloom/sharpen/HUD) if applyPreset is true.
-   * 4. Updates button highlights, style indicator, slider panel, HUD, and detection overlay.
+   * 4. Updates button highlights, style indicator, slider panel, and HUD.
    * @param {string} styleName - Target style ('normal'|'retro'|'surveillance'|'thermal'|'anime'|'noir'|'snow').
    * @param {object} [options]
    * @param {boolean} [options.applyPreset=true] - Whether to apply STYLE_PRESET_DEFAULTS for the new style.
@@ -1395,7 +1153,7 @@ export class StyleManager extends ShellFacade {
   beginLocationNavigation() {
     this._stampNavigation();
     this.cockpitView?.exit({ restoreTracking: false });
-    return this._releaseFollowCamera({ preserveVesselSelection: false });
+    return this._releaseFollowCamera();
   }
 
   /** Wire the top-center action that clears only manager-owned data layers. */
@@ -1440,21 +1198,10 @@ export class StyleManager extends ShellFacade {
   // ── HUD Toggle ───────────────────────────────
 
   /**
-   * Wires the HUD toggle button, initializes the default HUD variant to 'tactical',
-   * and sets up the detection mode cycle button.
+   * Wires the HUD toggle button and initializes the default HUD variant to
+   * 'tactical'.
    * @returns {void}
    */
-  /**
-   * Wires the DISPLAY-rail "3D" toggle to the flights layer's `models3d` param.
-   * ON by default in `proximity` mode (owner directive 2026-08-22): the fleet
-   * renders as 3D glTF models once the camera is zoomed in past the layer's
-   * altitude ceiling, and only the nearest MODEL_MAX in view are admitted, so
-   * the default costs nothing at globe scale. `all` is the deliberate opt-in;
-   * turning the toggle off returns the fleet to flat billboards. The TRACKED
-   * contact is independent of this toggle (see trackedModelRegime.js).
-   * @returns {void}
-   */
-
   _initHUDToggle() {
     if (this._hudLayoutSelect) {
       this._hudLayoutSelect.value = 'tactical';
@@ -1468,7 +1215,6 @@ export class StyleManager extends ShellFacade {
         this._cockpitDisplayToggleBtn.getAttribute('aria-expanded') === 'true';
       this._setCockpitDisclosure?.('display', !open);
     });
-    this._initCockpitDisplayPortal();
   }
 
   /**
@@ -1513,8 +1259,7 @@ export class StyleManager extends ShellFacade {
    * @returns {Promise<void>} Resolves after focused-session state restoration.
    */
   async dispose() {
-    const { destroyTrackedReadout, destroyWorldOverlay, destroyDetection } =
-      this.services;
+    const { destroyWorldOverlay } = this.services;
     if (this._disposed) return;
     this._shareRestoration.destroy();
     this._feedback._globalStatusNotice = null;
@@ -1534,27 +1279,12 @@ export class StyleManager extends ShellFacade {
     this._clearLayersControl?.destroy();
     this._cctvControls?.destroy();
     this._radioControls?.destroy();
-    this._localSdrControls?.destroy();
-    this._cockpitCoordinator.stop();
     this._visualSettings.stop();
     this.shareLinkManager?.destroy();
     this._layerBindings.stop();
 
-    // Invalidate any in-flight Context transaction the same way a newer request
-    // would. Without this, a reinstatement already past its awaits could
-    // re-enable a mode's entry layer and republish `_contextMode` while the
-    // rest of teardown is tearing those very layers down.
     this._contextControls.stop();
     this._navigation.destroy();
-    // Close camera-entry seams synchronously. Context restoration may await
-    // layer work, so leaving these listeners attached until afterward lets a
-    // focus event release tracking or start a flight during teardown.
-    await this._contextControls.restoreForDisposal();
-    // IR boost teardown BEFORE detaching the data manager: restore fog and
-    // un-boost both aircraft layers so a surviving viewer or replacement
-    // manager doesn't inherit sensor state (review P2, 2026-08-16).
-    this._visualSettings.releaseIrBoost();
-    this._cockpitCoordinator.destroy();
     this._contextControls.disconnect();
     this._layerBindings.disconnect();
 
@@ -1562,8 +1292,6 @@ export class StyleManager extends ShellFacade {
       window.removeEventListener('resize', this._windowResizeHandler);
       this._windowResizeHandler = null;
     }
-    destroyTrackedReadout();
-    destroyDetection();
     destroyWorldOverlay();
     this.celestialRing?.destroy();
     this._visualSettings.destroy();

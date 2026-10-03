@@ -13,10 +13,9 @@ import {
  * owner ruled: draw it explicitly on a canvas, make the edge featherable
  * (like the NVG/FLIR tube masks), and free the six shader passes for real.
  *
- * Implementation: one fixed canvas parented into the viewer container
- * BELOW the detection surface (z-index 2 < 5) so detection's
- * mix-blend-mode still composites over the masked scene, exactly like the
- * old in-scene artifact. The mask is a radial gradient — fully transparent
+ * Implementation: one fixed canvas parented into the viewer container,
+ * below the z6 world-overlay root, so overlay text composites over the
+ * masked scene exactly like the old in-scene artifact. The mask is a radial gradient — fully transparent
  * inside the shared keyhole circle, feathering to near-opaque page black
  * outside — redrawn only on resize, tuning change, DPR change, or a
  * QUANTIZED terminus-alpha step (see below). No rAF, no per-frame paint, no

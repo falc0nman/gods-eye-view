@@ -5,7 +5,7 @@
  *
  * Manages a persistent project of scenes, each containing an ordered shot list.
  * Each shot stores camera position, visual style, post-processing state, HUD mode,
- * detection overlay, and data-layer toggles. During playback the director sequences
+ * keyhole fade, and data-layer toggles. During playback the director sequences
  * through shots with timed camera flights, hold pauses, and visual-state transitions,
  * while recording telemetry events for post-run metadata export.
  *
@@ -25,7 +25,7 @@ import {
   SCENE_RECIPES,
   getSceneAppendRecipeById,
 } from './recipes.js';
-import { sceneLayerPlan, sceneRequiresContextModeExit } from './scenePolicy.js';
+import { sceneLayerPlan } from './scenePolicy.js';
 import { createSceneDataPacks } from './dataPacks/controller.js';
 import { createSceneInteractions } from './interactions.js';
 import { createSceneSharing } from './sharing.js';
@@ -75,7 +75,7 @@ const STORAGE_CHECKPOINT_KEY = 'godsEyeView.sceneProject.checkpoint.v1';
 export class SceneDirector {
   /**
    * @param {Cesium.Viewer} viewer - The Cesium viewer instance
-   * @param {Object} styleManager - Controls visual state (bloom, sharpen, HUD, detection, style presets)
+   * @param {Object} styleManager - Controls visual state (bloom, sharpen, HUD, style presets)
    * @param {Object} dataManager - Manages data layer enable/disable and per-layer params
    */
   constructor(
@@ -441,7 +441,7 @@ export class SceneDirector {
 
   /**
    * Rebuild the shot list DOM for the currently selected scene.
-   * Each shot row shows title, style/detection/duration metadata, and
+   * Each shot row shows title, style/duration metadata, and
    * LOAD/DEL action buttons. Supports click-to-select and double-click rename.
    */
   _renderShotList() {
@@ -2054,13 +2054,9 @@ export class SceneDirector {
    * Only layers the shot declares are touched — see src/scenes/scenePolicy.js
    * for why undeclared layers are left alone.
    *
-   * Two things this pass owes the operator:
-   *  - An isolating Context mode is left FIRST. Space Missions refuses every
-   *    unrelated enable, so a shot applied inside it composes a scene nobody
-   *    authored (see _exitIsolatingContextMode).
-   *  - A refused layer is reported. setEnabled() answers false when a guard
-   *    vetoes the transition; swallowing that answer is how playback came to
-   *    claim success over a scene it never assembled.
+   * A refused layer is reported. setEnabled() answers false when a guard
+   * vetoes the transition; swallowing that answer is how playback came to
+   * claim success over a scene it never assembled.
    *
    * The token's signal is handed to every transition, so a stop or a newer
    * request cancels the layer that is CURRENTLY moving rather than only the
@@ -2082,13 +2078,6 @@ export class SceneDirector {
     const applied = [];
     const refused = [];
     const abort = () => ({ applied, refused, cancelled: true });
-    if (token?.cancelled) return abort();
-
-    // Deliberately NOT aborted: leaving an isolating mode IS the restore to
-    // the operator's pre-mode state, which is exactly where a stopped scene
-    // should come to rest. Tearing that transaction in half would strand
-    // Context, so it completes and cancellation is honoured immediately after.
-    await this._exitIsolatingContextMode();
     if (token?.cancelled) return abort();
 
     const signal = token?.signal;
@@ -2182,53 +2171,6 @@ export class SceneDirector {
       }
     }
     return released && !token?.cancelled;
-  }
-
-  /**
-   * Leave a Context mode that isolates the globe, before a shot's layers land.
-   *
-   * Space Missions is the shipped case. It is a destructive-exclusive mode: a
-   * guard refuses every enable outside its own replay bundle, so a recipe that
-   * declares flights/satellites/earthquakes/traffic gets all four refused —
-   * and Orbital Watch, whose satellites the guard does permit, would still
-   * play over the mode's rocket-launches replay it never declared. Either way
-   * the shot is not the composition it describes.
-   *
-   * The old full-registry reconcile dismantled the mode by accident, as part
-   * of forcing every undeclared layer off. Declaring the exit is the honest
-   * version of that: the decision is read off the policy guard itself, so a
-   * future isolating mode is covered without being named here.
-   *
-   * @returns {Promise<boolean>} Whether a mode was exited.
-   */
-  async _exitIsolatingContextMode() {
-    // Older/headless style managers may predate the Context facade.
-    if (typeof this.styleManager?.getContextModeState !== 'function')
-      return false;
-    if (typeof this.styleManager?.setContextMode !== 'function') return false;
-
-    const state = this.styleManager.getContextModeState() || {};
-    // A mode still being entered already owns the guard, so it counts.
-    const mode = state.entering || state.mode || null;
-    if (!sceneRequiresContextModeExit(mode)) return false;
-
-    const result = await this.styleManager.setContextMode('off');
-    if (result && result.ok === false) {
-      console.warn(
-        `[Scenes] Could not exit ${mode}:`,
-        result.error || 'unknown reason',
-      );
-      this._updateStatus(
-        `Could not exit ${mode} — scene layers may be refused`,
-      );
-      this._logEvent('context_mode_exit_failed', {
-        mode,
-        error: result.error || null,
-      });
-      return false;
-    }
-    this._logEvent('context_mode_exited', { mode });
-    return true;
   }
 
   /** Use the authored sampler only for explicit moves; ordinary shots keep their existing flights. */

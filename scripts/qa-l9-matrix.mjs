@@ -16,7 +16,7 @@
  *   D · HARNESS  the existing qa-*.mjs fleet, invoked as subprocesses and
  *                aggregated. This runner never reimplements what they cover.
  *   M · MANUAL   the owner-eyes checks (3 voice mic round trips, the LAN
- *                warning, the live-vessel transfer, …). Always reported as
+ *                warning, …). Always reported as
  *                SKIPPED/OWNER-RUN so the coverage math stays honest — the
  *                steps live in the maintainers' release runbook.
  *
@@ -126,7 +126,7 @@ function normalizeVerdict(res) {
 
 /** Environment facts discovered in preflight; checks read this. */
 const env = {
-  // FIRMS/TOMTOM/AIS/OPENAI/OPENSKY →
+  // TOMTOM/OPENAI/OPENSKY →
   //   true    key positively present
   //   false   key positively ABSENT (the endpoint said so in its own words)
   //   'error' the status endpoint is unhealthy — key state UNKNOWN, and any
@@ -162,21 +162,8 @@ function keyGuard(name, state) {
  * unmapped layer must never pass silently just because nobody added it here.
  */
 const CREDIT_EXPECTATIONS = {
-  flights: /OpenSky/i,
-  military: /adsb\.lol/i,
-  satellites: /CelesTrak/i,
-  earthquakes: /Geological Survey|USGS/i,
-  'rocket-launches': /Launch Library|LL2/i,
   traffic: /TomTom|OpenStreetMap/i,
   cctv: /Austin|Caltrans|Transport for London|TfL/i,
-  radio: /Radio Browser/i,
-  bikeshare: /GBFS|bikeshare/i,
-  'ais-live-vessels': /AISStream/i,
-  'military-installations': /OpenStreetMap/i,
-  'local-datacenters': /OpenStreetMap/i,
-  'local-dams': /OpenStreetMap/i,
-  'local-firms': /FIRMS/i,
-  'telegeography-submarine-cables': /TeleGeography/i,
   'local-neighborhoods': /DataSF|San Francisco/i,
   'weather-effects': /Open-Meteo/i,
 };
@@ -186,7 +173,6 @@ const CREDIT_EXPECTATIONS = {
  * Anything here is an explicit decision, not an oversight.
  */
 const CREDIT_EXEMPT_LAYERS = {
-  'military-awareness': 'derived view over other layers; it ships no data of its own and its sources carry their own credits',
   detection: 'a rendering treatment over already-credited layers, not a data source',
   annotations: 'user-drawn marks; no third-party data',
 };
@@ -249,7 +235,7 @@ function isCalibratedAllocationRuntime(version) {
 /**
  * Did C10's traffic measurement expire before the flow fetch landed?
  *
- * The same discrimination C11 makes for the bundled layers: "still loading when
+ * The same discrimination the layer checks make: "still loading when
  * my budget expired" is not "empty". The discriminator is whether the flow
  * request ever completed — NOT whether the answer was empty — so a result that
  * landed and is empty keeps failing. That empty-but-landed shape is the
@@ -671,7 +657,7 @@ check({
     // blockers because both are legitimately present in the shipping tree: one
     // is the name of the auto-detection default view (README, CHANGELOG,
     // src/data/*), the other appears inside the bundled public geodata
-    // (datacenter and submarine-cable landing points). Scanning for them
+    // data. Scanning for them
     // produces only false positives — flagged as a stale checklist item in
     // the maintainers' release runbook, not silently honoured.
     //
@@ -734,140 +720,6 @@ check({
     return r.ok && /<div id="cesiumContainer"|<title>/i.test(r.text)
       ? pass(`HTTP ${r.status}, ${r.text.length} bytes`)
       : fail(`HTTP ${r.status}`);
-  },
-});
-
-check({
-  id: 'B2', group: 'B', desc: 'Flights proxy returns live contacts (/api/opensky)',
-  run: async () => {
-    const r = await jget('/api/opensky?lamin=24&lomin=-125&lamax=50&lomax=-66', { timeoutMs: 45000 });
-    if (!r.ok) return fail(`HTTP ${r.status}: ${r.text.slice(0, 120)}`);
-    const n = r.json?.states?.length || 0;
-    return n > 0 ? pass(`${n} states, cache=${r.headers.get('x-opensky-cache') || 'n/a'}`) : fail('0 states returned');
-  },
-});
-
-check({
-  id: 'B3', group: 'B', desc: 'OpenSky credentials are actually in use (not the anonymous/fallback path)',
-  run: async () => {
-    const r = await jget('/api/opensky?lamin=24&lomin=-125&lamax=50&lomax=-66', { timeoutMs: 45000 });
-    // Header names are exact: X-OpenSky-Auth-Mode-Used / X-OpenSky-Auth-Reason.
-    // (An earlier guess at these names made this check pass vacuously.)
-    const reason = r.headers.get('X-OpenSky-Auth-Reason') || '';
-    const used = r.headers.get('X-OpenSky-Auth-Mode-Used') || r.headers.get('X-OpenSky-Auth') || '';
-    if (!r.ok) return fail(`HTTP ${r.status} from a responsive proxy (auth=${used || 'n/a'} reason=${reason || 'n/a'}): ${r.text.slice(0, 120)}`);
-    if (!used) return fail('proxy answered 200 without the X-OpenSky-Auth headers — cannot verify which auth mode served this');
-    if (/invalid_credentials|rejected/.test(reason)) return fail(`OpenSky rejected the configured credentials (reason=${reason})`);
-    if (/missing_.*creds|invalid_or_missing/.test(reason) || used === 'anon') {
-      return skip(`OpenSky served ANONYMOUSLY (auth=${used}, reason=${reason || 'n/a'}) — the keyed claim needs configured credentials`, 'OWNER-RUN');
-    }
-    if (!/^(oauth|basic)$/.test(used)) {
-      // 'cached'/'unknown'/'adsblol-regional' etc. — real, but not proof that
-      // credentials are in use right now.
-      return fail(`served by mode "${used}" (reason=${reason || 'n/a'}) — not a live authenticated OpenSky fetch, so this check cannot confirm credentials are in use`);
-    }
-    return pass(`authenticated: auth=${used}, reason=${reason || 'n/a'}, cache=${r.headers.get('X-OpenSky-Cache') || 'n/a'}`);
-  },
-});
-
-check({
-  id: 'B4', group: 'B', desc: 'CelesTrak TLE proxy serves and caches (/api/celestrak/stations)',
-  run: async () => {
-    const r = await jget('/api/celestrak/stations', { timeoutMs: 40000 });
-    if (!r.ok) return fail(`HTTP ${r.status}`);
-    const lines = r.text.split('\n').filter((l) => /^1 /.test(l)).length;
-    const cache = r.headers.get('x-tle-cache');
-    return lines > 0 ? pass(`${lines} TLE records, x-tle-cache=${cache}`) : fail('no TLE lines in response');
-  },
-});
-
-check({
-  id: 'B5', group: 'B', desc: 'TLEs are FRESH (epoch under 14 days — a stale catalog silently mis-propagates)',
-  run: async () => {
-    const r = await jget('/api/celestrak/stations', { timeoutMs: 40000 });
-    if (!r.ok) return fail(`HTTP ${r.status}`);
-    const line1 = r.text.split('\n').find((l) => /^1 /.test(l));
-    if (!line1) return fail('no TLE line 1 found');
-    // Columns 19-32: epoch YYDDD.DDDDDDDD
-    const yy = Number(line1.slice(18, 20));
-    const ddd = Number(line1.slice(20, 32));
-    const year = yy < 57 ? 2000 + yy : 1900 + yy;
-    const epoch = new Date(Date.UTC(year, 0, 1) + (ddd - 1) * 86400000);
-    const ageDays = (Date.now() - epoch.getTime()) / 86400000;
-    return ageDays >= 0 && ageDays < 14
-      ? pass(`newest epoch ${epoch.toISOString().slice(0, 10)} (${ageDays.toFixed(1)} d old)`)
-      : fail(`TLE epoch ${epoch.toISOString().slice(0, 10)} is ${ageDays.toFixed(1)} days old`);
-  },
-});
-
-check({
-  id: 'B6', group: 'B', desc: 'FIRMS proxy returns live fires', needsKey: 'FIRMS',
-  run: async () => {
-    const r = await jget('/api/firms', { timeoutMs: 60000 });
-    if (!r.ok) return fail(`HTTP ${r.status}: ${r.text.slice(0, 120)}`);
-    const n = r.json?.count ?? r.json?.fires?.length ?? 0;
-    return n > 0
-      ? pass(`${n} fires, stale=${r.json?.stale}, sources=${(r.json?.sources || []).length}`)
-      : fail('0 fires from a keyed FIRMS proxy');
-  },
-});
-
-check({
-  id: 'B7', group: 'B', desc: 'FIRMS without a key fails HONESTLY (503 no_key, never a healthy-empty)',
-  run: async () => {
-    const guard = keyGuard('FIRMS', env.keys.FIRMS);
-    if (guard) return guard;
-    if (env.keys.FIRMS === true) return skip('server HAS a FIRMS key — the keyless path needs an unkeyed server', 'N/A');
-    const r = await jget('/api/firms');
-    return r.status === 503 && r.json?.error === 'no_key'
-      ? pass('503 {"error":"no_key"}')
-      : fail(`expected 503 no_key, got ${r.status} ${r.text.slice(0, 120)}`);
-  },
-});
-
-check({
-  id: 'B8', group: 'B', desc: 'AIS vessel feed is live (/api/ais-live)', needsKey: 'AIS',
-  run: async () => {
-    const r = await jget('/api/ais-live', { timeoutMs: 40000 });
-    const rows = r.json?.rows?.length || 0;
-    const status = r.json?.status;
-    if (!r.ok) return fail(`HTTP ${r.status} status=${status}`);
-    // Rows alone are NOT liveness. The watchdog keeps serving cached vessels
-    // through stale/reconnecting/down — "the cached vessels on screen are
-    // exactly what makes an outage invisible" (src/data/aisLiveVessels.js:183).
-    // A live claim therefore needs status === 'live' AND rows.
-    // ('open' is the pre-watchdog spelling: still accepted by the client, never
-    // emitted by this server — aisWatchdog.js:72.)
-    const healthy = status === 'live' || status === 'open';
-    if (healthy && rows > 0) {
-      return pass(`${rows} vessels, status=${status}, newest=${r.json?.newestPositionAt || 'n/a'}, silentFor=${r.json?.silentForMs ?? 'n/a'}ms`);
-    }
-    if (status === 'auth-failed') {
-      // A rejected key is terminal and is the product's problem to report.
-      return fail(`AISStream rejected the configured key (status=auth-failed, rows=${rows}) — retry is terminal (retryInSec 0)`);
-    }
-    if (healthy && rows === 0) {
-      return skip(`status=live but 0 rows — AISStream connects open-but-silent upstream (their #23/#15); recheck when it wakes`, 'ENV');
-    }
-    if (['stale', 'reconnecting', 'down', 'connecting'].includes(status)) {
-      // Transient/degraded is ENV only because the payload SAYS so — the
-      // honesty is the evidence. rows>0 here means cached, not live.
-      return skip(`feed is ${status}${rows > 0 ? ` while still serving ${rows} CACHED rows` : ''} (attempt=${r.json?.reconnectAttempt ?? 'n/a'}, nextAttemptAt=${r.json?.nextAttemptAt ?? 'n/a'}, silentFor=${r.json?.silentForMs ?? 'n/a'}ms) — surfaced honestly, but this is not a live feed`, 'ENV');
-    }
-    return fail(`unexpected AIS feed status "${status}" with ${rows} rows — not one of live/stale/reconnecting/down/auth-failed/connecting`);
-  },
-});
-
-check({
-  id: 'B9', group: 'B', desc: 'AIS without a key fails HONESTLY (503 + missing-key status, no reconnect loop)',
-  run: async () => {
-    const guard = keyGuard('AIS', env.keys.AIS);
-    if (guard) return guard;
-    if (env.keys.AIS === true) return skip('server HAS an AISStream key', 'N/A');
-    const r = await jget('/api/ais-live');
-    return r.status === 503 && r.json?.status === 'missing-key' && Array.isArray(r.json?.rows)
-      ? pass(`503 status=missing-key, rows=[] — "${String(r.json?.error).slice(0, 60)}"`)
-      : fail(`expected 503/missing-key, got ${r.status} ${r.text.slice(0, 120)}`);
   },
 });
 
@@ -936,28 +788,6 @@ check({
 });
 
 check({
-  id: 'B15', group: 'B', desc: 'Radio directory proxy returns stations (or a labelled degraded state)',
-  run: async () => {
-    const r = await jget('/api/radio/stations?limit=20', { timeoutMs: 45000 });
-    const rows = Array.isArray(r.json) ? r.json.length : (r.json?.stations?.length || 0);
-    if (r.ok && rows > 0) return pass(`${rows} stations`);
-    if (r.status === 503 && r.json?.degraded) return skip(`upstream Radio Browser degraded: ${r.json.degradedReason}`, 'ENV');
-    return fail(`HTTP ${r.status} rows=${rows} ${r.text.slice(0, 100)}`);
-  },
-});
-
-check({
-  id: 'B16', group: 'B', desc: 'Launch Library proxy returns upcoming missions',
-  run: async () => {
-    const r = await jget('/api/launches', { timeoutMs: 45000 });
-    const n = r.json?.results?.length ?? r.json?.launches?.length ?? (Array.isArray(r.json) ? r.json.length : 0);
-    if (r.ok && n > 0) return pass(`${n} launches`);
-    if (r.ok) return skip('proxy up but no upcoming launches listed', 'ENV');
-    return fail(`HTTP ${r.status}`);
-  },
-});
-
-check({
   id: 'B17', group: 'B', desc: 'Terrain height service answers (the height-datum backbone)',
   run: async () => {
     // Contract: points="lon,lat;lon,lat;…" (longitude first).
@@ -1022,7 +852,7 @@ check({
 check({
   id: 'B21', group: 'B', desc: 'No proxy echoes credential material back to the client (P1-5 acceptance #4)',
   run: async () => {
-    const paths = ['/api/cctv/sources', '/api/tomtom/status', '/api/firms/status', '/api/celestrak/stations', '/api/ais-live'];
+    const paths = ['/api/cctv/sources', '/api/tomtom/status'];
     const leaked = [];
     const unscannable = [];
     for (const p of paths) {
@@ -1035,8 +865,8 @@ check({
       }
       // An error page is not a payload. Scanning five 500s and finding no key
       // is trivially true and proves nothing — a broken app must not satisfy a
-      // negative assertion. The one documented exception is the keyless
-      // 503 {status:'missing-key'} from /api/ais-live, which IS its real shape.
+      // negative assertion. The documented exception is a keyless 503 whose
+      // body names the missing key, which IS its real shape.
       const documentedKeyless = r.status === 503
         && (r.json?.status === 'missing-key' || r.json?.error === 'no_key' || /OPENAI_API_KEY is not set/.test(r.text));
       if (!r.ok && !documentedKeyless) {
@@ -1063,14 +893,8 @@ const BROWSER_CHECKS = [
   ['C1', 'App boots: viewer + dataManager live, first paint under 60 s'],
   ['C2', 'Photorealistic 3D basemap attached (globe alive on arrival)'],
   ['C3', 'Boot produces no uncaught page errors'],
-  ['C4', 'Flights layer populates with live contacts'],
-  ['C5', 'Satellites layer propagates the live catalog'],
-  ['C6', 'Earthquakes layer populates'],
   ['C7', 'CCTV layer populates and its frame loop is healthy'],
-  ['C8', 'Vessels: live rows when keyed, honest UNAVAILABLE when not'],
-  ['C9', 'Fires: live cells when keyed, honest KEY REQUIRED when not'],
   ['C10', 'Traffic: LIVE mode when keyed, clearly-labelled SIMULATION when not'],
-  ['C11', 'Bundled layers render: datacenters, dams, submarine cables, installations'],
   ['C12', 'Attribution lightbox lists a credit for every enabled layer'],
   ['C13', 'Clean-UI keeps the Google/Cesium credit line visible (ToS)'],
   ['C14', 'No key material reaches browser state, URLs or storage'],
@@ -1081,30 +905,6 @@ const BROWSER_CHECKS = [
 for (const [id, desc] of BROWSER_CHECKS) check({ id, group: 'C', desc, browser: true });
 
 // ─── D · EXISTING HARNESS FLEET ───────────────────────────────────────────
-check({
-  id: 'D1', group: 'D', desc: 'track-regression — the tracking/height-datum invariant gate (P1-7)',
-  heavy: true, run: harness({ id: 'D1', script: 'track-regression.mjs', args: ['--url', APP_URL], timeoutMs: 1200000 }),
-});
-check({
-  id: 'D2', group: 'D', desc: 'qa-heading-b3 — path-derived display heading',
-  heavy: true, run: harness({ id: 'D2', script: 'qa-heading-b3.mjs', args: ['--url', APP_URL], timeoutMs: 900000 }),
-});
-check({
-  id: 'D3', group: 'D', desc: 'qa-sprites-b5 — per-class billboard silhouettes',
-  heavy: true,
-  run: harness({
-    id: 'D3',
-    script: 'qa-sprites-b5.mjs',
-    args: ['--url', APP_URL],
-    timeoutMs: 900000,
-    knownConditions: [{
-      // Evidence-gated: only when its console assertion is the failing one AND
-      // the transcript actually shows a 503. Explains, never excuses.
-      when: /no console errors[\s\S]{0,300}?503/,
-      note: 'not key-tolerant — its "no console errors" assertion counts the honest keyless 503s (e.g. /api/openai/hud-summary) as errors; expected to PASS on the fully keyed server. Still a FAIL here.',
-    }],
-  }),
-});
 check({
   id: 'D4', group: 'D', desc: 'qa-cctv-v2 — camera geometry, projection, ambient cards',
   heavy: true, run: harness({ id: 'D4', script: 'qa-cctv-v2.mjs', args: ['--url', APP_URL], timeoutMs: 1500000 }),
@@ -1138,46 +938,27 @@ check({
   heavy: true, run: harness({ id: 'D8', script: 'qa-radio.mjs', args: ['--url', APP_URL], timeoutMs: 900000 }),
 });
 check({
-  id: 'D9', group: 'D', desc: 'qa-floor-verify — grounded contacts sit ON the rendered mesh floor',
-  heavy: true,
-  run: harness({
-    id: 'D9',
-    script: 'qa-floor-verify.mjs',
-    parse: readFloorVerdict,
-    timeoutMs: 600000,
-    knownConditions: [{
-      when: /VERDICT:\s*FAIL|buried/i,
-      note: 'EXPECTED at main 4f9d99b — the below-mesh fix is not landed, so grounded contacts sit under the floor. Annotated, never green. If fix/below-mesh-contacts has landed, PASS is expected instead and any remaining FAIL (jet-bridge / intra-cell relief residual) is a REAL failure that stays FAIL.',
-    }],
-  }),
-});
-check({
   id: 'D10', group: 'D', desc: 'qa-voice-routing (behavior layer) — tool behavior without model turns',
   heavy: true, run: harness({ id: 'D10', script: 'qa-voice-routing.mjs', args: ['--layer', 'behavior', '--url', APP_URL], timeoutMs: 1500000 }),
 });
 check({
-  id: 'D11', group: 'D', desc: 'qa-firms — live fire rendering and interaction', needsKey: 'FIRMS', heavy: true,
-  run: harness({ id: 'D11', script: 'qa-firms.mjs', args: ['--url', APP_URL], timeoutMs: 900000 }),
-});
-check({
-  id: 'D12', group: 'D', desc: 'qa-overlay-baseline (submarine cables scene) — overlay/label baseline',
+  id: 'D12', group: 'D', desc: 'qa-overlay-baseline (CCTV city scene) — overlay/label baseline',
   heavy: true,
   run: harness({
     id: 'D12',
     script: 'qa-overlay-baseline.mjs',
-    args: ['--url', APP_URL, '--scene', 'cables', '--json', OVERLAY_JSON],
-    parse: readOverlaySummary('telegeography-submarine-cables', OVERLAY_JSON),
+    args: ['--url', APP_URL, '--scene', 'cctv-city', '--json', OVERLAY_JSON],
+    parse: readOverlaySummary('cctv', OVERLAY_JSON),
     timeoutMs: 900000,
   }),
 });
 
 // ─── M · OWNER-EYES (never automated; steps in the runbook) ───────────────
 const MANUAL = [
-  ['M1', 'Voice mic round trip 1/3 — "when is the next ISS pass?" (next_iss_pass)'],
-  ['M2', 'Voice mic round trip 2/3 — connect/disconnect twice in one tab + keyed set_context_mode and control_cockpit'],
+  ['M1', 'Voice mic round trip 1/3 — "turn on the radar" (set_layer_visibility)'],
+  ['M2', 'Voice mic round trip 2/3 — connect/disconnect twice in one tab'],
   ['M3', 'Voice mic round trip 3/3 — adsbdb enrichment readout on a live tracked flight'],
   ['M4', 'LAN warning path — HOST=0.0.0.0 banner, LAN URL, and a throttled response'],
-  ['M5', 'Live AIS vessel one-click camera transfer — requires status=live, not cached rows (never verified against a live feed)'],
   ['M6', 'CCTV dense-city interaction — cold fill, hover, select, card removal, monitor plane, coverage, auto-hop suspend'],
   ['M7', 'Grounded + airborne tracked aircraft from 2-3 headings (DISPLAY 3D ON, non-TR-3B subject)'],
   ['M8', 'Voice analyst_query: exact unrounded count + scopeLabel, contactsWindow verbatim, follow-up re-filter'],
@@ -1396,8 +1177,7 @@ async function runBrowserGroup(record) {
     quiesced = true;
     await evalBounded(async () => {
       const dm = window.__godsEyeView.dataManager;
-      const heavy = ['cctv', 'traffic', 'flights', 'satellites', 'telegeography-submarine-cables',
-        'local-datacenters', 'local-dams', 'military-installations', 'earthquakes'];
+      const heavy = ['cctv', 'traffic'];
       for (const id of heavy) {
         if (!dm.layers.has(id)) continue;
         try {
@@ -1465,28 +1245,6 @@ async function runBrowserGroup(record) {
   }, null, 30000);
   const voiceSnapshot = voiceSnapshotR.ok ? voiceSnapshotR.value : { probeError: voiceSnapshotR.reason };
 
-  await step('C4', async () => {
-    const r = await settle('flights', 40);
-    const s = r.stats || {};
-    if (!(s.count > 0)) return fail(`0 contacts (status=${s.status || ''} error=${s.error || ''})`);
-    const src = String(s.source || '');
-    return /adsb\.lol/i.test(src)
-      ? skip(`${s.count} contacts but via the adsb.lol FALLBACK (source=${src}) — OpenSky credentials needed for the live claim`, 'OWNER-RUN')
-      : pass(`${s.count} contacts, source=${src || 'OpenSky'}, stale=${!!s.stale}`);
-  });
-
-  await step('C5', async () => {
-    const r = await settle('satellites', 40);
-    const s = r.stats || {};
-    return s.count > 0 ? pass(`${s.count} satellites, status=${s.status || 'nominal'}`) : fail(`0 satellites (status=${s.status} error=${s.error || ''})`);
-  });
-
-  await step('C6', async () => {
-    const r = await settle('earthquakes', 30);
-    const s = r.stats || {};
-    return s.count > 0 ? pass(`${s.count} events`) : fail(`0 events (error=${s.error || ''})`);
-  });
-
   await step('C7', async () => {
     const r = await settle('cctv', 45);
     // A camera COUNT proves registration, not that the frame loop runs. Poll
@@ -1515,83 +1273,6 @@ async function runBrowserGroup(record) {
     return pass(`${ui.count} cameras, ${cards} ambient cards, ${fetches} frame fetches (${ui.ambient?.fetchMode}, ${ui.ambient?.fetchesInFlight} in flight), loading=${ui.loading?.active}`);
   });
 
-  await step('C8', async () => {
-    const guard = keyGuard('AIS', env.keys.AIS);
-    if (guard) return guard;
-    const r = await settle('ais-live-vessels', 30);
-    const s = r.stats || {};
-    // The rendered chip is the honesty claim, so read the chip. An empty layer
-    // that says nothing is exactly the silent-failure this check must catch —
-    // count === 0 is NOT evidence of an honest UNAVAILABLE state.
-    const chipR = await mustEval(() => {
-      const row = document.querySelector('[data-layer-id="ais-live-vessels"]');
-      const btn = row?.querySelector('.data-toggle-btn');
-      return {
-        text: (btn?.textContent || '').trim(),
-        feedState: btn?.dataset?.feedState || null,
-        meta: (row?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 140),
-      };
-    });
-    if (!chipR.ok) return crash(`could not read the vessels layer row: ${chipR.reason}`);
-    const chip = chipR.value;
-    if (!chip) return fail('no [data-layer-id="ais-live-vessels"] row in the DOM — cannot read the surfaced feed state');
-
-    if (env.keys.AIS === false) {
-      const surfaced = chip.feedState === 'unavailable' && /UNAVAILABLE/i.test(chip.text);
-      if (!surfaced) {
-        return fail(`keyless vessels did not SURFACE the unavailable state: chip="${chip.text}" feedState=${chip.feedState} (stats: status=${s.status} error=${s.error}) — a silently empty layer is the failure mode this check exists for`);
-      }
-      if (s.count > 0) return fail(`chip says UNAVAILABLE but the layer reports ${s.count} vessels`);
-      return pass(`keyless and honest: chip="${chip.text}" feedState=unavailable, stats.status=${s.status}, error="${String(s.error || '').slice(0, 40)}", count=0`);
-    }
-    // getStats().status is ONLY ever 'unavailable' or undefined; the feed state
-    // rides on transportStatus (src/data/aisLiveVessels.js:646-668). And cached
-    // rows survive a degraded feed on purpose, so count > 0 is not liveness.
-    const transport = s.transportStatus;
-    const live = transport === 'live' || transport === 'open';
-    if (live && s.count > 0) {
-      // Chip vocabulary: ON / LOADING / DEGRADED / STALE / FALLBACK /
-      // UNAVAILABLE (src/data/manager.js:12-19). A live feed with rows reads ON.
-      return /^ON$/i.test(chip.text)
-        ? pass(`${s.count} vessels live: chip="ON", transport=${transport}, lastMessage=${s.lastMessageAt || 'n/a'}`)
-        : fail(`transport=${transport} with ${s.count} vessels, but the chip reads "${chip.text}" — a live feed must present as ON`);
-    }
-    if (transport === 'auth-failed') {
-      const surfaced = /UNAVAILABLE/i.test(chip.text) && /key rejected/i.test(String(s.error || ''));
-      return surfaced
-        ? fail(`AISStream rejected the key — surfaced correctly (chip="${chip.text}", error="${s.error}", retryInSec=${s.retryInSec}) but a rejected key is a product-blocking failure, not an environment condition`)
-        : fail(`AISStream rejected the key and the UI did not say so: chip="${chip.text}", error="${String(s.error || 'none')}"`);
-    }
-    if (['stale', 'reconnecting', 'down'].includes(transport)) {
-      // Degraded is ENV only when it is SURFACED. Cached rows must read STALE;
-      // no usable rows must read UNAVAILABLE.
-      const expected = s.count > 0 ? /STALE|DEGRADED/i : /UNAVAILABLE|DEGRADED/i;
-      return expected.test(chip.text)
-        ? skip(`feed is ${transport}${s.count > 0 ? ` with ${s.count} CACHED vessels` : ''} and the UI says so (chip="${chip.text}", error="${String(s.error || '').slice(0, 60)}", retryInSec=${s.retryInSec}) — honest degradation, not a live feed`, 'ENV')
-        : fail(`feed is ${transport} with ${s.count} vessels but the chip reads "${chip.text}" — a degraded feed that presents as healthy is exactly the invisible outage this check exists for`);
-    }
-    if (s.count > 0) {
-      return fail(`${s.count} vessels with transport="${transport}" — neither live nor a recognised degraded state, so this cannot be called a live feed (chip="${chip.text}")`);
-    }
-    // Keyed but empty: honest only if the UI says so.
-    return /UNAVAILABLE|LOADING|DEGRADED|STALE/i.test(chip.text)
-      ? skip(`keyed but 0 vessels and the UI says so (chip="${chip.text}", transport=${transport}, error="${String(s.error || '').slice(0, 60)}") — AISStream connects open-but-silent upstream`, 'ENV')
-      : fail(`keyed, 0 vessels, and the chip claims "${chip.text}" — the layer is empty without surfacing it`);
-  });
-
-  await step('C9', async () => {
-    const guard = keyGuard('FIRMS', env.keys.FIRMS);
-    if (guard) return guard;
-    const r = await settle('local-firms', 30);
-    const s = r.stats || {};
-    if (env.keys.FIRMS === false) {
-      return s.error === 'KEY REQUIRED'
-        ? pass('keyless and honest: getStats().error === "KEY REQUIRED"')
-        : fail(`keyless but error=${s.error} count=${s.count} — expected "KEY REQUIRED"`);
-    }
-    return s.count > 0 ? pass(`${s.count} fires, cells=${s.cells}`) : fail(`keyed but 0 fires (error=${s.error || ''})`);
-  });
-
   await step('C10', async () => {
     // Traffic is viewport-scoped: enabling it from a global camera asks for a
     // planet-sized road graph. Put the camera over a dense city first — that
@@ -1616,7 +1297,7 @@ async function runBrowserGroup(record) {
     if (s.mode === 'live' && s.tilesFetched > 0 && colored > 0) {
       return pass(`live: ${s.flowCoveragePct}% coverage, ${s.tilesFetched} tiles, ${colored} colored dots`);
     }
-    // Same discrimination C11 already makes for the bundled layers: "still
+    // Same discrimination the layer checks make: "still
     // loading when my budget expired" is not "empty", and calling it a product
     // failure is a false accusation. The discriminator here is whether the FLOW
     // FETCH ever completed, not whether the answer was empty:
@@ -1635,139 +1316,12 @@ async function runBrowserGroup(record) {
     return fail(`mode=${s.mode} tiles=${s.tilesFetched} coverage=${s.flowCoveragePct} colored=${colored}`);
   });
 
-  await step('C11', async () => {
-    // These are GLOBAL datasets and their rendered counts are viewport-scoped.
-    // C10 leaves the camera at 2,500 m over Austin, where a worldwide
-    // datacenter/dam set legitimately has nothing in view — inheriting that
-    // camera made this check report an empty layer that was actually fine.
-    // Establish the camera this check needs instead of inheriting one.
-    await evalBounded(async () => {
-      const g = window.__godsEyeView;
-      g.viewer.camera.cancelFlight();
-      g.styleManager.applyCameraState({ lat: 20, lon: 0, alt: 14000000, heading: 0, pitch: -90 }, 1.5);
-      await new Promise((r) => setTimeout(r, 4000));
-    }, null, 30000);
-    await new Promise((r) => setTimeout(r, 2000));
-
-    const bundled = ['local-datacenters', 'local-dams', 'telegeography-submarine-cables'];
-    const out = [];
-    const stillLoading = [];
-    let loadNote = '';
-    for (const id of bundled) {
-      // eslint-disable-next-line no-await-in-loop
-      const r = await settle(id, 45);
-      const s = r.stats || {};
-      const label = id.replace(/^local-|^telegeography-/, '');
-      out.push(`${label}=${r.missing ? 'MISSING' : (s.count ?? 0)}`);
-      // "Still loading when my budget expired" is not "empty". Under full-run
-      // load these can take longer than an isolated run, and calling that a
-      // product failure is a false accusation — say the measurement was
-      // inconclusive instead.
-      if (!r.missing && !(s.count > 0) && (s.loading || s.loadingLabel) && !s.error) stillLoading.push(label);
-    }
-    if (stillLoading.length) {
-      return crash(`still loading when the ${45}s budget expired: ${stillLoading.join(', ')} [all: ${out.join(', ')}] — this check could not determine whether they render, so it verified nothing`);
-    }
-    let zero = out.filter((o) => /=0$|MISSING/.test(o));
-    if (zero.length) {
-      // A bundled layer can read 0 while the heavy layers are live (flights,
-      // CCTV, traffic) — the perf-wave budgets and scope mask legitimately
-      // suppress work under load. This check claims "bundled layers render",
-      // not "they render while everything else is on", and it must not guess
-      // between suppression-by-budget and a real render failure. Put the stage
-      // down and measure again: that is conclusive either way.
-      const contested = zero.map((o) => o.split('=')[0]);
-      await quiesce();
-      const retried = [];
-      for (const label of contested) {
-        const id = bundled.find((b2) => b2.replace(/^local-|^telegeography-/, '') === label);
-        if (!id) continue;
-        // eslint-disable-next-line no-await-in-loop
-        const r2 = await settle(id, 45);
-        retried.push(`${label}=${r2.stats?.count ?? 0}`);
-      }
-      const stillZero = retried.filter((o) => /=0$/.test(o));
-      if (stillZero.length) {
-        return fail(`empty bundled layer(s) even on a quiet stage: ${stillZero.join(', ')} [under load: ${out.join(', ')}]`);
-      }
-      // Do NOT return here: the installations assertion below is part of this
-      // check's claim and must still run.
-      loadNote = ` (under load: ${out.join(', ')}; on a quiet stage: ${retried.join(', ')} — the zero reading was load-related suppression, not a render failure)`;
-    }
-    zero = [];
-
-    // military-installations is named in this check's description, so it is
-    // asserted — not quietly excluded. It is viewport-scoped (≤10° span,
-    // src/data/militaryInstallations.js MAX_VIEWPORT_DEGREES) and returns 0
-    // from a global camera, so fly to a tight box over a known base cluster
-    // first, and cross-check the layer against its own API: rows from the API
-    // but nothing on the map is a PRODUCT failure; nothing from either is a
-    // positively-identified upstream-data condition.
-    const box = { name: 'San Diego / Coronado', lat: 32.70, lon: -117.18, span: 0.6 };
-    const api = await jget(`/api/military-installations?south=${(box.lat - box.span).toFixed(5)}&west=${(box.lon - box.span).toFixed(5)}&north=${(box.lat + box.span).toFixed(5)}&east=${(box.lon + box.span).toFixed(5)}`, { timeoutMs: 60000 })
-      .catch((e) => ({ status: 0, json: null, text: String(e?.message || e) }));
-    const apiRows = Array.isArray(api.json?.features) ? api.json.features.length
-      : (Array.isArray(api.json?.elements) ? api.json.elements.length
-        : (Array.isArray(api.json) ? api.json.length : null));
-    // The layer gates on the camera's COMPUTED VIEW RECTANGLE (<=10 degrees,
-    // MAX_VIEWPORT_DEGREES), not on the request box. An oblique camera sees to
-    // the horizon and blows past that even from low altitude, so look straight
-    // down: nadir at 25 km spans well under a degree.
-    await evalBounded(async (b) => {
-      const g = window.__godsEyeView;
-      g.viewer.camera.cancelFlight();
-      g.styleManager.applyCameraState({ lat: b.lat, lon: b.lon, alt: 25000, heading: 0, pitch: -90 }, 1.2);
-      await new Promise((r) => setTimeout(r, 4000));
-    }, box, 30000);
-    // `zoom-in` is a TRANSIENT: the layer evaluates the viewport at enable time
-    // and republishes after the camera settles. settle() breaks on the first
-    // truthy `error`, so it latched that transient and never saw the real load.
-    // Poll for a definitive outcome instead, and only then judge.
-    const mi = await settle('military-installations', 5);
-    let ms = mi.stats || {};
-    for (let i = 0; i < 40; i += 1) {
-      if (ms.count > 0) break;
-      if (ms.error && !/zoom.?in/i.test(String(ms.error))) break;
-      // eslint-disable-next-line no-await-in-loop
-      const snap = await evalBounded(() => {
-        const dm = window.__godsEyeView.dataManager;
-        // Nudge the viewport-driven reload: the layer reloads on camera settle.
-        try { dm.layers.get('military-installations')?.module?.refresh?.(); } catch { /* optional */ }
-        return dm.layers.get('military-installations')?.module?.getStats?.() ?? null;
-      }, null, 10000);
-      if (snap) ms = snap;
-      // eslint-disable-next-line no-await-in-loop
-      await new Promise((r) => setTimeout(r, 1000));
-    }
-    if (mi.missing) return fail(`military-installations layer is not registered [bundled: ${out.join(', ')}]`);
-    if (ms.count > 0) return pass(`${out.join(', ')}, military-installations=${ms.count} over ${box.name}${loadNote}`);
-    if (/zoom-in/.test(String(ms.status || ''))) {
-      return fail(`military-installations refused the ${box.span * 2}° box over ${box.name} as too wide (status=${ms.status}, error="${ms.error}") — the probe camera and the layer's own ≤10° gate disagree`);
-    }
-    if (api.status !== 200) {
-      // Distinguish an honest upstream outage from a broken route: the proxy
-      // has a documented degraded shape (503 + "temporarily unavailable") for
-      // when Overpass is down. That is the app degrading correctly, so it is a
-      // positively identified ENV condition — anything else is a product FAIL.
-      const honestOutage = api.status === 503 && /temporarily unavailable/i.test(String(api.text || ''));
-      if (honestOutage) {
-        return skip(`bundled layers OK (${out.join(', ')}); military-installations could not be checked — its upstream is down and the proxy says so honestly (HTTP 503 "${String(api.json?.error || '').slice(0, 60)}")`, 'ENV');
-      }
-      return fail(`military-installations rendered 0 and its API returned HTTP ${api.status} for ${box.name} — a responsive app failing this route is a product failure: ${String(api.text || '').slice(0, 100)}`);
-    }
-    if (apiRows === null) return crash(`could not read a row count from /api/military-installations to cross-check the empty layer: ${String(api.text || '').slice(0, 100)}`);
-    if (apiRows > 0) {
-      return fail(`/api/military-installations returned ${apiRows} features over ${box.name} but the layer rendered 0 (status=${ms.status}, error=${ms.error || 'none'}) [bundled: ${out.join(', ')}]`);
-    }
-    return skip(`bundled layers OK (${out.join(', ')}); military-installations rendered 0 AND its API returned 0 features over ${box.name} — positively an upstream-data condition, not a render failure`, 'ENV');
-  });
-
   await step('C12', async () => {
     // This check reads the credits of whatever THIS run switched on. Run
     // standalone (`--only C12`) nothing is on, and it would pass vacuously off
     // the static credit list — so self-arm a deterministic set first.
     const armed = (await evalBounded(() => [...(window.__godsEyeView.dataManager.getEnabledLayerIds?.() || [])], null, 20000)) || [];
-    const SELF_ARM = ['flights', 'satellites', 'earthquakes', 'telegeography-submarine-cables'];
+    const SELF_ARM = ['traffic', 'cctv'];
     if (armed.length === 0) {
       for (const id of SELF_ARM) {
         // eslint-disable-next-line no-await-in-loop
@@ -1796,8 +1350,8 @@ async function runBrowserGroup(record) {
     if (!credR.ok) return crash(`could not read the credit display: ${credR.reason}`);
     const cred = credR.value;
     // EVERY enabled layer is checked. Filtering to a known subset meant a layer
-    // outside the list — military-installations, which C11 now enables — could
-    // ship with no attribution while this check claimed full coverage.
+    // outside the list could ship with no attribution while this check claimed
+    // full coverage.
     const missing = [];
     const unmapped = [];
     const exempted = [];
@@ -2068,14 +1622,7 @@ async function preflight() {
     if (typeof r.json?.hasKey !== 'boolean') return 'error';
     return r.json.hasKey;
   };
-  env.keys.FIRMS = await statusKey('/api/firms/status');
   env.keys.TOMTOM = await statusKey('/api/tomtom/status');
-  try {
-    const ais = await jget('/api/ais-live');
-    if (ais.status === 503 && ais.json?.status === 'missing-key') env.keys.AIS = false;
-    else if (ais.status === 200 && ais.json && Array.isArray(ais.json.rows)) env.keys.AIS = true;
-    else env.keys.AIS = 'error';
-  } catch { env.keys.AIS = 'error'; }
   try {
     const os = await jget('/api/opensky?lamin=29&lomin=-99&lamax=31&lomax=-97', { timeoutMs: 40000 });
     const reason = os.headers.get('X-OpenSky-Auth-Reason') || '';
@@ -2145,7 +1692,7 @@ async function main() {
     console.log(C.r(`  shell  : HTTP ${env.shellStatus} — the target is RESPONDING but erroring. Running the matrix anyway; this is a product failure, not an environment one.`));
   }
   console.log(`  node   : ${process.versions.node}${env.node24 ? C.d(` (Node 24 available: ${env.node24.label})`) : ''}`);
-  console.log(`  keys   : OpenSky ${keyLabel(env.keys.OPENSKY)} · FIRMS ${keyLabel(env.keys.FIRMS)} · TomTom ${keyLabel(env.keys.TOMTOM)} · AISStream ${keyLabel(env.keys.AIS)} · OpenAI ${keyLabel(env.keys.OPENAI)}`);
+  console.log(`  keys   : OpenSky ${keyLabel(env.keys.OPENSKY)} · TomTom ${keyLabel(env.keys.TOMTOM)} · OpenAI ${keyLabel(env.keys.OPENAI)}`);
   console.log(C.d('  (key presence is read from each proxy\'s own status report; no key value is ever read or logged)\n'));
 
   const record = (c, rawRes, ms) => {

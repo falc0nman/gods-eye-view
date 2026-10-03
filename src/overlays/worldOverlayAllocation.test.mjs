@@ -2,15 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { LOCAL_OVERLAY_COHORT_LIMIT } from '../data/localGeojson.js';
-import { FIRMS_AMBIENT_COHORT_LIMIT } from '../data/firmsLabels.js';
-import { vesselOverlayCohortLimit } from '../data/vesselLabels.js';
 import { CCTV_AMBIENT_CARD_MAX } from '../data/cctvLod.js';
 import { AMBIENT_CARD_COLLISION_CAPACITY } from './worldOverlay.js';
-import { EARTHQUAKE_OVERLAY_COHORT_LIMIT } from '../data/earthquakes.js';
-import { ROCKET_MISSION_AMBIENT_OVERLAY_COHORT_LIMIT } from '../data/rocketLaunches.js';
 import { RADIO_OVERLAY_COHORT_LIMIT } from '../data/radio.js';
-import { CABLE_REFERENCE_LABEL_WINNER_CAP } from '../data/telegeographySubmarineCables.js';
 import { isCalibratedAllocationRuntime } from '../../scripts/run-unit-tests.mjs';
 
 /**
@@ -35,16 +29,13 @@ import { isCalibratedAllocationRuntime } from '../../scripts/run-unit-tests.mjs'
  *   generic below cap    |      60 |         60 |      60 |           3182 |        53.0 |       4,100
  *   generic above cap    |     250 |        250 |      96 |          10022 |        40.1 |      13,000
  *   local infrastructure |     320 |        320 |     192 |          39478 |       123.4 |      49,000
- *   Phase 3 + FIRMS      |     338 |        338 |     210 |          41220 |       122.0 |      53,600
  *   Phase 3 + vessels    |     451 |        451 |     311 |          67252 |       149.1 |      87,500
  *   Phase 3 + tracked    |     451 |        451 |     310 |          66642 |       147.8 |      86,700
  *   Phase 4 + CCTV       |     492 |        492 | 310/312 |     78742/97696 | 160.0/198.6 |     102,400
  *   rocket missions      |      48 |         48 |      24 |           5195 |       108.2 |       6,000
  *   Phase 5 pre-missions |     591 |        591 |     353 |         127815 |       216.3 |     132,000
  *   Phase 5 final        |     639 |        639 |     353 |         133769 |       209.3 |     142,000
- *   submarine cables     |     160 |        160 |      96 |          17015 |       106.3 |      19,000
- *   all-live (w/ cables) |     864 |        864 |     398 |         164711 |       190.6 |     182,000
- *   Phase 6 detection    |    5000 |       5000 |    5000 |  524191/600729 | 104.8/120.1 |     700,000
+ *   all-live (pre-GW-57) |     864 |        864 |     398 |         164711 |       190.6 |     182,000
  *
  * The FIRMS/placement fixes traded the all-sources-live rows up (vessels
  * 24,975→67,252 and tracked 20,240→66,642 B/frame), still below the ~77–87 KB
@@ -89,20 +80,45 @@ import { isCalibratedAllocationRuntime } from '../../scripts/run-unit-tests.mjs'
  * cohort plus one protected selected-station label; Radio supplies painted
  * winners in the saturated ambient-label domain while the selected lane
  * remains protected. Since the 2026-08-18 recalibration the row also carries
- * the 160-winner submarine-cable cohort (864 candidates total, cables winning
- * painted ambient-label slots); its 182,000 frame budget and the existing 225
- * B/candidate image-inclusive ceiling retain more than 10% headroom over the
- * measured Node 24 median/max (164,711 / 167,313 B/frame).
+ * the 160-winner submarine-cable cohort (864 candidates total). GW-57
+ * removed the cables layer, then the 96-entry earthquake cohort from every
+ * Phase 5 row and the 18-entry FIRMS cohort from every Phase 3+ row (with
+ * the isolated FIRMS row), then the protected ISS entry from every Phase 5
+ * row; the remaining budgets are unchanged and still pass
+ * on Node 24.14, so the measured figures above are pre-removal history.
  *
- * The Phase-6 row activates the production detection lane at Dense/100 over a
- * deterministic 5,000-observation, 2,500 km scene. All observations exercise
- * manual projection and batched bracket paint; the shipped global-view label
- * budget keeps the rich-callout cohort bounded. Repeated clean-process probes
- * expose two stable V8/GC regimes at 524,191 and 600,729 B/frame (104.8 and
- * 120.1 B/observation/frame). The slower regime remains below the unchanged
- * 154 ceiling with 28.2% headroom, while the 700 KB frame budget carries 16.5%
- * headroom. No detection exception is taken: the larger absolute frame budget
- * is the honest cost of preserving broad reticles for 5,000 live observations.
+ * GW-57 then removed the AIS vessels layer. Its 112-card ambient cohort and
+ * selected card were the base every Phase 3+ row was built on, so the two
+ * vessel rows are gone and the tracked readout now sits on one generic
+ * position. The remaining rows were re-measured on Node 24.14 (stable across
+ * repeated clean runs) and their frame budgets re-derived with ~30% headroom:
+ *
+ *   profile              | entries | painted | median B/frame | B/candidate | frame budget
+ *   ---------------------+---------+---------+----------------+-------------+-------------
+ *   Phase 4 + CCTV       |      42 |      27 |           3483 |        82.9 |       4,600
+ *   Phase 5 final        |      43 |      27 |           3842 |        89.3 |       5,000
+ *   all-live + Radio     |     108 |      92 |          14549 |       134.7 |      19,000
+ *
+ * Their image-inclusive per-candidate ceilings (210 / 225) are kept as upper
+ * bounds; every row now also sits under the shared 154 ceiling.
+ *
+ * GW-57 removed the detection overlay and with it the Phase-6 detection row.
+ *
+ * GW-57 Phase 4a-2 then removed the tracked readout, which had no producer
+ * once the flight layers were gone. Its protected card was the first entry of
+ * every remaining production row, and the Phase 5 civil/military variants only
+ * restyled it, so those rows now start from the CCTV cohort alone. Re-measured
+ * on Node 24.14 (identical across three clean runs); frame budgets re-derived
+ * with ~30% headroom:
+ *
+ *   profile                | entries | painted | median B/frame | B/candidate | frame budget
+ *   -----------------------+---------+---------+----------------+-------------+-------------
+ *   Phase 4 + CCTV         |      41 |      27 |           2387 |        58.2 |       3,100
+ *   Phase 5 CCTV projection|      42 |      27 |           2749 |        65.4 |       3,600
+ *   all-live + Radio       |     107 |      92 |          13278 |       124.1 |      17,300
+ *
+ * Every row now sits under the shared 154 B/candidate ceiling, so the CCTV
+ * image-inclusive exceptions (210 / 225) are no longer needed.
  *
  * History: the FIRMS migration introduced `anchor +/- leaderOffset` writes on
  * every pooled placement. Those computed doubles were boxed on the shared
@@ -127,146 +143,33 @@ const WORKLOADS = [
     saturated: true,
   },
   {
-    name: 'with both local infrastructure sources live',
-    profile: 'local-infrastructure',
-    entries: LOCAL_OVERLAY_COHORT_LIMIT * 2,
-    candidates: LOCAL_OVERLAY_COHORT_LIMIT * 2,
-    maxBytesPerFrame: 49_000,
-    saturated: true,
-  },
-  {
-    name: 'with infrastructure and FIRMS live',
-    profile: 'phase3-firms',
-    entries: LOCAL_OVERLAY_COHORT_LIMIT * 2 + FIRMS_AMBIENT_COHORT_LIMIT,
-    candidates: LOCAL_OVERLAY_COHORT_LIMIT * 2 + FIRMS_AMBIENT_COHORT_LIMIT,
-    maxBytesPerFrame: 53_600,
-    saturated: true,
-    ambientCardCapacity: AMBIENT_CARD_COLLISION_CAPACITY,
-  },
-  {
-    name: 'with infrastructure, FIRMS, and vessels live',
-    profile: 'phase3-vessels',
-    entries: LOCAL_OVERLAY_COHORT_LIMIT * 2 + FIRMS_AMBIENT_COHORT_LIMIT
-      + vesselOverlayCohortLimit(1600, 900) + 1,
-    candidates: LOCAL_OVERLAY_COHORT_LIMIT * 2 + FIRMS_AMBIENT_COHORT_LIMIT
-      + vesselOverlayCohortLimit(1600, 900) + 1,
-    maxBytesPerFrame: 87_500,
-    saturated: true,
-    ambientCardCapacity: AMBIENT_CARD_COLLISION_CAPACITY,
-  },
-  {
-    name: 'with infrastructure, FIRMS, ambient vessels, and tracked readout live',
-    profile: 'phase3-tracked',
-    entries: LOCAL_OVERLAY_COHORT_LIMIT * 2 + FIRMS_AMBIENT_COHORT_LIMIT
-      + vesselOverlayCohortLimit(1600, 900) + 1,
-    candidates: LOCAL_OVERLAY_COHORT_LIMIT * 2 + FIRMS_AMBIENT_COHORT_LIMIT
-      + vesselOverlayCohortLimit(1600, 900) + 1,
-    maxBytesPerFrame: 86_700,
-    saturated: true,
-    ambientCardCapacity: AMBIENT_CARD_COLLISION_CAPACITY,
-  },
-  {
-    name: 'with all Phase 3 sources and CCTV thumbnails live',
+    name: 'with CCTV thumbnails live',
     profile: 'phase4-cctv',
-    entries: LOCAL_OVERLAY_COHORT_LIMIT * 2 + FIRMS_AMBIENT_COHORT_LIMIT
-      + vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1,
-    candidates: LOCAL_OVERLAY_COHORT_LIMIT * 2 + FIRMS_AMBIENT_COHORT_LIMIT
-      + vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1,
-    maxBytesPerFrame: 102_400,
-    maxBytesPerCandidatePerFrame: 210,
+    entries: CCTV_AMBIENT_CARD_MAX + 1,
+    candidates: CCTV_AMBIENT_CARD_MAX + 1,
+    maxBytesPerFrame: 3_100,
     saturated: true,
     ambientCardCapacity: AMBIENT_CARD_COLLISION_CAPACITY,
   },
+
   {
-    name: 'with the bounded rocket-mission ambient cohort',
-    profile: 'rocket-missions',
-    entries: ROCKET_MISSION_AMBIENT_OVERLAY_COHORT_LIMIT,
-    candidates: ROCKET_MISSION_AMBIENT_OVERLAY_COHORT_LIMIT,
-    maxBytesPerFrame: 6_000,
-    saturated: true,
-  },
-  {
-    name: 'with final Phase 5 host sources live (pre-cable-migration surface)',
-    profile: 'phase5-military',
-    entries: LOCAL_OVERLAY_COHORT_LIMIT * 2 + FIRMS_AMBIENT_COHORT_LIMIT
-      + vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
-      + EARTHQUAKE_OVERLAY_COHORT_LIMIT + 3,
-    candidates: LOCAL_OVERLAY_COHORT_LIMIT * 2 + FIRMS_AMBIENT_COHORT_LIMIT
-      + vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
-      + EARTHQUAKE_OVERLAY_COHORT_LIMIT + 3,
-    maxBytesPerFrame: 132_000,
-    maxBytesPerCandidatePerFrame: 225,
+    name: 'with CCTV thumbnails and the active-camera projection live',
+    profile: 'phase5-cctv-projection',
+    entries: CCTV_AMBIENT_CARD_MAX + 1 + 1,
+    candidates: CCTV_AMBIENT_CARD_MAX + 1 + 1,
+    maxBytesPerFrame: 3_600,
     saturated: true,
     ambientCardCapacity: AMBIENT_CARD_COLLISION_CAPACITY,
   },
+
   {
-    name: 'with final Phase 5 sources and bounded rocket-mission markers live',
-    profile: 'phase5-rockets',
-    entries: LOCAL_OVERLAY_COHORT_LIMIT * 2 + FIRMS_AMBIENT_COHORT_LIMIT
-      + vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
-      + EARTHQUAKE_OVERLAY_COHORT_LIMIT + 3
-      + ROCKET_MISSION_AMBIENT_OVERLAY_COHORT_LIMIT,
-    candidates: LOCAL_OVERLAY_COHORT_LIMIT * 2 + FIRMS_AMBIENT_COHORT_LIMIT
-      + vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
-      + EARTHQUAKE_OVERLAY_COHORT_LIMIT + 3
-      + ROCKET_MISSION_AMBIENT_OVERLAY_COHORT_LIMIT,
-    // 142,000 deliberately carries ~6% headroom (vs the ~3.3% the previous
-    // aggregate row ran at): a chosen margin correction, not drift.
-    maxBytesPerFrame: 142_000,
-    maxBytesPerCandidatePerFrame: 225,
-    saturated: true,
-    ambientCardCapacity: AMBIENT_CARD_COLLISION_CAPACITY,
-  },
-  {
-    // Recalibrated 2026-08-18 when the migrated submarine-cable cohort joined
-    // the aggregate (the row is "every shared-host source", so cable labels
-    // must coexist with Radio/earthquake/mission quotas here, not only in
-    // their isolated row; the probe shows cables winning painted slots in the
-    // saturated ambient-label domain). Node 24.19 measures 164,711 B/frame
-    // median (190.6 B/candidate) across two identical runs with cables folded
-    // in; 182,000 keeps the row's >10% headroom convention and the
-    // image-inclusive 225 ceiling stands with ~15% headroom.
     name: 'with every shared-host source and bounded Radio text live',
     profile: 'all-live-radio',
-    entries: LOCAL_OVERLAY_COHORT_LIMIT * 2 + FIRMS_AMBIENT_COHORT_LIMIT
-      + vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
-      + EARTHQUAKE_OVERLAY_COHORT_LIMIT + 3
-      + ROCKET_MISSION_AMBIENT_OVERLAY_COHORT_LIMIT + RADIO_OVERLAY_COHORT_LIMIT + 1
-      + CABLE_REFERENCE_LABEL_WINNER_CAP,
-    candidates: LOCAL_OVERLAY_COHORT_LIMIT * 2 + FIRMS_AMBIENT_COHORT_LIMIT
-      + vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
-      + EARTHQUAKE_OVERLAY_COHORT_LIMIT + 3
-      + ROCKET_MISSION_AMBIENT_OVERLAY_COHORT_LIMIT + RADIO_OVERLAY_COHORT_LIMIT + 1
-      + CABLE_REFERENCE_LABEL_WINNER_CAP,
-    maxBytesPerFrame: 182_000,
-    maxBytesPerCandidatePerFrame: 225,
+    entries: CCTV_AMBIENT_CARD_MAX + 1 + 1 + RADIO_OVERLAY_COHORT_LIMIT + 1,
+    candidates: CCTV_AMBIENT_CARD_MAX + 1 + 1 + RADIO_OVERLAY_COHORT_LIMIT + 1,
+    maxBytesPerFrame: 17_300,
     saturated: true,
     ambientCardCapacity: AMBIENT_CARD_COLLISION_CAPACITY,
-  },
-  {
-    // 2026-08-18 cable-label migration: the former native exception now
-    // publishes a bounded 160-winner ambient-label cohort (collision capacity
-    // 96, so the row saturates). Isolated row like rocket-missions, so a
-    // cables-only regression stays attributable; the cohort is also folded
-    // into the recalibrated all-live aggregate below for interaction
-    // coverage. Measured median 17,015 B/frame (106.3 B/candidate)
-    // on Node 24.19; 19,000 carries ~11.7% headroom and the shared 154
-    // ceiling applies unchanged.
-    name: 'with the bounded submarine-cable reference cohort',
-    profile: 'submarine-cables',
-    entries: CABLE_REFERENCE_LABEL_WINNER_CAP,
-    candidates: CABLE_REFERENCE_LABEL_WINNER_CAP,
-    maxBytesPerFrame: 19_000,
-    saturated: true,
-  },
-  {
-    name: 'with the Dense detection lane active over 5,000 observations',
-    profile: 'phase6-detection',
-    entries: 5_000,
-    candidates: 5_000,
-    maxBytesPerFrame: 700_000,
-    detectionLabelBudget: 56,
-    saturated: false,
   },
 ];
 
@@ -326,10 +229,6 @@ for (const workload of WORKLOADS) {
     assert.equal(payload.profile, workload.profile || 'generic');
     if (workload.ambientCardCapacity != null) {
       assert.equal(payload.ambientCardCapacity, workload.ambientCardCapacity);
-    }
-    if (workload.detectionLabelBudget != null) {
-      assert.equal(payload.detectionCollectiveLabelBudget, workload.detectionLabelBudget);
-      assert.equal(payload.detectionSelectedCount, workload.detectionLabelBudget);
     }
     assert.ok(payload.paintedCount > 0, 'probe painted nothing');
     assert.ok(payload.solveCount > 0, 'probe never exercised an arbiter solve');

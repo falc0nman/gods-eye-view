@@ -94,20 +94,17 @@ const PHRASES = [
   { phrase: 'Show me the whole earth', expect: 'zoom_to_globe' },
   { phrase: 'Frame the aircraft near us from overhead', expect: 'frame_overhead' },
 
-  // — the satellites trap: data layer, never basemap —
-  { phrase: 'Show me the satellites', expect: { oneOf: ['set_layer_visibility', 'frame_overhead'] } },
-  { phrase: 'Turn off the satellites', expect: 'set_layer_visibility', args: { layerId: 'satellites' } },
+  // — basemap switching needs an explicit stack name —
   { phrase: 'Switch to Bing aerial', expect: 'set_map_stack' },
   { phrase: 'Switch the basemap to OSM', expect: 'set_map_stack' },
 
   // — layers —
   { phrase: 'Turn on the flights layer', expect: 'set_layer_visibility', args: { layerId: 'flights' } },
-  { phrase: 'Show me live vessels', expect: 'set_layer_visibility' },
-  { phrase: 'Turn on the fires layer', expect: 'set_layer_visibility' },
+  { phrase: 'Turn on the storm warnings layer', expect: 'set_layer_visibility' },
   { phrase: 'Turn on street traffic', expect: 'set_layer_visibility', args: { layerId: 'traffic' } },
   { phrase: 'Open the data layers menu', expect: 'show_data_layers_menu' },
-  { phrase: 'Show me the datacenter layers', expect: 'show_data_layers_menu' },
-  { phrase: 'Turn on the datacenters layer', expect: 'set_layer_visibility' },
+  { phrase: 'Show me the radar layers', expect: 'show_data_layers_menu' },
+  { phrase: 'Turn on the radar layer', expect: 'set_layer_visibility' },
 
   // — visual styles & post-fx —
   { phrase: 'Give me night vision', expect: 'set_visual_style' },
@@ -142,7 +139,6 @@ const PHRASES = [
   { phrase: 'Set the radio volume to thirty percent', expect: 'control_radio', args: { action: 'volume', volumePct: 30 } },
   { phrase: 'Pause the radio', expect: 'control_radio', args: { action: 'pause' } },
   { phrase: 'Stop the radio', expect: 'control_radio', args: { action: 'stop' } },
-  { phrase: 'When does the ISS pass over next?', expect: 'next_iss_pass' },
 
   // — annotations —
   { phrase: 'Annotate the Texas State Capitol and its grounds', expect: 'annotate_map' },
@@ -175,8 +171,8 @@ const PHRASES = [
 
   // — analyst queries (tool #22) —
   { phrase: 'How many flights are over Texas right now?', expect: 'analyst_query' },
-  { phrase: 'Which ships are headed to Oakland?', expect: 'analyst_query' },
-  { phrase: 'What is the biggest fire near Los Angeles?', expect: 'analyst_query' },
+  { phrase: 'Which flights are headed to Oakland?', expect: 'analyst_query' },
+  { phrase: 'What is the fastest ship near Los Angeles?', expect: 'analyst_query' },
   { phrase: 'Is anything flying above forty thousand feet?', expect: 'analyst_query' },
 
   // — negative controls: conversation must NOT tool-call —
@@ -488,141 +484,6 @@ async function runBehaviorLayer() {
       report(r?.ok === true, 'behavior: frame_overhead frames flights', `result=${JSON.stringify(r)?.slice(0, 140)}`);
     }
 
-    // (4a) Deterministic owner-transfer probes use the real product runner and
-    // camera policy with synthetic target records only. This proves ordering
-    // without claiming that the live AIS stream delivered a vessel.
-    const ownerTransfer = await page.evaluate(async () => {
-      const app = window.__godsEyeView;
-      const runner = window.__gevVoiceCommands?.runner;
-      const { viewer, dataManager, styleManager } = app || {};
-      const fireEntry = dataManager?.layers?.get('local-firms');
-      const vesselEntry = dataManager?.layers?.get('ais-live-vessels');
-      const flightsEntry = dataManager?.layers?.get('flights');
-      if (!runner || !fireEntry || !vesselEntry || !flightsEntry) {
-        return { error: 'required product modules unavailable' };
-      }
-
-      const original = {
-        isEnabled: dataManager.isEnabled,
-        fireModule: fireEntry.module,
-        vesselModule: vesselEntry.module,
-        flightsModule: flightsEntry.module,
-        flyToBoundingSphere: viewer.camera.flyToBoundingSphere,
-        cockpitActive: styleManager.cockpitView?.active,
-      };
-      const flightStarts = [];
-      let currentKind = null;
-      let vesselSelections = 0;
-      viewer.camera.flyToBoundingSphere = function (...args) {
-        flightStarts.push({ kind: currentKind, trackingReleased: !viewer.trackedEntity });
-        return original.flyToBoundingSphere.apply(this, args);
-      };
-      dataManager.isEnabled = function (id) {
-        if (['local-firms', 'ais-live-vessels', 'flights'].includes(id)) return true;
-        return original.isEnabled.call(this, id);
-      };
-      fireEntry.module = {
-        ...original.fireModule,
-        getStrongestFire: () => ({
-          id: 'qa-synthetic-fire', label: 'QA synthetic fire',
-          latitude: 37.7749, longitude: -122.4194, frp: 922,
-        }),
-      };
-      vesselEntry.module = {
-        ...original.vesselModule,
-        findByQuery: () => ({
-          mmsi: '999000111', name: 'QA synthetic vessel',
-          latitude: 29.7604, longitude: -95.3698,
-        }),
-        selectById: () => { vesselSelections += 1; return true; },
-      };
-      flightsEntry.module = {
-        ...original.flightsModule,
-        getNearby: () => [{
-          id: 'qa-aircraft',
-          position: viewer.camera.positionWC.clone(),
-        }],
-      };
-
-      const results = {};
-      try {
-        for (const [kind, args] of [
-          ['fire', { query: 'strongest fire', layerId: 'local-firms' }],
-          ['vessel', { query: 'QA synthetic vessel', layerId: 'ais-live-vessels' }],
-        ]) {
-          const sentinel = viewer.entities.add({ id: `qa-prior-${kind}` });
-          viewer.trackedEntity = sentinel;
-          const generationBefore = styleManager._navigationGeneration;
-          currentKind = kind;
-          const result = await runner('track_entity', args);
-          results[kind] = {
-            ok: result?.ok === true,
-            generationAdvanced: styleManager._navigationGeneration > generationBefore,
-            trackingReleased: !viewer.trackedEntity,
-          };
-          viewer.camera.cancelFlight();
-          viewer.entities.remove(sentinel);
-        }
-
-        await runner('move_camera', { motion: 'stop' });
-        const seededMotion = await runner('move_camera', {
-          motion: 'pan', direction: 'right', mode: 'continuous',
-        });
-        const cockpitSentinel = viewer.entities.add({ id: 'qa-cockpit-owner' });
-        viewer.trackedEntity = cockpitSentinel;
-        const generationBefore = styleManager._navigationGeneration;
-        const flightsBefore = flightStarts.length;
-        const selectionsBefore = vesselSelections;
-        styleManager.cockpitView.active = true;
-        const refused = [];
-        for (const [name, args] of [
-          ['move_camera', { motion: 'pan', direction: 'right' }],
-          ['move_camera', { motion: 'stop' }],
-          ['fly_route', { speed: 'fast' }],
-          ['frame_overhead', { target: 'flights' }],
-          ['track_entity', { query: 'strongest fire', layerId: 'local-firms' }],
-          ['track_entity', { query: 'QA synthetic vessel', layerId: 'ais-live-vessels' }],
-        ]) {
-          refused.push((await runner(name, args))?.ok === false);
-        }
-        results.cockpit = {
-          allRefused: refused.every(Boolean),
-          generationUnchanged: styleManager._navigationGeneration === generationBefore,
-          trackingUnchanged: viewer.trackedEntity === cockpitSentinel,
-          noFlight: flightStarts.length === flightsBefore,
-          noSelection: vesselSelections === selectionsBefore,
-        };
-        styleManager.cockpitView.active = false;
-        results.cockpit.motionUnchanged = seededMotion?.ok === true
-          && (await runner('move_camera', { motion: 'stop' }))?.stopped === true;
-        viewer.trackedEntity = undefined;
-        viewer.entities.remove(cockpitSentinel);
-      } finally {
-        styleManager.cockpitView.active = original.cockpitActive;
-        viewer.camera.flyToBoundingSphere = original.flyToBoundingSphere;
-        dataManager.isEnabled = original.isEnabled;
-        fireEntry.module = original.fireModule;
-        vesselEntry.module = original.vesselModule;
-        flightsEntry.module = original.flightsModule;
-      }
-      return { results, flightStarts, vesselSelections };
-    });
-    const takeoversPass = ['fire', 'vessel'].every((kind) => {
-      const result = ownerTransfer?.results?.[kind];
-      const flight = ownerTransfer?.flightStarts?.find((candidate) => candidate.kind === kind);
-      return result?.ok && result?.generationAdvanced && result?.trackingReleased
-        && flight?.trackingReleased;
-    }) && ownerTransfer?.vesselSelections === 1;
-    report(takeoversPass,
-      'behavior: synthetic fire/vessel voice targets take camera authority from tracked aircraft',
-      `syntheticTarget=true result=${JSON.stringify(ownerTransfer)?.slice(0, 240)}`);
-    const cockpit = ownerTransfer?.results?.cockpit;
-    report(Boolean(cockpit?.allRefused && cockpit?.generationUnchanged
-      && cockpit?.trackingUnchanged && cockpit?.noFlight && cockpit?.noSelection
-      && cockpit?.motionUnchanged),
-    'behavior: Cockpit refuses every named voice camera route before mutation',
-    `result=${JSON.stringify(cockpit)}`);
-
     // (4b) analyst engine end-to-end: count flights over Texas (region ring
     // via NE-pack/admin machinery), then a follow-up over the same set.
     // A cold boundary lookup can exceed the resolver's budget; it answers
@@ -701,10 +562,8 @@ async function runBehaviorLayer() {
       `drawn=${r?.drawn} failed=${r?.failed}`);
 
     // Camera-verb scenarios: shed the heavy layers first — headless
-    // SwiftShader drops to ~1 fps with fires+vessels loaded and every
+    // SwiftShader drops to ~1 fps with heavy layers loaded and every
     // motion assert starves (environment, not product).
-    await run('set_layer_visibility', { layerId: 'local-firms', enabled: false });
-    await run('set_layer_visibility', { layerId: 'ais-live-vessels', enabled: false });
     await settle(1500);
 
     // (6c) move_camera orbit ONCE: bounded eased ~30° heading advance.
@@ -853,152 +712,6 @@ async function runBehaviorLayer() {
     r = await run('get_entity_context', {});
     const hasContext = !!(r && (r.basemap || r.scene || r.context || r.viewScale || r.center));
     report(hasContext, 'behavior: get_entity_context returns scene context', `keys=${Object.keys(r || {}).slice(0, 8).join(',')}`);
-
-    // (9) set_context_mode — happy path and a refusal.
-    // Contacts is an exclusive mode that tears other layers down, so this runs
-    // last and hands the app back to `off` before the screenshot.
-    r = await run('set_context_mode', { mode: 'contacts' });
-    await settle(2500);
-    const contextEntered = await page.evaluate(
-      () => window.__godsEyeView?.styleManager?.getContextModeState?.() || null,
-    );
-    report(r?.ok === true && contextEntered?.mode === 'flights',
-      'behavior: set_context_mode enters Contacts',
-      `result=${JSON.stringify(r)?.slice(0, 140)} state=${JSON.stringify(contextEntered)?.slice(0, 90)}`);
-
-    // (9a) control_cockpit status reads the real Cockpit surface.
-    r = await run('control_cockpit', { action: 'status' });
-    report(r?.ok === true && r?.state && typeof r.state === 'object',
-      'behavior: control_cockpit status reports Cockpit state',
-      `result=${JSON.stringify(r)?.slice(0, 160)}`);
-
-    // (9b) Cockpit entry with nothing to fly is an honest failure, never a
-    // silent success that leaves the operator staring at an unchanged map.
-    const cockpitBefore = await page.evaluate(
-      () => Boolean(window.__godsEyeView?.styleManager?.cockpitView?.active),
-    );
-    r = await run('control_cockpit', { action: 'enter' });
-    await settle(1200);
-    const cockpitAfter = await page.evaluate(
-      () => Boolean(window.__godsEyeView?.styleManager?.cockpitView?.active),
-    );
-    // Either it genuinely entered (an aircraft was tracked) or it refused with
-    // a reason — the one thing it must never do is claim success while inert.
-    report((r?.ok === true && cockpitAfter) || (r?.ok !== true && !!r?.error && !cockpitAfter),
-      'behavior: control_cockpit entry is honest about whether it entered',
-      `ok=${r?.ok} error=${String(r?.error || '').slice(0, 80)} before=${cockpitBefore} after=${cockpitAfter}`);
-    if (cockpitAfter) await run('control_cockpit', { action: 'exit' });
-
-    // (9c) An unknown cockpit action is refused by name.
-    r = await run('control_cockpit', { action: 'barrel-roll' });
-    report(r?.ok === false && /unknown cockpit action/i.test(r?.error || ''),
-      'behavior: control_cockpit refuses an unknown action',
-      `result=${JSON.stringify(r)?.slice(0, 120)}`);
-
-    // (9d) An unavailable context mode is refused, and the live mode survives.
-    r = await run('set_context_mode', { mode: 'orbital-weather' });
-    const contextAfterRefusal = await page.evaluate(
-      () => window.__godsEyeView?.styleManager?.getContextModeState?.() || null,
-    );
-    report(r?.ok === false && /unknown context mode/i.test(r?.error || '')
-      && contextAfterRefusal?.mode === 'flights',
-      'behavior: set_context_mode refuses an unavailable mode without dropping the live one',
-      `result=${JSON.stringify(r)?.slice(0, 120)} state=${JSON.stringify(contextAfterRefusal)?.slice(0, 80)}`);
-
-    // (9c-2) With Contacts up, an aircraft radius query must carry the panel's
-    // own numbers. Field case: analyst said 8 for a 250 km window the panel had
-    // at 42 — both honest (analyst counts loaded records, the flights layer
-    // reloads by viewport), and the operator saw two answers to one question.
-    r = await run('analyst_query', {
-      layers: ['flights'],
-      scope: { kind: 'radius', km: 250 },
-      sortBy: 'distance',
-      limit: 3,
-    });
-    const awarenessFlights = await page.evaluate(() => {
-      const snap = window.__godsEyeView?.dataManager?.layers
-        ?.get('military-awareness')?.module?.getContextSnapshot?.();
-      const cohort = snap?.cohorts?.find((c) => c.id === 'flights');
-      return cohort ? cohort.count : null;
-    });
-    const windowBlock = r?.contactsWindow || null;
-    report(
-      Boolean(windowBlock)
-      && windowBlock.flights === awarenessFlights
-      && windowBlock.radiusKm === 250
-      && typeof windowBlock.centeredOn === 'string'
-      && /loads by viewport/.test(r?.coverage?.note || '')
-      // Contract rule 3: the count names its own scope.
-      && /^within 250 km of /.test(r?.scopeLabel || ''),
-      'behavior: analyst_query carries the Contacts panel counts and says what it measured',
-      `contactsWindow=${JSON.stringify(windowBlock)} awarenessFlights=${awarenessFlights} analystCount=${r?.count} scopeLabel="${r?.scopeLabel}"`,
-    );
-
-    // (9d-2) enter + targetLayer must land on that layer or refuse by name.
-    // Field case: enter{targetLayer:"military"} reported ok:true on a FLIGHTS
-    // subject, so "cockpit in that military helicopter" put the operator in an
-    // airliner.
-    if (await page.evaluate(() => Boolean(window.__godsEyeView?.styleManager?.cockpitView?.active))) {
-      await run('control_cockpit', { action: 'exit' });
-      await settle(600);
-    }
-    r = await run('control_cockpit', { action: 'enter', targetLayer: 'military' });
-    await settle(1200);
-    const layerAfter = r?.state?.subject?.layerId ?? null;
-    const cockpitOn = await page.evaluate(
-      () => Boolean(window.__godsEyeView?.styleManager?.cockpitView?.active),
-    );
-    report(
-      (r?.ok === true && layerAfter === 'military' && cockpitOn)
-      || (r?.ok !== true && !!r?.error && !cockpitOn),
-      'behavior: control_cockpit enter honours targetLayer or refuses by name',
-      `ok=${r?.ok} subjectLayer=${layerAfter} active=${cockpitOn} error=${String(r?.error || '').slice(0, 90)}`,
-    );
-    if (cockpitOn) { await run('control_cockpit', { action: 'exit' }); await settle(600); }
-
-    // (9d-3) A non-aircraft layer can never be entered — Cockpit flies aircraft.
-    r = await run('control_cockpit', { action: 'enter', targetLayer: 'ais-live-vessels' });
-    const vesselCockpit = await page.evaluate(
-      () => Boolean(window.__godsEyeView?.styleManager?.cockpitView?.active),
-    );
-    report(r?.ok === false && /aircraft only/i.test(r?.error || '') && !vesselCockpit,
-      'behavior: control_cockpit refuses to enter a non-aircraft layer',
-      `result=${JSON.stringify(r)?.slice(0, 130)} active=${vesselCockpit}`);
-
-    // (9e) Exit restores the neutral map.
-    r = await run('set_context_mode', { mode: 'off' });
-    await settle(2000);
-    const contextExited = await page.evaluate(
-      () => window.__godsEyeView?.styleManager?.getContextModeState?.() || null,
-    );
-    report(r?.ok !== false && !contextExited?.mode,
-      'behavior: set_context_mode exits back to the neutral map',
-      `result=${JSON.stringify(r)?.slice(0, 120)} state=${JSON.stringify(contextExited)?.slice(0, 80)}`);
-
-    // (9f) With Contacts OFF the entry gate is shut. Entry must refuse with the
-    // reason rather than produce the half-entered state the operator saw: a
-    // plane anchored under the camera with no HUD and no exit control.
-    r = await run('control_cockpit', { action: 'status' });
-    const gateReport = r?.state || {};
-    const cockpitBeforeGate = await page.evaluate(
-      () => Boolean(window.__godsEyeView?.styleManager?.cockpitView?.active),
-    );
-    report(gateReport.active === false && gateReport.entryAllowed === false
-      && gateReport.entryBlockedReason === 'contacts-inactive' && !cockpitBeforeGate,
-    'behavior: cockpit status names why entry is blocked with Contacts off',
-    `state=${JSON.stringify(gateReport)?.slice(0, 150)}`);
-
-    // The runner calls controlCockpit directly, so this exercises the app gate
-    // rather than the voice tool's own Contacts bootstrap.
-    const gated = await page.evaluate(
-      () => window.__godsEyeView?.styleManager?.controlCockpit?.('enter') || null,
-    );
-    const cockpitAfterGate = await page.evaluate(
-      () => Boolean(window.__godsEyeView?.styleManager?.cockpitView?.active),
-    );
-    report(gated?.ok === false && /contacts/i.test(gated?.error || '') && !cockpitAfterGate,
-      'behavior: cockpit entry with Contacts off is refused, not half-entered',
-      `ok=${gated?.ok} error=${String(gated?.error || '').slice(0, 90)} active=${cockpitAfterGate}`);
 
     const shotDir = path.join(ROOT, 'qa-shots');
     fs.mkdirSync(shotDir, { recursive: true });

@@ -31,7 +31,9 @@ test('the complete Realtime tool payload pins the additive analyst, satellite, L
     // the Cyber HUD layout; the separate sonar tool is excluded above.
     // Re-derived again for the storm-chase layer ids (weather-radar, nexrad, nws-warnings,
     // team-chasers) and their common-name mapping.
-    '132f1cb70a59986ca443e6c286dc246579cebce925e5886ab3e5a07778d60333',
+    // Re-derived for each GW-57 removal: the removed layers leave the layer
+    // enums, common-name mappings and analyst fields.
+    '03099eaa7124cabcf9728c7bbf8678a9f6a2fd0306fd21f7df1264cdc6763a0e',
   );
 });
 
@@ -91,17 +93,6 @@ test('all legacy action arguments are byte-identical after removing the delibera
   const legacy = structuredClone(GEV_ACTION_SCHEMAS).filter(
     (tool) => !['next_satellite_pass', 'set_cyber_sonar'].includes(tool.name),
   );
-  const layers = legacy.find((tool) => tool.name === 'analyst_query').parameters
-    .properties.layers.items;
-  layers.enum = layers.enum.filter(
-    (key) =>
-      ![
-        'satellites',
-        'local-datacenters',
-        'local-dams',
-        'fire-perimeters',
-      ].includes(key),
-  );
   // Local ADS-B is an additive set_layer_visibility enum value.
   const visibility = legacy.find((tool) => tool.name === 'set_layer_visibility')
     .parameters.properties.layerId;
@@ -124,11 +115,13 @@ test('all legacy action arguments are byte-identical after removing the delibera
     }
   }
   // Independently derived by executing trusted c9f9896 actionSchemas in the restricted container.
+  // Re-derived for each GW-57 removal: identical to main's schemas with only
+  // the removed layer ids stripped from the enums.
   const hud = legacy.find((tool) => tool.name === 'set_hud').parameters
     .properties.layout;
   hud.enum = hud.enum.filter((layout) => layout !== 'cyber');
   assert.equal(
     createHash('sha256').update(JSON.stringify(legacy)).digest('hex'),
-    '820fff21658f6907e1010b2b79c5431a77f4e34afd2277d62d8de46c368b6f8c',
+    '4f940b0381b8de2797ffa37db77253f951bd7a240771a807e58047dc25c61e52',
   );
 });

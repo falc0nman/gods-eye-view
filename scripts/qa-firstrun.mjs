@@ -4,9 +4,7 @@
  *
  * The unit suite pins the show policy and the mission table against fakes. This
  * harness answers the questions only a running app can: does a mission actually
- * enable those layers, does the camera actually reach the globe, does a keyless
- * visitor actually get the honest FIRMS state instead of a silent empty layer,
- * and does any of it disturb the reasonable-defaults startup look.
+ * enable those layers, does the camera actually reach the globe, and does any of it disturb the reasonable-defaults startup look.
  *
  * It also captures the owner's taste-pass screenshots into qa-shots/firstrun/.
  *
@@ -114,20 +112,16 @@ const appState = (page) => page.evaluate(() => {
   const counts = {};
   const all = dm?.getAll?.() || [];
   for (const id of [
-    'local-datacenters', 'local-dams', 'telegeography-submarine-cables',
-    'local-firms', 'earthquakes', 'flights', 'military', 'rocket-launches', 'satellites',
+    'weather-radar', 'nws-warnings', 'team-chasers',
   ]) {
     layers[id] = !!dm?.isEnabled?.(id);
     counts[id] = all.find((entry) => entry.id === id)?.stats?.count ?? null;
   }
-  const firms = all.find((entry) => entry.id === 'local-firms');
   return {
     heightKm: carto ? Math.round(carto.height / 1000) : null,
     layers,
     counts,
     contextMode: sm?.getContextModeState?.().mode ?? null,
-    firmsError: firms?.stats?.error ?? null,
-    firmsCount: firms?.stats?.count ?? null,
     detectionOverridden: sm?._detectionUserOverridden ?? null,
     durable: localStorage.getItem('gev:first-run-mission:v1'),
     session: sessionStorage.getItem('gev:first-run-mission-session:v1'),
@@ -141,35 +135,6 @@ const appState = (page) => page.evaluate(() => {
  * asked for actually settle. Asserting (or screenshotting) before the feeds have
  * drawn measures the harness's own impatience, not the mission.
  */
-/**
- * Start recording every state the GLOBAL loading chip passes through. The chip
- * is transient — sampling it once after a mission would miss a failure banner
- * that flashed and cleared — so this watches it continuously instead.
- */
-async function watchLoadingChip(page) {
-  await page.evaluate(() => {
-    window.__chipSeen = [];
-    const el = document.getElementById('global-loading-status');
-    if (!el) return;
-    const sample = () => {
-      const label = document.getElementById('global-loading-label')?.textContent?.trim() || '';
-      const state = el.dataset.state || '';
-      const hidden = el.hidden;
-      const last = window.__chipSeen[window.__chipSeen.length - 1];
-      const entry = `${hidden ? 'hidden' : 'shown'}:${state}:${label}`;
-      if (entry !== last) window.__chipSeen.push(entry);
-    };
-    sample();
-    window.__chipObserver?.disconnect();
-    window.__chipObserver = new MutationObserver(sample);
-    window.__chipObserver.observe(el, {
-      attributes: true, childList: true, subtree: true, characterData: true,
-    });
-  }).catch(() => {});
-}
-
-const readLoadingChip = (page) => page.evaluate(() => window.__chipSeen || []);
-
 async function pick(page, choice, { timeout = 40000, settle = [] } = {}) {
   await page.click(`[data-first-run-choice="${choice}"]`);
   await page.waitForFunction(
@@ -190,7 +155,7 @@ async function pick(page, choice, { timeout = 40000, settle = [] } = {}) {
 /** Every section the run is expected to reach; the teeth verdict requires all. */
 const EXPECTED_SECTIONS = [
   'show-policy', 'esc-arbitration',
-  'mission-environmental', 'mission-contacts', 'mission-space', 'mission-explore',
+  'mission-storm-chase', 'mission-contacts', 'mission-space', 'mission-explore',
   'viewports', 'console',
 ];
 
@@ -550,7 +515,7 @@ async function main() {
       const tiles = await page.$$eval('[data-first-run-choice]', (nodes) => nodes.map((n) => n.dataset.firstRunChoice));
       record(
         'four tiles in the owner\'s order',
-        JSON.stringify(tiles) === JSON.stringify(['storm-chase', 'contacts', 'space-missions', 'environmental', 'explore']),
+        JSON.stringify(tiles) === JSON.stringify(['storm-chase', 'contacts', 'space-missions', 'explore']),
         tiles.join(' · '),
       );
 
@@ -609,83 +574,23 @@ async function main() {
     // tally reports "reached" for assertions that never ran.
     let state;
     let before;
-    await section('mission-environmental', async () => {
+    await section('mission-storm-chase', async () => {
     // Full clear, not just the session: layer enables are DURABLE, so without it
     // an earlier mission's layers ride along and this stops measuring
-    // Environmental alone (and its screenshot stops showing it alone).
+    // Storm Chase alone (and its screenshot stops showing it alone).
     await open(page, { query: "?welcome=1", errorSink: consoleErrors });
     before = await appState(page);
-    await watchLoadingChip(page);
-    await pick(page, 'environmental', { settle: ['earthquakes', 'local-firms'] });
+    await pick(page, 'storm-chase', { settle: ['weather-radar', 'nws-warnings', 'team-chasers'] });
     state = await appState(page);
-    record('ENVIRONMENTAL leaves the detection override untouched',
+    record('STORM CHASE leaves the detection override untouched',
       state.detectionOverridden === false, `_detectionUserOverridden=${state.detectionOverridden}`);
     record('a mission never auto-suppresses itself', state.durable === null, `durable=${state.durable}`);
     record('a mission never writes the detection-allocation pref',
       state.allocation === before.allocation, `${before.allocation} → ${state.allocation}`);
-    record('ENVIRONMENTAL enables BOTH of its feeds', state.layers.earthquakes && state.layers['local-firms'],
-      `quakes=${state.layers.earthquakes} fires=${state.layers['local-firms']}`);
-    record('ENVIRONMENTAL loads real quake records', (state.counts.earthquakes ?? 0) > 0,
-      `${state.counts.earthquakes} quakes`);
-    record('ENVIRONMENTAL reaches the full-earth camera', state.heightKm !== null && state.heightKm > 12000,
-      `${state.heightKm} km`);
-
-    /*
-     * The tile optimizes for the FULLY CONFIGURED app, so the assertion splits
-     * on what this server actually has rather than pretending one answer fits
-     * both. The branch is reported, so a green run always says which one it was.
-     *
-     *   KEYED   — both datasets must actually arrive, and a failure banner in
-     *             that state is a real defect, so the chip IS asserted.
-     *   KEYLESS — only the LAYER ROW is asserted: FIRMS reports KEY REQUIRED,
-     *             which is the honest surface a keyless visitor is judged on.
-     *             The GLOBAL chip is deliberately NOT asserted in either
-     *             direction here: it has no key-required terminal state and
-     *             folds that row into a misleading LOAD FAILED. That
-     *             aggregation is a defect in the shared state machine
-     *             (`src/loadingFeedback.js`), LEDGERED post-launch — it is not
-     *             a desirable outcome and not this tile's contract.
-     */
-    const keyless = state.firmsError === 'KEY REQUIRED';
-    console.log(`  \x1b[2m   FIRMS key state: ${keyless ? 'KEYLESS' : 'KEYED'} `
-      + `(row="${state.firmsError ?? 'none'}", count=${state.firmsCount})\x1b[0m`);
-    if (keyless) {
-      record(
-        'KEYLESS: the FIRMS row tells the visitor the truth (KEY REQUIRED)',
-        state.firmsError === 'KEY REQUIRED',
-        `layer row reports "${state.firmsError}"`,
-      );
-      record(
-        'KEYLESS: the quakes half of the tile still delivers in full',
-        (state.counts.earthquakes ?? 0) > 0,
-        `${state.counts.earthquakes} quakes`,
-      );
-    } else {
-      record(
-        'KEYED: both datasets actually arrive',
-        (state.counts.earthquakes ?? 0) > 0 && (state.firmsCount ?? 0) > 0,
-        `${state.counts.earthquakes} quakes · ${state.firmsCount} fire detections`,
-      );
-      const chip = await readLoadingChip(page);
-      const failed = chip.filter((entry) => /LOAD FAILED/i.test(entry));
-      // A STALE served-from-cache FIRMS payload is degraded, not failed, and it
-      // still carries data — so the failure test is the banner, not any
-      // non-empty error string.
-      record(
-        'KEYED: no unexpected global failure while the mission runs',
-        failed.length === 0,
-        failed.length
-          ? `chip showed: ${failed.join(' | ')}`
-          : `firms row="${state.firmsError ?? 'none'}"; chip states seen: ${chip.join(' → ') || 'none'}`,
-      );
-    }
-    record(
-      'no mission turns on the bundled infrastructure layers any more',
-      !state.layers['local-datacenters'] && !state.layers['local-dams']
-        && !state.layers['telegeography-submarine-cables'],
-      'the removed tile left nothing enabling ~5,700 entities at globe scale',
-    );
-    shots.push(await shoot(page, 'mission-environmental'));
+    record('STORM CHASE enables radar, warnings and chasers',
+      ['weather-radar', 'nws-warnings', 'team-chasers'].every((id) => state.layers[id]),
+      ['weather-radar', 'nws-warnings', 'team-chasers'].map((id) => `${id}=${state.layers[id]}`).join(' '));
+    shots.push(await shoot(page, 'mission-storm-chase'));
     });
 
     await section('mission-contacts', async () => {

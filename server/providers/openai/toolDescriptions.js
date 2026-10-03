@@ -33,29 +33,6 @@ export const ACTION_DESCRIPTIONS = {
       },
     },
   },
-  select_nearest_aircraft: {
-    description:
-      'Atomically fly to a place, wait for arrival, enable and load Flights or Military Flights in that viewport, exclude on-ground records, and select/follow the nearest airborne aircraft. Healthy fallback feeds remain usable and are reported in the result. This does not open Contacts or Cockpit.',
-    $position: 1,
-    parameters: {
-      properties: {
-        layerId: {
-          description:
-            'Aircraft layer to enable and search. Use flights unless the user explicitly asks for military aircraft.',
-          $position: 2,
-        },
-        locationId: {
-          description:
-            'Known city preset ID when the place matches one of these cities.',
-          $position: 2,
-        },
-        locationQuery: {
-          description: 'Free-form destination when no locationId matches.',
-          $position: 2,
-        },
-      },
-    },
-  },
   adjust_camera_zoom: {
     description:
       'Move the current Cesium camera closer to or farther from what it is presently looking at. Use for relative zoom requests without changing location.',
@@ -82,7 +59,7 @@ export const ACTION_DESCRIPTIONS = {
       properties: {
         layerId: {
           description:
-            'Common-name mapping for the non-obvious ids: space mission(s) → rocket-launches; fires/wildfires/active fires → local-firms (NASA FIRMS); ships/vessels/boats → ais-live-vessels; undersea/submarine cables → telegeography-submarine-cables; datacenters → local-datacenters; dams → local-dams; bikes/bike share → bikeshare; street traffic/congestion → traffic; traffic cameras → cctv; internet radio/stations → radio; ALPR/license plate readers/Flock cameras → alpr-cameras; local ADS-B/my receiver/my antenna (aircraft heard by a local RTL-SDR receiver) → local-adsb; radar/weather radar/rain (national MRMS mosaic) → weather-radar; single-radar NEXRAD/velocity/correlation coefficient/level 3 radar → nexrad; storm/tornado/severe/flash flood warnings → nws-warnings; chasers/my team/team positions → team-chasers.',
+            'Common-name mapping for the non-obvious ids: street traffic/congestion → traffic; traffic cameras → cctv; internet radio/stations → radio; radar/weather radar/rain (national MRMS mosaic) → weather-radar; single-radar NEXRAD/velocity/correlation coefficient/level 3 radar → nexrad; storm/tornado/severe/flash flood warnings → nws-warnings; chasers/my team/team positions → team-chasers.',
           $position: 1,
         },
       },
@@ -105,43 +82,6 @@ export const ACTION_DESCRIPTIONS = {
     description: 'Open or close a GEV UI panel/dropdown.',
     $position: 1,
   },
-  set_context_mode: {
-    description:
-      'Enter or exit the Global Context sub-mode used by Contacts and Space Missions. Use Contacts only when the user explicitly requests Contacts, and Space Missions only when explicitly requested. A request to open the parent Context panel alone uses set_panel_open and must not activate either sub-mode. Selecting an aircraft does not imply Context.',
-    $position: 1,
-    parameters: {
-      properties: {
-        mode: {
-          description: 'Use off to exit context mode.',
-          $position: 2,
-        },
-      },
-    },
-  },
-  control_cockpit: {
-    description:
-      'Read or control Cockpit when the user explicitly requests Cockpit: establish Contacts and enter from a selected or tracked aircraft; exit; or navigate nearby Contacts with optional filters. Selecting or viewing an aircraft alone must not enter Cockpit.',
-    $position: 1,
-    parameters: {
-      properties: {
-        action: {
-          description:
-            'previous/next (or prev) navigates through nearby contacts in Cockpit context.',
-          $position: 2,
-        },
-        targetLayer: {
-          description:
-            'Optional contact layer filter for next/previous (for example military for a military-only cycle).',
-          $position: 2,
-        },
-        aircraftClass: {
-          description:
-            'Optional aircraft class filter (for example helicopter) when using next/previous navigation.',
-          $position: 1,
-        },
-      },
-    },
-  },
   set_visual_style: {
     description: "Set the active God's Eye View visual filter/style.",
     $position: 1,
@@ -157,16 +97,12 @@ export const ACTION_DESCRIPTIONS = {
             'Use auto by default. selected returns the clicked/selected entity; in_view returns visible entities near the screen center.',
           $position: 2,
         },
-        layerId: {
-          description: 'Optional layer filter for visible entity context.',
-          $position: 2,
-        },
       },
     },
   },
   get_current_view_state: {
     description:
-      'Read the current camera, style, Context, Cockpit, HUD, detection, map stack, post-processing, scene-playback, tracked-entity, and layer state before choosing another action.',
+      'Read the current camera, style, Context, HUD, map stack, post-processing, scene-playback, tracked-entity, and layer state before choosing another action.',
     $position: 1,
   },
   set_hud: {
@@ -205,33 +141,9 @@ export const ACTION_DESCRIPTIONS = {
       },
     },
   },
-  set_detection: {
-    description:
-      'Control the detection overlay: on/off, density-derived Sparse/Balanced/Dense profile, and Elastic/Weighted layer allocation.',
-    $position: 1,
-    parameters: {
-      properties: {
-        enabled: {
-          description:
-            'false turns detection OFF; true restores the current density-derived profile.',
-          $position: 1,
-        },
-        densityPct: {
-          description:
-            'Density snaps to 0, 25, 50, 75, or 100 and derives the active profile.',
-          $position: 1,
-        },
-        allocationStrategy: {
-          description:
-            'Elastic splits evenly then lends unused slots; Weighted follows demand and semantic weight.',
-          $position: 2,
-        },
-      },
-    },
-  },
   set_map_stack: {
     description:
-      'Switch the basemap/imagery stack (NOT the satellites data layer and NOT a visual style filter).',
+      'Switch the basemap/imagery stack (NOT a visual style filter).',
     $position: 1,
     parameters: {
       properties: {
@@ -337,44 +249,6 @@ export const ACTION_DESCRIPTIONS = {
         stationQuery: {
           description: 'Optional station name/tag substring.',
           $position: 2,
-        },
-      },
-    },
-  },
-  track_entity: {
-    description:
-      'Find and follow a specific aircraft (callsign/ICAO hex), ship (name/MMSI), or satellite (name/NORAD id) on enabled layers. Camera follows the entity.',
-    $position: 1,
-    parameters: {
-      properties: {
-        query: {
-          description:
-            'Callsign, ship name, satellite name, ICAO hex, MMSI, or NORAD id.',
-          $position: 1,
-        },
-        layerId: {
-          description:
-            'Optional layer hint: flights | military | ais-live-vessels | satellites.',
-          $position: 1,
-        },
-      },
-    },
-  },
-  stop_tracking: {
-    description:
-      'Stop following the tracked aircraft/satellite and clear any selected vessel.',
-    $position: 1,
-  },
-  frame_overhead: {
-    description:
-      'Cinematically frame entities near the current view: pulls the camera back and angles it so nearby aircraft, ships, or satellites are visible together.',
-    $position: 1,
-    parameters: {
-      properties: {
-        radiusKm: {
-          description:
-            'Search radius around the view target. Defaults: 150 aircraft, 120 ships, 3000 satellites.',
-          $position: 1,
         },
       },
     },
@@ -525,78 +399,5 @@ export const ACTION_DESCRIPTIONS = {
         },
       },
     },
-  },
-  analyst_query: {
-    description:
-      'Answer questions ABOUT the data currently loaded on the map — counts, lists, superlatives, and attribute filters over live layers (flights, military, ships, fires, earthquakes, satellites, datacenters, dams). Examples: "how many flights over Texas", "biggest fire near LA", "which ships are headed to Oakland", "anything above 40,000 feet", "fastest thing in view". For satellites and infrastructure, counts and ranks cover only bounded examined loaded records; omitted records can change nearest/count. Queries ONLY client-side data from ENABLED layers — if the needed layer is off, say so and offer to enable it. For a follow-up about the previous answer\'s set ("which of those is closest?"), set followUp=true and send only the new filters/sort.',
-    $position: 1,
-    parameters: {
-      properties: {
-        layers: {
-          description:
-            'Layers to query. fires/wildfires → local-firms; ships/vessels → ais-live-vessels.',
-          $position: 2,
-        },
-        scope: {
-          description:
-            'Spatial scope. Default: view (near the camera). Use kind=region for "over Texas"-style asks; kind=anywhere for global questions.',
-          $position: 2,
-          properties: {
-            name: {
-              description:
-                'For kind=region: a state/country ("Texas", "France") or a named natural region ("the Alps", "Gulf of Mexico").',
-              $position: 1,
-            },
-            km: {
-              description: 'For kind=radius.',
-              $position: 1,
-            },
-          },
-        },
-        filters: {
-          description:
-            'Attribute predicates, ANDed. ALTITUDE IS METERS (40,000 ft = 12192). Fields: altitudeM, speedMps, military, onGround, aircraftClass, callsign, operator, routeOrigin, routeDestination, originCountry (flights); speedKts, shipType, destination (ships); frp, confidence (fires); magnitude, depthKm, place (earthquakes).',
-          $position: 1,
-        },
-        sortBy: {
-          description: 'Field to rank by, or "distance" for nearest-first.',
-          $position: 1,
-        },
-        followUp: {
-          description:
-            'true = re-query the PREVIOUS result set instead of fresh data.',
-          $position: 1,
-        },
-      },
-    },
-  },
-  next_iss_pass: {
-    description:
-      "When the user asks when the ISS / the space station will next fly over: returns the next geometric ISS pass with estimated visibility for the current camera location (or an explicit lat/lon) — rise time (ISO + minutes from now), rise compass direction, peak elevation, and duration. Requires the satellites layer to have loaded its catalog at least once this session; if it hasn't, tell the user to enable the satellites layer and try again.",
-    $position: 1,
-    parameters: {
-      properties: {
-        latitude: {
-          description:
-            'Optional observer latitude. Omit to use the current camera position.',
-          $position: 3,
-        },
-        longitude: {
-          description:
-            'Optional observer longitude. Omit to use the current camera position.',
-          $position: 3,
-        },
-        minElevationDeg: {
-          description:
-            'Minimum peak elevation (deg) to count as a pass. Default 10.',
-          $position: 3,
-        },
-      },
-    },
-  },
-  next_satellite_pass: {
-    description:
-      'Predict the next pass in 24 hours for one satellite in the loaded catalog, identified by exact NORAD ID or name. Ambiguous names return candidates: ask for a choice rather than selecting one. Defaults to geometric passes; visibleOnly requires estimated illumination and a dark observer sky, which does not guarantee naked-eye visibility. Uses camera location unless coordinates are supplied.',
-    $position: 1,
   },
 };

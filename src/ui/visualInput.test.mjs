@@ -57,7 +57,6 @@ function shortcuts() {
     'toggleOrbit',
     'toggleCleanView',
     'toggleLayers',
-    'cycleDetection',
     'toggleCctv',
   ];
   const actions = Object.fromEntries(
@@ -95,7 +94,6 @@ test('letter shortcuts retain uppercase handling and existing actions', () => {
       'toggleOrbit',
       'toggleCleanView',
       'toggleLayers',
-      'cycleDetection',
       'toggleCctv',
     ].map((name) => [name]),
   );

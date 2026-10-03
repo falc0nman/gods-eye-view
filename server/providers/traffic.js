@@ -17,8 +17,8 @@ import {
  * browser fetches same-origin `/api/tomtom/flow/{z}/{x}/{y}.pbf`.
  *
  * Cache: memory + disk (.gev-cache/tomtom/), TTL 120 s (traffic is fresh
- * data), single-flight per tile, serve-stale-on-failure — the celestrakProxy
- * pattern. Cache hits never count against the budget.
+ * data), single-flight per tile, serve-stale-on-failure — the pattern the
+ * former CelesTrak proxy used. Cache hits never count against the budget.
  *
  * Budget governor (mirrors the OpenSky credit-governor philosophy — last-good
  * data beats a dead layer): a persistent counter (.gev-cache/tomtom/budget.json,

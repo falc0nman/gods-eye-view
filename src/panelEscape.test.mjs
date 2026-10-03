@@ -1,5 +1,4 @@
 import { readShellSource } from './testSupport/readShellSource.mjs';
-import { onKeyDown as cockpitKeyDown } from './ui/cockpitInput.js';
 import { readFileSync as readRadioSource } from 'node:fs';
 const radioBindings = readRadioSource(new URL('./ui/radioBindings.js', import.meta.url), 'utf8');
 const radioPresentation = readRadioSource(new URL('./ui/radioPresentation.js', import.meta.url), 'utf8');
@@ -139,43 +138,6 @@ test('panel chrome wires Escape for every declared collapse target', () => {
   assert.match(init, /bindPanelDisclosure\(\{[\s\S]*?onEscape: \(event\) => this\._collapsePanelOnEscape\(event, targetId\)/);
   assert.match(source, /createHoverDisclosure\(\{[\s\S]*?onEscape: \(event\) => this\._collapsePanelOnEscape\(event, panelId\)/);
 });
-
-test('Cockpit Escape collapses Contact or Live Signals before exiting Cockpit', () => {
-  const onKeyDown = cockpitKeyDown.toString();
-  assert.match(
-    onKeyDown,
-    /event\.target\?\.closest\?\.\('\.cesium-credit-lightbox'\)[\s\S]*?return;/,
-    'the focused attribution lightbox keeps ownership of Escape before Cockpit',
-  );
-  assert.match(
-    onKeyDown,
-    /this\.context\?\.contains\(event\.target\)[\s\S]*?setContextCollapsed\(true\)[\s\S]*?event\.target === this\.contextToggle[\s\S]*?contextToggle\?\.blur[\s\S]*?contextToggle\?\.focus/,
-  );
-  assert.match(
-    onKeyDown,
-    /this\.signalStream\?\.contains\(event\.target\)[\s\S]*?setSignalCollapsed\(true, \{ user: true \}\)[\s\S]*?event\.target === this\.signalToggle[\s\S]*?signalToggle\?\.blur[\s\S]*?signalToggle\?\.focus/,
-  );
-  assert.ok(onKeyDown.indexOf('setContextCollapsed(true)') < onKeyDown.indexOf('this.exit()'));
-  assert.ok(onKeyDown.indexOf('setSignalCollapsed(true') < onKeyDown.indexOf('this.exit()'));
-});
-
-test('Cockpit utility Escape leaves an expanded nested Parameters panel to the shared handler', () => {
-  assert.match(
-    radioBindings,
-    /const nestedPanel = event\.target\?\.closest\?\.\(\s*'\.panel-collapsible:not\(\.collapsed\), #param-slider-panel:not\(\.collapsed\)',?\s*\);[\s\S]*?if \(nestedPanel\) return;[\s\S]*?setCockpitDisclosure/,
-  );
-  assert.match(
-    radioBindings,
-    /const kind = displayOpen \? 'display' : 'radio';[\s\S]*?escapedFromDisclosure[\s\S]*?returnFocus: !escapedFromDisclosure[\s\S]*?disclosure\?\.blur/,
-    'Cockpit utility disclosures clear their own focus when Escape closes them',
-  );
-  assert.match(
-    radioBindings,
-    /_contextRadioDock\?\.classList\.contains\('disclosure-open'\)[\s\S]*?escapedFromDisclosure[\s\S]*?setRadioDisclosure\(false, \{ returnFocus: !escapedFromDisclosure \}\)[\s\S]*?_contextRadioToggleBtn\?\.blur/,
-    'compact Radio disclosure clears its own focus when Escape closes it',
-  );
-});
-
 
 test('panel bindings have a single owner and are inert after destruction', () => {
   const panel = new EventTarget();

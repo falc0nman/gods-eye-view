@@ -13,7 +13,6 @@ import {
   measureOverlayEntry,
   measureWorldOverlayText,
   paintCard,
-  paintDetectionCallout,
   paintLabel,
   paintSelected,
   paintTacticalCard,
@@ -26,19 +25,7 @@ import {
   roundedRectPath,
 } from './worldOverlayDraw.js';
 import { createCctvThumbnailOverlayEntry, createFrameSlot } from '../data/cctvCards.js';
-import {
-  CARD_PLATE_ALPHA,
-  DETECTION_PLATE_BAND,
-  DETECTION_THEME_MAP,
-  SKY_PLATE_SCALE,
-  WORLD_OVERLAY_STYLE,
-} from './worldOverlayTokens.js';
-
-function alphaOf(rgba) {
-  const match = /rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*([0-9.]+)\s*\)/.exec(String(rgba));
-  assert.ok(match, `expected an rgba() colour, got ${rgba}`);
-  return Number(match[1]);
-}
+import { WORLD_OVERLAY_STYLE } from './worldOverlayTokens.js';
 
 function mockContext() {
   const calls = [];
@@ -72,79 +59,6 @@ function mockContext() {
     drawImage(...args) { calls.push(['drawImage', ...args]); },
   };
 }
-
-test('the tracked card alpha constant stays bound to the card it describes', () => {
-  // Every ambient backing is specified as a fraction of the tracked readout
-  // card's plate. If the card is ever retuned, this fails first and forces the
-  // ambient family to be re-derived rather than silently drifting apart.
-  assert.equal(alphaOf(WORLD_OVERLAY_STYLE.background), CARD_PLATE_ALPHA);
-});
-
-test('every detection theme carries a callout plate inside the ambient band', () => {
-  for (const [name, theme] of Object.entries(DETECTION_THEME_MAP)) {
-    const plate = alphaOf(theme.calloutPlate);
-    const space = alphaOf(theme.calloutPlateSpace);
-    assert.ok(
-      plate >= DETECTION_PLATE_BAND.min * CARD_PLATE_ALPHA
-        && plate <= DETECTION_PLATE_BAND.max * CARD_PLATE_ALPHA,
-      `${name} callout plate ${plate} outside the ambient band`,
-    );
-    // The owner's spec: satellites read over the lit Earth disc, so the space
-    // tier pops slightly harder — but never as heavy as the tracked card.
-    assert.ok(space > plate, `${name} space plate must exceed the base plate`);
-    assert.ok(space < CARD_PLATE_ALPHA, `${name} space plate must stay under the card`);
-    // The scanline wash is a separate token and must not have been repurposed.
-    assert.notEqual(theme.calloutPlate, theme.labelBg);
-  }
-});
-
-test('an ambient detection callout paints its backing plate under its text', () => {
-  const ctx = mockContext();
-  paintDetectionCallout(ctx, {
-    x: 20, y: 30, w: 80, h: 18,
-    primaryX: 27, microX: 70, baseline: 42,
-    leadFromX: 60, leadFromY: 60, leadToX: 60, leadToY: 48,
-    plate: 'rgba(2, 18, 26, 0.52)',
-    accent: '#22e0ff',
-    label: 'rgba(200, 250, 255, 0.97)',
-    primary: 'JA23NF',
-    micro: 'FL017',
-    font: '10px JetBrains Mono, monospace',
-    microFont: '9px JetBrains Mono, monospace',
-  }, 1);
-
-  const names = ctx.calls.map(([name]) => name);
-  const firstFill = names.indexOf('fill');
-  const firstText = names.indexOf('fillText');
-  assert.ok(firstFill >= 0, 'the callout must fill a backing plate');
-  assert.ok(firstText > firstFill, 'the plate must be painted before the callsign');
-  // Plate geometry: a rounded rect covering the whole measured label box.
-  assert.deepEqual(
-    ctx.calls.find(([name]) => name === 'roundRect'),
-    ['roundRect', 20, 30, 80, 18, 3],
-  );
-  assert.ok(ctx.calls.some(([name, text]) => name === 'fillText' && text === 'JA23NF'));
-  assert.ok(ctx.calls.some(([name, text]) => name === 'fillText' && text === 'FL017'));
-});
-
-test('a callout with no micro-field paints one text run and still gets a plate', () => {
-  const ctx = mockContext();
-  paintDetectionCallout(ctx, {
-    x: 0, y: 0, w: 40, h: 18,
-    primaryX: 7, microX: 30, baseline: 12,
-    leadFromX: 20, leadFromY: 30, leadToX: 20, leadToY: 18,
-    plate: 'rgba(2, 18, 26, 0.52)',
-    accent: '#22e0ff',
-    label: '#fff',
-    primary: 'N12345',
-    micro: '',
-    font: '10px mono',
-    microFont: '9px mono',
-  }, 0.5);
-
-  assert.ok(ctx.calls.some(([name]) => name === 'fill'));
-  assert.equal(ctx.calls.filter(([name]) => name === 'fillText').length, 1);
-});
 
 test('distance and altitude fades preserve exact boundary/ramp math', () => {
   assert.equal(distanceFade(0, { maxDistance: 1000 }), 1);
@@ -500,8 +414,8 @@ test('selected elbow leader reveals from the glyph before its card fades in', ()
   assert.equal(tacticalCardRevealAlpha(animation, 1100), 1);
   const ctx = mockContext();
   const entry = {
-    variant: 'selected', selected: true, cardStyle: 'tactical', title: 'ALPR-2516',
-    details: ['OSM MAPPED'], accent: '#ff6474', leaderStyle: 'elbow',
+    variant: 'selected', selected: true, cardStyle: 'tactical', title: 'CAM-2516',
+    details: ['MAPPED'], accent: '#ff6474', leaderStyle: 'elbow',
     leaderAnimationMs: 1, leaderAnimationStartedAt: 0,
   };
   entry._overlayLayout = measureOverlayEntry(ctx, entry, {});
@@ -553,76 +467,3 @@ test('track display text is cached across measure and paint and invalidates on c
   );
 });
 
-/** Records the globalAlpha in force at each paint op, which the shared mock does not. */
-function alphaProbe() {
-  const ctx = mockContext();
-  const alphas = { fill: [], text: [], stroke: [] };
-  const inner = { fill: ctx.fill, fillText: ctx.fillText, stroke: ctx.stroke };
-  ctx.fill = function fill(...args) { alphas.fill.push(this.globalAlpha); return inner.fill.apply(this, args); };
-  ctx.fillText = function fillText(...args) { alphas.text.push(this.globalAlpha); return inner.fillText.apply(this, args); };
-  ctx.stroke = function stroke(...args) { alphas.stroke.push(this.globalAlpha); return inner.stroke.apply(this, args); };
-  return { ctx, alphas };
-}
-
-const CALLOUT_FIXTURE = Object.freeze({
-  x: 20, y: 30, w: 80, h: 18,
-  primaryX: 27, microX: 70, baseline: 42,
-  leadFromX: 60, leadFromY: 60, leadToX: 60, leadToY: 48,
-  plate: 'rgba(2, 18, 26, 0.52)',
-  accent: '#22e0ff',
-  label: 'rgba(200, 250, 255, 0.97)',
-  primary: 'JA23NF',
-  micro: 'FL017',
-  font: '10px JetBrains Mono, monospace',
-  microFont: '9px JetBrains Mono, monospace',
-});
-
-test('a sky-backed callout feathers its PLATE and nothing else', () => {
-  // The owner's call: against the horizon the plate reads as a dark box on an
-  // empty sky and the pre-plate bare text was better. Feathering must land on
-  // the backing only — the callsign, the tier bar and the leader are the
-  // callout's identity and keep the composed fades.
-  const ground = alphaProbe();
-  paintDetectionCallout(ground.ctx, { ...CALLOUT_FIXTURE, plateScale: 1 }, 0.8);
-  const sky = alphaProbe();
-  paintDetectionCallout(sky.ctx, { ...CALLOUT_FIXTURE, plateScale: SKY_PLATE_SCALE }, 0.8);
-
-  // The plate is the FIRST fill; the tier accent bar is the second.
-  assert.ok(Math.abs(ground.alphas.fill[0] - 0.8) < 1e-12, 'ground keeps the full plate');
-  assert.ok(
-    Math.abs(sky.alphas.fill[0] - 0.8 * SKY_PLATE_SCALE) < 1e-12,
-    'sky scales the plate by the token, not by some other number',
-  );
-  assert.deepEqual(
-    sky.alphas.fill.slice(1), ground.alphas.fill.slice(1),
-    'the accent bar must not inherit the plate feather',
-  );
-  assert.deepEqual(sky.alphas.text, ground.alphas.text, 'text opacity is untouched');
-  assert.deepEqual(sky.alphas.stroke, ground.alphas.stroke, 'the leader is untouched');
-  // Same fill token in both: the theme's plate hue is scaled, never swapped.
-  assert.equal(
-    sky.ctx.calls.find(([name]) => name === 'fillStyle')?.[1],
-    ground.ctx.calls.find(([name]) => name === 'fillStyle')?.[1],
-  );
-});
-
-test('a callout with no backdrop information paints at full plate', () => {
-  // Every caller before the backdrop pass omitted plateScale. Defaulting to a
-  // feather would silently strip plates off the tilted-down case the plate was
-  // introduced for, so the default must be the full plate.
-  const { ctx, alphas } = alphaProbe();
-  paintDetectionCallout(ctx, CALLOUT_FIXTURE, 0.5);
-  assert.ok(Math.abs(alphas.fill[0] - 0.5) < 1e-12);
-});
-
-test('the sky plate scale is a whisper, not a second plate', () => {
-  // The point of the feather is to land back near the bare-text look the owner
-  // preferred against sky. A scale that drifts up toward 1 quietly restores the
-  // boxes; a negative or >1 scale is nonsense.
-  assert.ok(SKY_PLATE_SCALE > 0 && SKY_PLATE_SCALE <= 0.35);
-  // Against the lightest shipped plate this must resolve to near-invisible.
-  const lightest = Math.min(
-    ...Object.values(DETECTION_THEME_MAP).map((theme) => alphaOf(theme.calloutPlate)),
-  );
-  assert.ok(lightest * SKY_PLATE_SCALE < 0.12, 'the feathered plate must read as bare text');
-});

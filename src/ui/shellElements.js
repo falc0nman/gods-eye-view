@@ -32,22 +32,12 @@ export function readShellElements(document = globalThis.document) {
     ),
     _cyberSonarSector: document.getElementById('cyber-sonar-sector'),
     _cyberSonarSectorValue: document.getElementById('cyber-sonar-sector-value'),
-    _detectionSliderRow: document.getElementById('detection-slider-row'),
-    _detectionDensitySlider: document.getElementById(
-      'detection-density-slider',
-    ),
-    _detectionDensityValue: document.getElementById('detection-density-value'),
-    _detectionAllocationRow: document.getElementById(
-      'detection-allocation-row',
-    ),
-    _detectionFadeRow: document.getElementById('detection-fade-row'),
-    _detectionFadeSlider: document.getElementById('detection-fade-slider'),
-    _detectionFadeValue: document.getElementById('detection-fade-value'),
-    _detectionOpacityRow: document.getElementById('detection-opacity-row'),
-    _detectionOpacitySlider: document.getElementById(
-      'detection-opacity-slider',
-    ),
-    _detectionOpacityValue: document.getElementById('detection-opacity-value'),
+    _keyholeFadeRow: document.getElementById('keyhole-fade-row'),
+    _keyholeFadeSlider: document.getElementById('keyhole-fade-slider'),
+    _keyholeFadeValue: document.getElementById('keyhole-fade-value'),
+    _keyholeOpacityRow: document.getElementById('keyhole-opacity-row'),
+    _keyholeOpacitySlider: document.getElementById('keyhole-opacity-slider'),
+    _keyholeOpacityValue: document.getElementById('keyhole-opacity-value'),
     _celestialBtn: document.getElementById('celestial-toggle'),
     _scopeBtn: document.getElementById('scope-toggle'),
     _scopeFeatherSlider: document.getElementById('scope-feather-slider'),
@@ -128,18 +118,6 @@ export function readShellElements(document = globalThis.document) {
     _radioVolumeValue: document.getElementById('radio-volume-value'),
     _radioPlaybackState: document.getElementById('radio-playback-state'),
     _radioStationHomepage: document.getElementById('radio-station-homepage'),
-    _globalContextFlightsBtn: document.getElementById(
-      'global-context-flights-btn',
-    ),
-    _globalContextMissionsBtn: document.getElementById(
-      'global-context-missions-btn',
-    ),
-    _contextModeStandby: document.getElementById('context-mode-standby'),
-    _contextFlightsView: document.getElementById('context-flights-view'),
-    _contextMissionsView: document.getElementById('context-missions-view'),
-    _installationsSearchBtn: document.getElementById(
-      'installations-search-btn',
-    ),
     _leftPanelStack: document.getElementById('left-panel-stack'),
     _cctvEnableBtn: document.getElementById('cctv-enable-btn'),
     _cctvNearestBtn: document.getElementById('cctv-nearest-btn'),
@@ -188,8 +166,5 @@ export function readShellElements(document = globalThis.document) {
     _locationMiniPoi: document.getElementById('location-mini-poi'),
     _safeFrameOverlay: document.getElementById('safe-frame-overlay'),
     _safeFrameBox: document.getElementById('safe-frame-box'),
-    _detectionBtn: document.getElementById('detection-toggle'),
-    _models3dBtn: document.getElementById('models3d-toggle'),
-    _models3dModeRow: document.getElementById('models3d-mode-row'),
   };
 }

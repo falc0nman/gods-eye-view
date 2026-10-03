@@ -108,9 +108,8 @@ export function renderSceneShots(
     top.appendChild(actions);
     const meta = document.createElement('div');
     meta.className = 'scene-shot-meta';
-    const mode = shot.visual?.detection?.mode || 'OFF';
     const style = shot.visual?.style || 'normal';
-    meta.textContent = `${style.toUpperCase()} · ${mode} · ${shot.durationSec.toFixed(1)}s + ${shot.holdSec.toFixed(1)}s`;
+    meta.textContent = `${style.toUpperCase()} · ${shot.durationSec.toFixed(1)}s + ${shot.holdSec.toFixed(1)}s`;
     row.appendChild(top);
     row.appendChild(meta);
     element.appendChild(row);

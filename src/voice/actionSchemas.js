@@ -50,47 +50,6 @@ const schemas = [
     },
   },
   {
-    name: 'select_nearest_aircraft',
-    parameters: {
-      type: 'object',
-      additionalProperties: false,
-      properties: {
-        layerId: {
-          type: 'string',
-          enum: ['flights', 'military'],
-        },
-        locationId: {
-          type: 'string',
-          enum: [
-            'austin',
-            'sf',
-            'nyc',
-            'tokyo',
-            'london',
-            'paris',
-            'dubai',
-            'dc',
-          ],
-        },
-        locationQuery: {
-          type: 'string',
-          maxLength: 160,
-        },
-        latitude: {
-          type: 'number',
-          minimum: -90,
-          maximum: 90,
-        },
-        longitude: {
-          type: 'number',
-          minimum: -180,
-          maximum: 180,
-        },
-      },
-      required: ['layerId'],
-    },
-  },
-  {
     name: 'adjust_camera_zoom',
     parameters: {
       type: 'object',
@@ -125,23 +84,9 @@ const schemas = [
         layerId: {
           type: 'string',
           enum: [
-            'flights',
-            'military',
-            'earthquakes',
-            'satellites',
-            'rocket-launches',
             'traffic',
             'cctv',
             'radio',
-            'bikeshare',
-            'ais-live-vessels',
-            'local-datacenters',
-            'local-dams',
-            'telegeography-submarine-cables',
-            'local-firms',
-            'fire-perimeters',
-            'alpr-cameras',
-            'local-adsb',
             'weather-radar',
             'nexrad',
             'nws-warnings',
@@ -164,21 +109,9 @@ const schemas = [
         layerId: {
           type: 'string',
           enum: [
-            'flights',
-            'military',
-            'earthquakes',
-            'satellites',
             'traffic',
             'cctv',
             'radio',
-            'bikeshare',
-            'ais-live-vessels',
-            'local-datacenters',
-            'local-dams',
-            'telegeography-submarine-cables',
-            'local-firms',
-            'fire-perimeters',
-            'alpr-cameras',
             'weather-radar',
             'nexrad',
             'nws-warnings',
@@ -215,46 +148,6 @@ const schemas = [
     },
   },
   {
-    name: 'set_context_mode',
-    parameters: {
-      type: 'object',
-      additionalProperties: false,
-      properties: {
-        mode: {
-          type: 'string',
-          enum: ['off', 'contacts', 'flights', 'space-missions', 'missions'],
-        },
-      },
-      required: ['mode'],
-    },
-  },
-  {
-    name: 'control_cockpit',
-    parameters: {
-      type: 'object',
-      additionalProperties: false,
-      properties: {
-        action: {
-          type: 'string',
-          enum: ['enter', 'exit', 'previous', 'next', 'prev', 'status'],
-        },
-        targetLayer: {
-          type: 'string',
-          enum: [
-            'flights',
-            'military',
-            'ais-live-vessels',
-            'military-installations',
-          ],
-        },
-        aircraftClass: {
-          type: 'string',
-        },
-      },
-      required: ['action'],
-    },
-  },
-  {
     name: 'set_visual_style',
     parameters: {
       type: 'object',
@@ -285,15 +178,6 @@ const schemas = [
         scope: {
           type: 'string',
           enum: ['auto', 'selected', 'in_view'],
-        },
-        layerId: {
-          type: 'string',
-          enum: [
-            'local-datacenters',
-            'local-dams',
-            'telegeography-submarine-cables',
-            'local-firms',
-          ],
         },
         limit: {
           type: 'number',
@@ -340,29 +224,6 @@ const schemas = [
         intensityPct: { type: 'integer', minimum: 0, maximum: 100 },
         opacityPct: { type: 'integer', minimum: 35, maximum: 100 },
         sectorDeg: { type: 'integer', minimum: 8, maximum: 60 },
-      },
-    },
-  },
-  {
-    name: 'set_detection',
-    parameters: {
-      type: 'object',
-      additionalProperties: false,
-      properties: {
-        enabled: {
-          type: 'boolean',
-        },
-        mode: {
-          type: 'string',
-          enum: ['sparse', 'balanced', 'dense'],
-        },
-        densityPct: {
-          type: 'number',
-        },
-        allocationStrategy: {
-          type: 'string',
-          enum: ['elastic', 'weighted'],
-        },
       },
     },
   },
@@ -546,47 +407,6 @@ const schemas = [
         },
       },
       required: ['action'],
-    },
-  },
-  {
-    name: 'track_entity',
-    parameters: {
-      type: 'object',
-      additionalProperties: false,
-      properties: {
-        query: {
-          type: 'string',
-        },
-        layerId: {
-          type: 'string',
-        },
-      },
-      required: ['query'],
-    },
-  },
-  {
-    name: 'stop_tracking',
-    parameters: {
-      type: 'object',
-      additionalProperties: false,
-      properties: {},
-    },
-  },
-  {
-    name: 'frame_overhead',
-    parameters: {
-      type: 'object',
-      additionalProperties: false,
-      properties: {
-        target: {
-          type: 'string',
-          enum: ['flights', 'military', 'satellites', 'vessels'],
-        },
-        radiusKm: {
-          type: 'number',
-        },
-      },
-      required: ['target'],
     },
   },
   {
@@ -780,130 +600,6 @@ const schemas = [
           type: 'string',
           enum: ['slow', 'normal', 'fast'],
         },
-      },
-    },
-  },
-  {
-    name: 'analyst_query',
-    parameters: {
-      type: 'object',
-      additionalProperties: false,
-      properties: {
-        layers: {
-          type: 'array',
-          items: {
-            type: 'string',
-            enum: [
-              'flights',
-              'military',
-              'ais-live-vessels',
-              'local-firms',
-              'earthquakes',
-              'satellites',
-              'local-datacenters',
-              'local-dams',
-              'fire-perimeters',
-            ],
-          },
-        },
-        scope: {
-          type: 'object',
-          additionalProperties: false,
-          properties: {
-            kind: {
-              type: 'string',
-              enum: ['view', 'region', 'radius', 'anywhere'],
-            },
-            name: {
-              type: 'string',
-            },
-            km: {
-              type: 'number',
-            },
-            center: {
-              type: 'object',
-              additionalProperties: false,
-              properties: {
-                lat: {
-                  type: 'number',
-                },
-                lon: {
-                  type: 'number',
-                },
-              },
-            },
-          },
-        },
-        filters: {
-          type: 'array',
-          items: {
-            type: 'object',
-            additionalProperties: false,
-            properties: {
-              field: {
-                type: 'string',
-              },
-              op: {
-                type: 'string',
-                enum: ['gt', 'gte', 'lt', 'lte', 'eq', 'neq', 'contains'],
-              },
-              value: {},
-            },
-            required: ['field', 'op', 'value'],
-          },
-        },
-        sortBy: {
-          type: 'string',
-        },
-        sortDir: {
-          type: 'string',
-          enum: ['asc', 'desc'],
-        },
-        limit: {
-          type: 'number',
-        },
-        followUp: {
-          type: 'boolean',
-        },
-      },
-    },
-  },
-  {
-    name: 'next_iss_pass',
-    parameters: {
-      type: 'object',
-      additionalProperties: false,
-      properties: {
-        latitude: {
-          type: 'number',
-          minimum: -90,
-          maximum: 90,
-        },
-        longitude: {
-          type: 'number',
-          minimum: -180,
-          maximum: 180,
-        },
-        minElevationDeg: {
-          type: 'number',
-          minimum: 5,
-          maximum: 60,
-        },
-      },
-    },
-  },
-  {
-    name: 'next_satellite_pass',
-    parameters: {
-      type: 'object',
-      additionalProperties: false,
-      required: ['target'],
-      properties: {
-        target: { type: 'string', minLength: 1, maxLength: 120 },
-        latitude: { type: 'number', minimum: -90, maximum: 90 },
-        longitude: { type: 'number', minimum: -180, maximum: 180 },
-        minElevationDeg: { type: 'number', minimum: 5, maximum: 60 },
-        visibleOnly: { type: 'boolean' },
       },
     },
   },

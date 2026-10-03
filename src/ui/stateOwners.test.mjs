@@ -8,7 +8,6 @@ function navigation() {
     [
       'flightsLayer',
       'militaryFlightsLayer',
-      'satellitesLayer',
       'aisLiveVesselsLayer',
       'militaryAwarenessLayer',
       'rocketLaunchesLayer',
@@ -21,7 +20,6 @@ function navigation() {
     interruptCameraMotion() {},
     isCockpitActive: () => false,
     clearLocation() {},
-    cancelShareSelection: () => false,
     getDataManager: () => null,
     stopOrbit() {},
     showToast() {},
@@ -106,7 +104,7 @@ test('share teardown settles its promise, removes gestures and rejects a retaine
   assert.equal(applies, 0);
 });
 
-test('visual teardown restores owned fog and aircraft sensor state once', async (t) => {
+test('visual teardown restores owned fog once', async (t) => {
   const { VisualSettings } = await import('./visualSettings.js');
   const priorDocument = globalThis.document;
   globalThis.document = {
@@ -134,10 +132,7 @@ test('visual teardown restores owned fog and aircraft sensor state once', async 
   owner.releaseIrBoost();
   owner.releaseIrBoost();
   assert.equal(viewer.scene.fog.enabled, true);
-  assert.deepEqual(calls, [
-    ['flights', { irBoost: false }],
-    ['military', { irBoost: false }],
-  ]);
+  assert.deepEqual(calls, []);
   assert.equal(owner._irBoostActive, false);
   owner.destroy();
 });

@@ -14,7 +14,7 @@ import {
  * lookups, keyless. Upstream: https://terrain.reearth.land/heights.json
  * (UPSTREAM_CHUNK points per call — sized against measured latency, see
  * below). Terrain doesn't move, so results are cached to
- * disk with a long TTL (30 days) — mirrors celestrakProxy's memory+disk
+ * disk with a long TTL (30 days), using a memory+disk
  * cache and serve-stale shape. Cache entries and stale fallback are keyed per
  * 5dp point, so reordered and partially overlapping batches reuse prior work.
  * Only missing/stale points go upstream; the response is rebuilt in exact

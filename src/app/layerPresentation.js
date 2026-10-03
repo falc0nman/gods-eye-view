@@ -1,16 +1,11 @@
 import { LayerPanel } from '../ui/layers.js';
 import { governorRequestRender } from '../renderGovernor.js';
-import { markDetectionSourcesChanged } from '../data/detection.js';
 
 /** Own the layer panel and application reactions to lifecycle activity. */
 export class LayerPresentation {
   constructor(
     manager,
-    {
-      weatherClock,
-      requestRender = governorRequestRender,
-      invalidateDetection = markDetectionSourcesChanged,
-    } = {},
+    { weatherClock, requestRender = governorRequestRender } = {},
   ) {
     this.manager = manager;
     this.weatherClock = weatherClock;
@@ -30,7 +25,6 @@ export class LayerPresentation {
                 : null;
         if (!reason) return;
         requestRender(reason);
-        if (change.type !== 'params-settled') invalidateDetection(reason);
       }
     });
   }

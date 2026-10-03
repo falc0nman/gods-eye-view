@@ -1,4 +1,3 @@
-import { readLayerSource } from '../testSupport/readLayerSource.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -7,8 +6,6 @@ import {
   isTrackingClickGesture,
   isTrackingSelectionGesture,
 } from './trackingClickGesture.js';
-import { TRACKED_MODEL_MAX_PX as CIVIL_TRACKED_MODEL_MAX_PX } from './flights.js';
-import { TRACKED_MODEL_MAX_PX as MILITARY_TRACKED_MODEL_MAX_PX } from './militaryFlights.js';
 
 const TYPES = {
   LEFT_DOWN: 'left-down',
@@ -109,23 +106,3 @@ test('slow clean sprite clicks select, while long presses and orbit nudges canno
   assert.equal(untracks, 1, 'a short clean empty-space tap still untracks');
 });
 
-test('civilian and military click handlers apply duration only at the deselect branch', () => {
-  const sources = [
-    readLayerSource(new URL('./flights.js', import.meta.url)),
-    readLayerSource(new URL('./militaryFlights.js', import.meta.url)),
-  ];
-  for (const source of sources) {
-    assert.match(source, /isTrackingSelectionGesture\(gesture\)[\s\S]+scene\.pick/);
-    assert.match(source, /isTrackingClickGesture\(gesture\)[\s\S]+(?:parts\.\w+\.)?_clearTracking\([^)]*\{ origin: 'user' \}\)/);
-  }
-  assert.doesNotMatch(
-    sources[0],
-    /(?:flightState\.)?_trackedEntity = (?:flightState\.)?_viewer\.entities\.add\(\{\s*id:/,
-    'civilian tracked entities must retain Cesium-generated GUIDs',
-  );
-});
-
-test('civilian and military tracked model caps both expose the owner-selected 200 px feel', () => {
-  assert.equal(CIVIL_TRACKED_MODEL_MAX_PX, 200);
-  assert.equal(MILITARY_TRACKED_MODEL_MAX_PX, 200);
-});

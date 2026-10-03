@@ -156,10 +156,6 @@ export function recipeToScene(recipe) {
           visible: hudVisible,
           variant: hudVariant,
         },
-        detection: {
-          mode: post.detectionMode || 'OFF',
-          density: 35,
-        },
         ...(SCENE_MAP_STACK_IDS.has(mapStack) ? { mapStack } : {}),
         styleParams,
       },
@@ -211,6 +207,19 @@ export function createDefaultProject() {
  * @param {number} [options.projectVersion] - Schema version of the enclosing project
  * @returns {Object} Fully normalized shot
  */
+/** The keyhole fade a shot carries under its historical `detection` key. */
+function keyholeFadeState(detection) {
+  const fade = {
+    ...(Number.isFinite(Number(detection.fadePct))
+      ? { fadePct: Number(detection.fadePct) }
+      : {}),
+    ...(Number.isFinite(Number(detection.outsideOpacityPct))
+      ? { outsideOpacityPct: Number(detection.outsideOpacityPct) }
+      : {}),
+  };
+  return Object.keys(fade).length ? { detection: fade } : {};
+}
+
 export function normalizeShot(
   rawShot,
   index = 0,
@@ -280,27 +289,9 @@ export function normalizeShot(
         visible: typeof hud.visible === 'boolean' ? hud.visible : true,
         variant: typeof hud.variant === 'string' ? hud.variant : 'tactical',
       },
-      detection: {
-        ...(typeof detection.allocation === 'string'
-          ? { allocation: detection.allocation }
-          : {}),
-        ...(Number.isFinite(Number(detection.fadePct))
-          ? { fadePct: Number(detection.fadePct) }
-          : {}),
-        ...(Number.isFinite(Number(detection.outsideOpacityPct))
-          ? { outsideOpacityPct: Number(detection.outsideOpacityPct) }
-          : {}),
-        mode: typeof detection.mode === 'string' ? detection.mode : 'OFF',
-        density: Math.max(
-          0,
-          Math.min(
-            100,
-            Number.isFinite(Number(detection.density))
-              ? Number(detection.density)
-              : 35,
-          ),
-        ),
-      },
+      // Only the keyhole fade survives GW-57's detection removal; older
+      // projects' mode, density and allocation are dropped here.
+      ...keyholeFadeState(detection),
       ...(visual.scope && typeof visual.scope === 'object'
         ? { scope: deepClone(visual.scope) }
         : {}),

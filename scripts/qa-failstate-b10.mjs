@@ -6,18 +6,7 @@
  * Drives the REAL app in headless Chromium and asserts that dead/failed feeds
  * are SURFACED to the user instead of a healthy-looking empty state.
  *
- * Node-side request interception (page.setRequestInterception) fabricates the
- * upstream failures so the run is deterministic and never depends on live
- * AISStream / CelesTrak availability:
- *
- *   (i)  AIS invalid key   — /api/ais-live is answered with
- *        {rows:[],status:'error',error:'invalid key'}. Assert the layer's
- *        getStats().error is set (feed down) — NOT a clean 'just now · 0'.
- *
- *   (ii) CelesTrak outage  — first serve a good catalog so there's something to
- *        preserve, then flip ALL /api/celestrak/* groups to HTTP 503. Toggle
- *        satellites off/on. Assert the catalog is NOT wiped to 0 AND
- *        getStats().error is set.
+ * Checks:
  *
  *   (iii) DETECT with no data — enable panoptic detection with NO data layers.
  *        Assert the shared #world-overlay-canvas is non-empty (mode banner drawn),
@@ -135,18 +124,6 @@ async function captureLayerControl(page, layerId, filename) {
   await row.screenshot({ path: path.join(ARTIFACT_DIR, filename) });
 }
 
-// A minimal but valid TLE for one satellite (ISS), so the "good catalog" pass
-// builds a non-zero catalog we can later prove is preserved across the outage.
-// parseTLE in satellites.js expects `NAME\n1 ...\n2 ...` triplets.
-const GOOD_TLE = [
-  'ISS (ZARYA)',
-  '1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927',
-  '2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537',
-  'NOAA 19',
-  '1 33591U 09005A   08264.51782528 -.00000045  00000-0  35116-4 0  9999',
-  '2 33591  99.1949 123.4567 0013000 200.0000 160.0000 14.12345678123456',
-].join('\n');
-
 async function main() {
   console.log('\nSilent-Failure Proof (Batch 10 — H3 + H9)');
   console.log(`  App URL : ${APP_URL}`);
@@ -179,12 +156,6 @@ async function main() {
 
   let exitCode = 0;
 
-  // Node-side controllable interception mode, flipped mid-run.
-  //   celestrak: 'good'  → serve GOOD_TLE for every group
-  //   celestrak: 'partial' → fail one group while preserving a usable catalog
-  //   celestrak: 'down'    → 503 for every group (total outage)
-  const mode = { celestrak: 'good' };
-
   try {
     const page = await browser.newPage();
     await page.setViewport({ width: 1280, height: 800 });
@@ -192,25 +163,6 @@ async function main() {
     await page.setRequestInterception(true);
     page.on('request', (req) => {
       const url = req.url();
-      // (i) AIS invalid-key: the exact payload the spec calls for.
-      if (url.includes('/api/ais-live') && !url.includes('/track')) {
-        req.respond({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({ rows: [], status: 'error', error: 'invalid key' }),
-        });
-        return;
-      }
-      // (ii) CelesTrak proxy — /api/celestrak/<group>
-      if (url.includes('/api/celestrak/')) {
-        if (mode.celestrak === 'down'
-          || (mode.celestrak === 'partial' && url.includes('/api/celestrak/stations'))) {
-          req.respond({ status: 503, contentType: 'text/plain', body: 'upstream unavailable' });
-        } else {
-          req.respond({ status: 200, contentType: 'text/plain', body: GOOD_TLE });
-        }
-        return;
-      }
       req.continue();
     });
 
@@ -229,7 +181,7 @@ async function main() {
     console.log('\n(0) Universal periodic refresh feedback...');
     const refreshFeedback = await page.evaluate(async () => {
       const dm = window.__godsEyeView.dataManager;
-      const ids = ['flights', 'military', 'satellites'];
+      const ids = ['flights', 'military'];
       const styleManager = window.__godsEyeView.styleManager;
       const outcomes = [];
       const readBanner = () => ({
@@ -329,145 +281,6 @@ async function main() {
         JSON.stringify(outcome),
       );
       if (!passed) exitCode = 1;
-    }
-
-    // ── (i) AIS invalid key → surfaced error, not a clean empty ──────────────
-    console.log('\n(i) AIS invalid-key: enabling ais-live-vessels...');
-    const aisStats = await page.evaluate(async () => {
-      const dm = window.__godsEyeView.dataManager;
-      await dm.setEnabled('ais-live-vessels', true);
-      const mod = dm.layers.get('ais-live-vessels').module;
-      // DataLayerManager intentionally treats enable() as a synchronous
-      // lifecycle hook, while this layer starts its first poll asynchronously
-      // from enable(). Wait on the layer's public loading state instead of a
-      // machine-speed-dependent fixed delay so the assertion always observes
-      // the injected response, not an in-flight request.
-      const deadline = Date.now() + 5000;
-      while (mod.getStats().loading && Date.now() < deadline) {
-        await new Promise((r) => setTimeout(r, 50));
-      }
-      return mod.getStats();
-    });
-    {
-      const hasError = typeof aisStats.error === 'string' && aisStats.error.length > 0;
-      const cleanEmpty = !hasError && (aisStats.count === 0);
-      record(
-        'AIS: dead feed surfaces an error (not clean empty)',
-        hasError && !cleanEmpty,
-        `stats=${JSON.stringify({ error: aisStats.error, count: aisStats.count, lastUpdate: aisStats.lastUpdate })}`,
-      );
-      if (!hasError) exitCode = 1;
-    }
-    const aisControl = await readLayerControl(page, 'ais-live-vessels', 'UNAVAILABLE');
-    const aisChipHonest = aisControl.feedState === 'unavailable'
-      && aisControl.ariaLabel === 'Live AIS Vessels: UNAVAILABLE';
-    const aisMetaHonest = /^UNAVAILABLE · AISStream · /i.test(aisControl.meta)
-      && aisStats.error
-      && aisControl.meta.includes(aisStats.error);
-    record(
-      'AIS: layer control reads UNAVAILABLE',
-      aisChipHonest,
-      JSON.stringify(aisControl),
-    );
-    record(
-      'AIS: layer metadata names the upstream error',
-      aisMetaHonest,
-      `meta=${JSON.stringify(aisControl.meta)}`,
-    );
-    if (!aisChipHonest || !aisMetaHonest) exitCode = 1;
-    await captureLayerControl(page, 'ais-live-vessels', 'failstate-ais-unavailable.png');
-
-    // ── (ii) CelesTrak outage on re-enable → catalog NOT wiped, error set ────
-    console.log('\n(ii) Satellites: building a good catalog first...');
-    const goodStats = await page.evaluate(async () => {
-      const dm = window.__godsEyeView.dataManager;
-      await dm.setEnabled('satellites', true);
-      await new Promise((r) => setTimeout(r, 800));
-      const mod = dm.layers.get('satellites').module;
-      return mod.getStats();
-    });
-    record(
-      'Satellites: good catalog loaded before outage (baseline)',
-      goodStats.count > 0,
-      `count=${goodStats.count} error=${goodStats.error ?? null}`,
-    );
-    if (!(goodStats.count > 0)) {
-      // Without a baseline the preservation assertion is meaningless.
-      record('Satellites: catalog preserved across total outage', null, 'no baseline catalog to preserve');
-    } else {
-      console.log('     Failing one CelesTrak group and verifying the visible degraded state...');
-      mode.celestrak = 'partial';
-      const partialStats = await page.evaluate(async () => {
-        const dm = window.__godsEyeView.dataManager;
-        await dm.setEnabled('satellites', false);
-        await new Promise((r) => setTimeout(r, 200));
-        await dm.setEnabled('satellites', true);
-        await new Promise((r) => setTimeout(r, 800));
-        return dm.layers.get('satellites').module.getStats();
-      });
-      const partialControl = await readLayerControl(page, 'satellites', 'DEGRADED');
-      const partialChipHonest = partialStats.count > 0
-        && /1 CelesTrak group unavailable/i.test(partialStats.error || '')
-        && partialControl.feedState === 'degraded'
-        && partialControl.ariaLabel === 'Satellites: DEGRADED';
-      const partialMetaHonest = /^DEGRADED · CelesTrak · /i.test(partialControl.meta)
-        && /1 CelesTrak group unavailable/i.test(partialControl.meta);
-      record(
-        'Satellites: partial outage renders a DEGRADED chip',
-        partialChipHonest,
-        JSON.stringify({ stats: partialStats, control: partialControl }),
-      );
-      record(
-        'Satellites: degraded metadata names partial coverage',
-        partialMetaHonest,
-        `meta=${JSON.stringify(partialControl.meta)}`,
-      );
-      if (!partialChipHonest || !partialMetaHonest) exitCode = 1;
-      await captureLayerControl(page, 'satellites', 'failstate-satellites-degraded.png');
-
-      console.log('     Flipping ALL CelesTrak groups to 503 and toggling satellites off→on...');
-      mode.celestrak = 'down';
-      const outageStats = await page.evaluate(async (baseline) => {
-        const dm = window.__godsEyeView.dataManager;
-        // Toggle off then on — the re-enable's update() re-fetches (now all 503).
-        await dm.setEnabled('satellites', false);
-        await new Promise((r) => setTimeout(r, 200));
-        await dm.setEnabled('satellites', true);
-        await new Promise((r) => setTimeout(r, 800));
-        const mod = dm.layers.get('satellites').module;
-        return { stats: mod.getStats(), baseline };
-      }, goodStats.count);
-
-      const s = outageStats.stats;
-      const notWiped = s.count > 0; // catalog preserved, not blanked to 0
-      const errorSet = typeof s.error === 'string' && s.error.length > 0;
-      const outageControl = await readLayerControl(page, 'satellites', 'UNAVAILABLE');
-      const outageChipHonest = outageControl.feedState === 'unavailable'
-        && outageControl.ariaLabel === 'Satellites: UNAVAILABLE';
-      const outageMetaHonest = /^UNAVAILABLE · CelesTrak · /i.test(outageControl.meta)
-        && outageControl.meta.includes(s.error || '');
-      record(
-        'Satellites: catalog NOT wiped to 0 on total outage',
-        notWiped,
-        `count=${s.count} (baseline=${outageStats.baseline})`,
-      );
-      record(
-        'Satellites: outage surfaces stats.error',
-        errorSet,
-        `error=${JSON.stringify(s.error)} lastUpdate=${s.lastUpdate}`,
-      );
-      record(
-        'Satellites: total outage renders an UNAVAILABLE chip',
-        outageChipHonest,
-        JSON.stringify(outageControl),
-      );
-      record(
-        'Satellites: unavailable metadata names the outage',
-        outageMetaHonest,
-        `meta=${JSON.stringify(outageControl.meta)}`,
-      );
-      if (!notWiped || !errorSet || !outageChipHonest || !outageMetaHonest) exitCode = 1;
-      await captureLayerControl(page, 'satellites', 'failstate-satellites-unavailable.png');
     }
 
     // ── (iii) DETECT with no data layers → mode banner drawn (non-blank) ─────

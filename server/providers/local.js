@@ -1,27 +1,13 @@
-import { openSkyProxy } from './aircraft/opensky.js';
-import { celestrakProxy, rocketLaunchesProxy } from './space.js';
 import { tomtomProxy } from './traffic.js';
-import { firmsProxy } from './firms.js';
 import { terrainHeightsProxy } from './terrain.js';
-import { adsbdbProxy } from './aircraft/enrichment.js';
 import { overpassProxy } from './overpass.js';
-import { militaryInstallationsProxy } from './military-installations.js';
-import { regionalBriefProxy } from './regional/briefing.js';
 import { geocodeProxy } from './regional/place.js';
-import { weatherEffectsProxy } from './regional/weather-effects.js';
 import { cctvProxy } from './cctv.js';
 import { defaultSourceRoot } from './common/source-root.js';
-import { radioBrowserProxy } from './radio.js';
-import { gbfsProxy } from './gbfs.js';
-import { localReceiversProxy } from './local-receivers.js';
-import { transitProxy } from './transit.js';
 import { adsbLolProxy } from './aircraft/adsb-lol.js';
-import { aisLiveProxy } from './vessels/ais-live.js';
-import { trackBackfillProxies } from './aircraft/tracks.js';
 import { openAiRealtimeProxy } from './openai.js';
 import { googlePlacesContextProxy } from './places.js';
 import { weatherProxy } from './weather.js';
-import { firePerimetersProxy } from './firePerimeters.js';
 import { cycloneProxy } from './cyclones.js';
 import { nexradLevel3Proxy } from './nexrad.js';
 import { life360ChasersProxy } from './life360.js';
@@ -41,28 +27,14 @@ function localProviderRegistry({ notificationTransport } = {}) {
   const registry = registerInterfaceProviders(createProviderRegistry(), {
     notificationTransport,
   });
-  registry.registerLegacy('opensky', openSkyProxy);
-  registry.registerLegacy('celestrak', celestrakProxy);
   registry.registerLegacy('tomtom', tomtomProxy);
-  registry.registerLegacy('firms', firmsProxy);
-  registry.registerLegacy('rocket-launches', rocketLaunchesProxy);
   registry.registerLegacy('terrain-heights', terrainHeightsProxy);
-  registry.registerLegacy('adsbdb', adsbdbProxy);
   registry.registerLegacy('overpass', overpassProxy);
-  registry.registerLegacy('military-installations', militaryInstallationsProxy);
-  registry.registerLegacy('regional-brief', regionalBriefProxy);
   registry.registerLegacy('geocode', geocodeProxy);
-  registry.registerLegacy('weather-effects', weatherEffectsProxy);
   registry.registerLegacy('cctv', () =>
     cctvProxy({ sourceRoot: defaultSourceRoot }),
   );
-  registry.registerLegacy('radio-browser', radioBrowserProxy);
-  registry.registerLegacy('gbfs', gbfsProxy);
-  registry.registerLegacy('local-receivers', localReceiversProxy);
-  registry.registerLegacy('transit', transitProxy);
   registry.registerLegacy('adsb-lol', adsbLolProxy);
-  registry.registerLegacy('ais-live', aisLiveProxy);
-  registry.registerLegacy('track-backfill', trackBackfillProxies);
   registry.registerLegacy('openai-realtime', openAiRealtimeProxy);
   registry.registerLegacy('google-places-context', googlePlacesContextProxy);
   registry.registerLegacy('wind', windProxy);
@@ -70,7 +42,6 @@ function localProviderRegistry({ notificationTransport } = {}) {
   registry.registerLegacy('cyclones', cycloneProxy);
   registry.registerLegacy('nexrad-level3', nexradLevel3Proxy);
   registry.registerLegacy('life360-chasers', life360ChasersProxy);
-  registry.registerLegacy('fire-perimeters', firePerimetersProxy);
   return registry;
 }
 
@@ -89,18 +60,9 @@ export {
   CCTV_FRAME_FETCH_TIMEOUT_MS,
   fetchCctvImageFromUpstream,
 } from './cctv.js';
-export {
-  createRadioProxyMiddleware,
-  isPublicRadioAddress,
-  normalizeRadioBrowserStation,
-  publicRadioStation,
-  publicRadioHttpsUrl,
-} from './radio.js';
-export { LL2_CACHE_TTL_MS, launchLibraryRequestHeaders } from './space.js';
 export { googlePlacesContextProxy } from './places.js';
 export { googleServerApiKey } from './places.js';
 export { keylessGooglePlacesResponse } from './places.js';
-export { adsbLolFallbackAnchor } from './aircraft/opensky.js';
 export { readResponseTextCapped } from './common/http.js';
 export { readResponseJsonCapped } from './common/http.js';
 export { coalesceProxyRequest } from './common/http.js';
@@ -112,16 +74,4 @@ export { resolveOverpassPreflight } from './overpass/cache.js';
 export { overpassPayloadIsData } from './overpass/transport.js';
 export { fetchOverpassPayload } from './overpass/transport.js';
 export { openAiRealtimeProxy } from './openai.js';
-export { MILITARY_INSTALLATION_ELEMENT_CAP } from './military-installations/constants.js';
-export { quantizeMilitaryInstallationBox } from './military-installations/query.js';
-export { militaryInstallationCacheKey } from './military-installations/query.js';
-export { resolveMilitaryInstallationTier } from './military-installations/cache.js';
-export { migrateMilitaryInstallationEntry } from './military-installations/cache.js';
-export { militaryInstallationDiskFresh } from './military-installations/cache.js';
-export { militaryInstallationDiskPath } from './military-installations/cache.js';
-export { readMilitaryInstallationDisk } from './military-installations/cache.js';
-export { writeMilitaryInstallationDisk } from './military-installations/cache.js';
-export { validMilitaryInstallationBox } from './military-installations/query.js';
-export { militaryInstallationFailureReason } from './military-installations/query.js';
 export { validRegionalPoint } from './regional/query.js';
-export { regionalBriefHasAnySource } from './regional/briefing.js';

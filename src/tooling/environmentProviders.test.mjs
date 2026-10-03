@@ -3,8 +3,6 @@ import assert from 'node:assert/strict';
 import { promises as fsp } from 'node:fs';
 import { terrainHeightsProxy } from 'gods-eye-view/server/providers/terrain';
 import { tomtomProxy } from 'gods-eye-view/server/providers/traffic';
-import { firmsProxy } from 'gods-eye-view/server/providers/firms';
-import { gbfsProxy } from 'gods-eye-view/server/providers/gbfs';
 import { localProviderPlugins } from '../../server/providers/local.js';
 
 function install(plugin) {
@@ -58,12 +56,7 @@ test('standalone composition mounts every extracted provider exactly once withou
     throw Error('construction must not fetch');
   });
   const plugins = localProviderPlugins();
-  for (const factory of [
-    terrainHeightsProxy,
-    tomtomProxy,
-    firmsProxy,
-    gbfsProxy,
-  ])
+  for (const factory of [terrainHeightsProxy, tomtomProxy])
     assert.equal(plugins.filter((p) => p.name === factory().name).length, 1);
 });
 
@@ -166,97 +159,6 @@ test('traffic middleware preserves keyless mode, caching, stale budget fallback 
     'MISS',
   );
   assert.equal(calls, 2);
-});
-
-test('FIRMS retains a large successful source during partial failure and filters stale data at serve time', async (t) => {
-  isolate(t, { FIRMS_MAP_KEY: '' });
-  let now = Date.UTC(2026, 8, 12, 12);
-  t.mock.method(Date, 'now', () => now);
-  let calls = 0;
-  const header = 'latitude,longitude,acq_date,acq_time,confidence,frp\n';
-  const csv = header + '30,-97,2026-09-12,1200,h,10\n'.repeat(130001);
-  t.mock.method(globalThis, 'fetch', async (raw) => {
-    calls++;
-    const url = new URL(raw);
-    assert.equal(url.hostname, 'firms.modaps.eosdis.nasa.gov');
-    if (url.pathname.includes('mapkey_status'))
-      return Response.json({
-        current_transactions: 3,
-        transaction_limit: 5000,
-      });
-    return url.pathname.includes('VIIRS_NOAA20')
-      ? new Response(csv)
-      : new Response('offline', { status: 503 });
-  });
-  const request = install(firmsProxy());
-  assert.equal((await request()).status, 503);
-  assert.equal(json(await request('/status')).hasKey, false);
-  assert.equal(calls, 0);
-  process.env.FIRMS_MAP_KEY = 'fixture-key';
-  const first = json(await request());
-  assert.equal(first.count, 130001);
-  assert.equal(first.sources.filter((s) => s.ok).length, 1);
-  assert.equal(calls, 4);
-  assert.equal(json(await request()).count, 130001);
-  assert.equal(calls, 4);
-  assert.deepEqual(json(await request('/status')).transactions, {
-    used: 3,
-    limit: 5000,
-  });
-  now += 25 * 3600000;
-  t.mock.method(
-    globalThis,
-    'fetch',
-    async () => new Response('offline', { status: 503 }),
-  );
-  const stale = json(await request());
-  assert.equal(stale.stale, true);
-  assert.equal(stale.count, 0);
-});
-
-test('GBFS keeps host/path/method guards, response caps and distinct information/status cache headers', async (t) => {
-  let calls = 0;
-  t.mock.method(globalThis, 'fetch', async (raw) => {
-    calls++;
-    assert.equal(new URL(raw).hostname, 'gbfs.lyft.com');
-    return Response.json({ data: { stations: [] } });
-  });
-  const request = install(gbfsProxy());
-  const target = (p) => '/' + encodeURIComponent('https://gbfs.lyft.com/' + p);
-  assert.equal(
-    (await request(target('station_status.json'), 'POST')).status,
-    405,
-  );
-  assert.equal(
-    (
-      await request(
-        '/' + encodeURIComponent('https://example.com/station_status.json'),
-      )
-    ).status,
-    403,
-  );
-  assert.equal((await request(target('gbfs.json'))).status, 400);
-  assert.equal((await request('/%zz')).status, 400);
-  assert.equal(calls, 0);
-  assert.equal(
-    (await request(target('station_information.json'))).headers[
-      'Cache-Control'
-    ],
-    'public, max-age=300',
-  );
-  assert.equal(
-    (await request(target('station_status.json'))).headers['Cache-Control'],
-    'no-store',
-  );
-  t.mock.method(
-    globalThis,
-    'fetch',
-    async () =>
-      new Response('x', {
-        headers: { 'content-length': String(6 * 1024 * 1024) },
-      }),
-  );
-  assert.equal((await request(target('station_status.json'))).status, 502);
 });
 
 test('terrain middleware retains successful chunks around a failure and retries only missing points', async (t) => {

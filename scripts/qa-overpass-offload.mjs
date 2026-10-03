@@ -5,14 +5,12 @@
  * Run: node scripts/qa-overpass-offload.mjs http://localhost:4173
  *      node scripts/qa-overpass-offload.mjs --url http://localhost:4173
  *
- * Flies to Austin at 2 km, enables Street Traffic, Mapped Installations and
- * ALPR, then checks rendered road dots, ALPR entities, and military markers
- * and polygon outlines near Camp Mabry, Fort Cavazos marker deduplication,
- * and at least 150 street-view dots within -3/+25 m of the surface. Records the traffic road-source label
+ * Flies to Austin at 2 km, enables Street Traffic, then checks rendered road
+ * dots and at least 150 street-view dots within -3/+25 m of the surface. Records the traffic road-source label
  * and rejects every browser request to an Overpass host or public Nominatim.
  * Server-side zero egress is separately pinned in src/overpassOffload.test.mjs.
  * --tour measures Austin, London, Dubai, San Diego, Tokyo and São Paulo, then
- * revisits Austin, with all three layers enabled. CDP records requests, decoded
+ * revisits Austin, with Street Traffic enabled. CDP records requests, decoded
  * response-body bytes and transferred bytes (including headers), split by provider.
  * Uses real tile responses. A second isolated page overrides only TomTom key
  * availability to check OpenFreeMap roads on the Google mesh. The default run
@@ -39,7 +37,7 @@ if (args.includes('--names')) {
 }
 if (args.includes('--help') || args.includes('-h')) {
   console.log(
-    'Usage: node scripts/qa-overpass-offload.mjs [--url] <dev-server-url> [--headful] [--software-gl] [--tour | --pan | --compare | --profile | --coverage | --names]\nChecks street-level mesh alignment for OpenFreeMap roads with/without TomTom flow, ALPR, Camp Mabry, Fort Cavazos, source labels and zero external Overpass/Nominatim requests. With --tour, measures a six-city session plus Austin revisit. The --pan mode checks twenty moves and the --profile mode measures cold/warm phases; --coverage checks the London ALPR row. The --compare mode captures three road sources at five identical tilted photoreal views. All modes record per-view provider requests/bytes and cache hits in qa-shots/overpass-offload-result.json (also a mode-specific result). Writes qa-shots/. Uses platform ANGLE by default; --software-gl opts into slower SwiftShader.',
+    'Usage: node scripts/qa-overpass-offload.mjs [--url] <dev-server-url> [--headful] [--software-gl] [--tour | --pan | --compare | --profile | --names]\nChecks street-level mesh alignment for OpenFreeMap roads with/without TomTom flow, Camp Mabry, Fort Cavazos, source labels and zero external Overpass/Nominatim requests. With --tour, measures a six-city session plus Austin revisit. The --pan mode checks twenty moves and the --profile mode measures cold/warm phases. The --compare mode captures three road sources at five identical tilted photoreal views. All modes record per-view provider requests/bytes and cache hits in qa-shots/overpass-offload-result.json (also a mode-specific result). Writes qa-shots/. Uses platform ANGLE by default; --software-gl opts into slower SwiftShader.',
   );
   process.exit(0);
 }
@@ -52,7 +50,6 @@ const compare = args.includes('--compare');
 const tour = args.includes('--tour');
 const pan = args.includes('--pan');
 const profile = args.includes('--profile');
-const coverage = args.includes('--coverage');
 const shots = path.resolve('qa-shots');
 await fs.mkdir(shots, { recursive: true });
 const browser = await puppeteer.launch({
@@ -83,30 +80,20 @@ const result = {
         ? 'pan'
         : profile
           ? 'profile'
-          : coverage
-            ? 'coverage'
-            : 'acceptance',
+          : 'acceptance',
   forbiddenRequests: [],
   overpassRequests: [],
   errors: [],
   consoleErrors: [],
   failedRequests: [],
   traffic: null,
-  alpr: null,
   military: null,
   screenshots: [],
   loadTimes: {},
 };
 // Assign each request to the view active when it started, even if it finishes later.
 // Record both decoded body bytes and CDP transfer bytes; cached bodies are not egress.
-const categories = [
-  'ofmTileJSON',
-  'ofmTiles',
-  'alprTileJSON',
-  'alprTiles',
-  'tomtom',
-  'api',
-];
+const categories = ['ofmTileJSON', 'ofmTiles', 'tomtom', 'api'];
 const requests = [];
 const views = [];
 let currentView;
@@ -118,12 +105,6 @@ function beginView(name, camera = null) {
 function categoryFor(target) {
   if (target.hostname === 'tiles.openfreemap.org')
     return target.pathname.endsWith('.pbf') ? 'ofmTiles' : 'ofmTileJSON';
-  if (
-    ['tiles.dontgetflocked.com', 'data.dontgetflocked.com'].includes(
-      target.hostname,
-    )
-  )
-    return target.pathname.endsWith('.json') ? 'alprTileJSON' : 'alprTiles';
   if (
     target.origin === new URL(url).origin &&
     target.pathname.startsWith('/api/tomtom/')
@@ -282,8 +263,6 @@ function footprintSummary() {
     view: view.name,
     'OFM JSON req/MB': cell(view.ofmTileJSON),
     'OFM tiles req/MB': cell(view.ofmTiles),
-    'ALPR JSON req/MB': cell(view.alprTileJSON),
-    'ALPR tiles req/MB': cell(view.alprTiles),
     'TomTom req/MB': cell(view.tomtom),
     'Total req/MB': cell(view.total),
     'Transfer MB': (view.total.transferBytes / 1e6).toFixed(3),
@@ -471,7 +450,7 @@ try {
     let quietSince = null;
     while (Date.now() < deadline) {
       const states = await page.evaluate(() =>
-        ['traffic', 'military-installations', 'alpr-cameras'].map((id) => {
+        ['traffic'].map((id) => {
           const layer = window.__godsEyeView.dataManager.layers.get(id);
           return { id, enabled: layer.enabled, ...layer.module.getStats() };
         }),
@@ -571,11 +550,6 @@ try {
     await page.evaluate(() => performance.clearMeasures());
     await enableTrafficTimed(name);
     view.firstDotsMs = result.loadTimes[name];
-    for (const id of ['military-installations', 'alpr-cameras'])
-      await page.evaluate(
-        (layerId) => window.__godsEyeView.dataManager.setEnabled(layerId, true),
-        id,
-      );
     view.layers = await waitForSources();
     for (const state of view.layers) {
       assert.equal(state.enabled, true, `${name}: ${state.id} enabled`);
@@ -810,8 +784,6 @@ try {
         }),
       ),
     );
-  } else if (coverage) {
-    // The shared London presentation gate below is also independently runnable.
   } else if (profile) {
     await fly(30.2672, -97.7431, 450, 0, -35);
     await settleTiles();
@@ -983,29 +955,13 @@ try {
       heading: 0,
       pitch: -75,
     });
-    console.log('Checking Austin traffic and ALPR...');
+    console.log('Checking Austin traffic...');
     await fly(30.2672, -97.7431);
     await enableTrafficTimed('initialFirstDotsMs');
-    for (const id of ['military-installations', 'alpr-cameras']) {
-      console.log(`Enabling ${id}...`);
-      await page.evaluate(
-        (layerId) =>
-          Promise.race([
-            window.__godsEyeView.dataManager.setEnabled(layerId, true),
-            new Promise((_, reject) =>
-              setTimeout(
-                () => reject(new Error('Layer enable timed out')),
-                30_000,
-              ),
-            ),
-          ]),
-        id,
-      );
-    }
     await page.waitForFunction(
       () => {
         const layers = window.__godsEyeView.dataManager.layers;
-        return ['traffic', 'alpr-cameras'].every((id) => {
+        return ['traffic'].every((id) => {
           const s = layers.get(id).module.getStats();
           return s.count > 0 && !s.loading && !s.error;
         });
@@ -1015,21 +971,8 @@ try {
     const austin = await page.evaluate(() => {
       const { viewer, dataManager } = window.__godsEyeView;
       const traffic = dataManager.layers.get('traffic').module.getStats();
-      const alpr = dataManager.layers.get('alpr-cameras').module.getStats();
-      let cameraEntities = 0;
-      for (let i = 0; i < viewer.dataSources.length; i++)
-        for (const entity of viewer.dataSources.get(i).entities.values) {
-          if (
-            String(entity.id).startsWith('alpr:') &&
-            entity.billboard &&
-            entity.show
-          )
-            cameraEntities++;
-        }
       return {
         traffic,
-        alpr,
-        cameraEntities,
         sourceLabel: traffic.loadingLabel,
         cameraHeight: viewer.camera.positionCartographic.height,
       };
@@ -1038,7 +981,6 @@ try {
     result.loadTimes[
       `${austin.traffic.mode === 'live' ? 'keyed' : 'keyless'}FirstDotsMs`
     ] = result.loadTimes.initialFirstDotsMs;
-    result.alpr = austin.alpr;
     result.sourceLabel = austin.sourceLabel;
     result.cameraHeight = austin.cameraHeight;
     assert.ok(
@@ -1046,7 +988,6 @@ try {
       'Austin assertions run at approximately 2 km',
     );
     assert.ok(austin.traffic.count > 0, 'road dots rendered');
-    assert.ok(austin.cameraEntities > 0, 'ALPR camera entities rendered');
     assert.equal(
       austin.traffic.roadSource,
       austin.traffic.mode === 'live'
@@ -1228,137 +1169,6 @@ try {
       page = keyedPage;
     }
     await waitForSources();
-    beginView('camp-mabry', {
-      lat: 30.3125,
-      lon: -97.765,
-      height: 3500,
-      heading: 25,
-      pitch: -80,
-    });
-    console.log('Checking Camp Mabry...');
-    const before = await page.evaluate(
-      () =>
-        window.__godsEyeView.dataManager.layers
-          .get('military-installations')
-          .module.getStats().lastUpdate,
-    );
-    await fly(30.3125, -97.765, 3500, 25, -80);
-    await page.waitForFunction(
-      (prior) => {
-        const s = window.__godsEyeView.dataManager.layers
-          .get('military-installations')
-          .module.getStats();
-        return s.count > 0 && !s.loading && !s.error && s.lastUpdate !== prior;
-      },
-      { timeout: 120_000, polling: 500 },
-      before,
-    );
-    result.military = await page.evaluate(() => {
-      const { viewer, dataManager } = window.__godsEyeView;
-      const center = viewer.scene.globe.ellipsoid.cartographicToCartesian({
-        latitude: (30.314 * Math.PI) / 180,
-        longitude: (-97.763 * Math.PI) / 180,
-        height: 0,
-      });
-      const records = dataManager.layers
-        .get('military-installations')
-        .module.getNearby(center, 4000);
-      const ids = new Set(records.map((r) => r.id));
-      let markers = 0,
-        outlines = 0;
-      for (let i = 0; i < viewer.dataSources.length; i++)
-        for (const entity of viewer.dataSources.get(i).entities.values) {
-          if (!ids.has(entity.installationId || entity.id) || !entity.show)
-            continue;
-          if (entity.billboard || entity.point) markers++;
-          if (entity.polyline) outlines++;
-        }
-      return {
-        markers,
-        outlines,
-        names: records.map((r) => r.name),
-        stats: dataManager.layers
-          .get('military-installations')
-          .module.getStats(),
-      };
-    });
-    assert.ok(result.military.markers > 0, 'military markers near Camp Mabry');
-    assert.ok(
-      result.military.outlines > 0,
-      'military polygon outlines near Camp Mabry',
-    );
-    await shot('camp-mabry');
-    await waitForSources();
-    beginView('camp-mabry-close', {
-      lat: 30.314,
-      lon: -97.763,
-      height: 650,
-      heading: 125,
-      pitch: -45,
-    });
-    await fly(30.314, -97.763, 650, 125, -45);
-    await shot('camp-mabry-close');
-    await waitForSources();
-    beginView('fort-cavazos', {
-      lat: 31.135,
-      lon: -97.78,
-      height: 30000,
-      heading: 0,
-      pitch: -90,
-    });
-    console.log('Checking Fort Cavazos...');
-    const priorFort = await page.evaluate(
-      () =>
-        window.__godsEyeView.dataManager.layers
-          .get('military-installations')
-          .module.getStats().lastUpdate,
-    );
-    await fly(31.135, -97.78, 30000, 0, -90);
-    await settleTiles();
-    await page.waitForFunction(
-      (prior) => {
-        const s = window.__godsEyeView.dataManager.layers
-          .get('military-installations')
-          .module.getStats();
-        return !s.loading && !s.error && s.count > 0 && s.lastUpdate !== prior;
-      },
-      { timeout: 120_000, polling: 500 },
-      priorFort,
-    );
-    result.fortCavazos = await page.evaluate(() => {
-      const { viewer, dataManager } = window.__godsEyeView;
-      let markers = 0,
-        outlines = 0;
-      for (let i = 0; i < viewer.dataSources.length; i++)
-        for (const e of viewer.dataSources.get(i).entities.values) {
-          if (
-            !e.show ||
-            !/^(ofm:installation:|osm:military:)/.test(String(e.id))
-          )
-            continue;
-          if (
-            (e.point &&
-              e.point.show?.getValue(viewer.clock.currentTime) !== false) ||
-            e.billboard
-          )
-            markers++;
-          if (e.polyline) outlines++;
-        }
-      const stats = dataManager.layers
-        .get('military-installations')
-        .module.getStats();
-      return {
-        markers: markers + (stats.namedMarkers || 0),
-        outlines,
-        stats,
-      };
-    });
-    await shot('fort-cavazos');
-    assert.ok(
-      result.fortCavazos.markers > 0 && result.fortCavazos.markers <= 12,
-      `Fort Cavazos has 1–12 installation markers (got ${result.fortCavazos.markers})`,
-    );
-    await waitForSources();
     beginView('austin-revisit', {
       lat: 30.2672,
       lon: -97.7431,
@@ -1371,13 +1181,13 @@ try {
     await shot('austin-revisit');
     await waitForSources();
   }
-  if (!pan && !profile && !compare && !tour && !coverage) {
+  if (!pan && !profile && !compare && !tour) {
     // Area annotation outlines: without a configured Overpass instance the
     // app learns that once and never sends the query (so no 503 is logged);
     // the pin stays and bundled outlines still resolve.
     beginView('annotation-area');
     await page.evaluate(() =>
-      ['traffic', 'military-installations', 'alpr-cameras'].forEach((id) =>
+      ['traffic'].forEach((id) =>
         window.__godsEyeView.dataManager.setEnabled(id, false),
       ),
     );
@@ -1417,48 +1227,6 @@ try {
     await shot('annotation-area');
     await page.evaluate(() => window.__godsEyeView.annotations.clear?.());
   }
-  if (!pan && !profile && !compare) {
-    beginView('alpr-london');
-    await page.evaluate(() =>
-      window.__godsEyeView.dataManager.setEnabled('traffic', false),
-    );
-    await fly(51.5074, -0.1278, 450, 0, -35);
-    await page.evaluate(() =>
-      window.__godsEyeView.dataManager.setEnabled('alpr-cameras', true),
-    );
-    await waitForSources();
-    result.alprLondon = await page.evaluate(() =>
-      window.__godsEyeView.dataManager.layers
-        .get('alpr-cameras')
-        .module.getStats(),
-    );
-    assert.equal(result.alprLondon.noCoverage, true);
-    assert.equal(result.alprLondon.countLabel, '');
-    assert.equal(
-      result.alprLondon.loadingLabel,
-      'No ALPR data for this area — US and Canada only',
-    );
-    await page.evaluate(() => {
-      if (document.querySelector('#data-panel.collapsed'))
-        document.querySelector('[data-collapse-target="data-panel"]').click();
-      document
-        .querySelector('[data-layer-id="alpr-cameras"]')
-        .scrollIntoView({ block: 'center' });
-    });
-    await page.waitForFunction(
-      () =>
-        document
-          .querySelector('[data-layer-id="alpr-cameras"] .data-toggle-meta')
-          ?.textContent.includes('US and Canada only'),
-      { timeout: 10000 },
-    );
-    const row = await page.$('[data-layer-id="alpr-cameras"]');
-    assert.doesNotMatch(
-      await row.evaluate((node) => node.innerText),
-      /0 nearby/,
-    );
-    await shot('alpr-london');
-  }
   assert.deepEqual(result.consoleErrors, [], 'zero unexpected console errors');
   assert.deepEqual(
     result.forbiddenRequests,
@@ -1479,9 +1247,7 @@ try {
       .evaluate(() => ({
         text: document.body.innerText.slice(0, 3000),
         layers: [...(window.__godsEyeView?.dataManager?.layers || [])]
-          .filter(([id]) =>
-            ['traffic', 'military-installations', 'alpr-cameras'].includes(id),
-          )
+          .filter(([id]) => ['traffic'].includes(id))
           .map(([id, entry]) => [id, entry.module.getStats()]),
       }))
       .catch(() => null);

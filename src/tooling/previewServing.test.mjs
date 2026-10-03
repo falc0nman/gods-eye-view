@@ -9,7 +9,7 @@ import { makeFixtureRoot } from './fixtureRoot.mjs';
 
 test('data providers have both hooks; credential editing is absent', () => {
   const plugins = localProviderPlugins();
-  assert.ok(plugins.some(({ name }) => name === 'fire-perimeters'));
+  assert.ok(plugins.some(({ name }) => name === 'cyclones'));
   for (const plugin of plugins) {
     assert.notEqual(plugin.name, 'gev-key-setup');
     assert.equal(typeof plugin.configureServer, 'function', plugin.name);
@@ -54,10 +54,7 @@ test('real dev and built-preview servers serve provider JSON and terminate unkno
   t.mock.method(globalThis, 'fetch', async (raw, options) => {
     const url = new URL(raw);
     if (url.hostname === '127.0.0.1') return nativeFetch(raw, options);
-    assert.ok(
-      ['opensky-network.org', 'api.adsb.lol'].includes(url.hostname),
-      url.origin,
-    );
+    assert.ok(url.hostname === 'api.adsb.lol', url.origin);
     return Response.json({
       time: Math.floor(Date.now() / 1000),
       states: [],
@@ -86,16 +83,11 @@ test('real dev and built-preview servers serve provider JSON and terminate unkno
     const origin = `http://127.0.0.1:${server.httpServer.address().port}`;
     try {
       for (const [route, status] of [
-        ['/api/opensky', 200],
         ['/api/adsblol/mil', 200],
-        ['/api/adsbdb/type/invalid', 400],
-        ['/api/firms/status', 200],
-        ['/api/fire-perimeters/inciweb/publication/invalid', 400],
         ['/api/terrain/heights?points=invalid', 400],
         ['/api/overpass', 405],
         ['/api/overpass/status', 200],
         ['/api/cctv/sources', 200],
-        ['/api/gbfs/', 400],
         ['/api/tomtom/status', 200],
         ['/api/radio/unknown', 404],
         ['/api/setup/status', 404],
@@ -122,9 +114,9 @@ test('real dev and built-preview servers serve provider JSON and terminate unkno
           assert.equal(response.headers.get('cache-control'), 'no-store');
         }
       }
-      const tle = await fetch(origin + '/api/celestrak/invalid!');
-      assert.equal(tle.status, 400);
-      assert.equal(await tle.text(), 'invalid group');
+      const tle = await fetch(origin + '/api/celestrak/stations');
+      assert.equal(tle.status, 404, 'GW-57 removed the CelesTrak proxy');
+      assert.deepEqual(await tle.json(), { error: 'Unknown API route' });
       {
         const write = await fetch(origin + '/api/setup/keys', {
           method: 'POST',

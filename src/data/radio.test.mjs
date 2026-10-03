@@ -51,6 +51,30 @@ import {
   radioViewIsGlobal,
   stationMatchesRadioCategory,
 } from './radio.js';
+import { configureRadioSource } from './radio.js';
+
+// GW-57 replaced the shipped Radio Browser source with a no-network stub.
+// The catalog, tuner and playback logic under test is unchanged, so these
+// tests drive it through an HTTP source that reads the fetch they mock.
+configureRadioSource({
+  async getDirectory({ signal } = {}) {
+    signal?.throwIfAborted();
+    const response = await globalThis.fetch('/api/radio/stations', { signal });
+    if (!response.ok)
+      throw new Error(`Radio directory returned ${response.status}`);
+    const body = await response.json();
+    signal?.throwIfAborted();
+    return body;
+  },
+  async recordClick(id, { signal } = {}) {
+    signal?.throwIfAborted();
+    const response = await globalThis.fetch(
+      `/api/radio/click/${encodeURIComponent(id)}`,
+      { method: 'POST', signal },
+    );
+    if (!response.ok) throw new Error(`Radio click returned ${response.status}`);
+  },
+});
 
 const stations = [
   { id: 'news', tags: ['News', 'Weather Radio', 'air traffic'] },

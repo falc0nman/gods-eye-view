@@ -1,15 +1,5 @@
 /** Bottom-to-top order for near-plane-clamped contact sprite collections. */
-export const SPRITE_LAYER_ORDER = Object.freeze([
-  'cctv',
-  'firms',
-  'bikeshare',
-  'transit',
-  'transit-motion',
-  'directions',
-  'ais',
-  'military',
-  'flights',
-]);
+export const SPRITE_LAYER_ORDER = Object.freeze(['cctv', 'directions']);
 
 /** @type {Map<string, Object>} */
 const _collections = new Map();
@@ -39,7 +29,7 @@ export function unregisterSpriteCollection(layerId, collection) {
 /**
  * Reassert deterministic sprite stacking after any layer enable/init.
  * Cesium's stable translucent sort otherwise preserves first-enable primitive
- * order. Raising bottom-to-top makes flights the final/top collection.
+ * order. Raising bottom-to-top makes directions the final/top collection.
  * @param {Cesium.Viewer|Object} viewer - Active viewer.
  * @returns {void}
  */

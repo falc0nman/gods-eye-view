@@ -1,9 +1,7 @@
 import { ShellFacade } from '../ui/shellFacade.js';
-import { AircraftDisplay } from '../ui/aircraftDisplay.js';
 import { LayerBindings } from '../ui/layerBindings.js';
 import { DisplayBindings } from '../ui/displayBindings.js';
 import { readFileSync } from 'node:fs';
-import { CockpitCoordinator } from '../ui/cockpitCoordinator.js';
 import { LocationNavigation } from '../ui/locationNavigation.js';
 import { StyleManager } from '../ui/applicationShell.js';
 import { NavigationController } from '../ui/navigationController.js';
@@ -15,12 +13,10 @@ import { PanelChrome } from '../ui/panelChrome.js';
 export function readShellSource() {
   return [
     'locationNavigation',
-    'cockpitCoordinator',
     'navigationController',
     'shareRestoration',
     'visualSettings',
     'panelChrome',
-    'aircraftDisplay',
     'layerBindings',
     'displayBindings',
     'shellFacade',
@@ -40,8 +36,6 @@ export function shellMethod(name) {
     VisualSettings,
     PanelChrome,
     LocationNavigation,
-    CockpitCoordinator,
-    AircraftDisplay,
     LayerBindings,
     DisplayBindings,
     StyleManager,

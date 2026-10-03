@@ -6,8 +6,7 @@ export const DEFAULT_MAX_CACHE_ENTRIES = 20_000;
 /**
  * Construct an instance-owned terrainHeights service with explicit dependencies.
  * `maxCacheEntries` overrides the cache bound; it exists so the bound is
- * testable without minting twenty thousand coordinates, mirroring the injectable
- * `maxBytes` on the GBFS reader.
+ * testable without minting twenty thousand coordinates.
  */
 export function createTerrainHeights({
   source,

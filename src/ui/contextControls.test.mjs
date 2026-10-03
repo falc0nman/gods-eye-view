@@ -2,33 +2,12 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { ContextControls } from './contextControls.js';
 
-class Button extends EventTarget {
-  constructor() {
-    super();
-    this.attributes = new Map();
-  }
-  getAttribute(name) {
-    return this.attributes.get(name);
-  }
-  setAttribute(name, value) {
-    this.attributes.set(name, value);
-  }
-}
-const turn = () => new Promise((resolve) => setImmediate(resolve));
-function fixture(t, elements = {}) {
+function fixture(t) {
   const calls = [];
   const controls = new ContextControls({
-    elements,
-    installations: {},
     actions: {
-      getCockpit: () => null,
-      claimVisualAuthority: () => calls.push('claim'),
-      showToast: () => calls.push('notice'),
-      setClearBusy: () => {},
-      syncDetection: () => {},
-      scheduleLayout: () => {},
-      refreshRadio: () => {},
-      setPanelCollapsed: () => calls.push('expand'),
+      showToast: (message) => calls.push(`notice:${message}`),
+      setClearBusy: (busy) => calls.push(`busy:${busy}`),
     },
   });
   t.after(() => {
@@ -38,117 +17,140 @@ function fixture(t, elements = {}) {
   return { controls, calls };
 }
 
-test('Context starts with an explicit idle snapshot', (t) => {
-  const { controls } = fixture(t);
-  assert.deepEqual(controls.getContextModeState(), {
-    mode: null,
-    active: false,
-    changing: false,
-    entering: null,
-    canContact: true,
-    canMission: true,
-    snapshotCaptured: false,
+test('Clear All reports the cleared count and releases its busy state', async (t) => {
+  const { controls, calls } = fixture(t);
+  const requests = [];
+  controls.connect({
+    clearSelectedLayers: async (options) => {
+      requests.push(options);
+      return {
+        targetIds: ['flights', 'traffic'],
+        items: [],
+        clearedIds: ['flights', 'traffic'],
+        notClearedIds: [],
+      };
+    },
   });
-});
-
-test('a pending Context tab cannot reopen a disposed panel', async (t) => {
-  const tab = new Button();
-  const { controls, calls } = fixture(t, { _globalContextFlightsBtn: tab });
-  let release;
-  controls._selectContextMode = () =>
-    new Promise((resolve) => {
-      release = resolve;
-    });
-  tab.dispatchEvent(new Event('click'));
-  assert.deepEqual(calls, ['claim']);
-  controls.stop();
-  release(true);
-  await turn();
-  tab.dispatchEvent(new Event('click'));
-  assert.deepEqual(calls, ['claim']);
-});
-
-test('stopping during installations enable prevents the delayed search', async (t) => {
-  const button = new Button();
-  const { controls, calls } = fixture(t, { _installationsSearchBtn: button });
-  let release;
-  controls._dataManager = {
-    layers: new Map([['military-installations', {}]]),
-    setEnabled: () =>
-      new Promise((resolve) => {
-        release = resolve;
-      }),
-    isEnabled: () => true,
-  };
-  controls.installations.searchNearby = () =>
-    assert.fail('search started after stop');
-  button.dispatchEvent(new Event('click'));
-  controls.stop();
-  release(true);
-  await turn();
-  assert.equal(calls.length, 0);
+  const first = controls.clearSelectedLayers();
   assert.equal(
-    button.getAttribute('aria-busy'),
-    'true',
-    'disposed controls are not mutated by completion',
+    controls.clearSelectedLayers(),
+    first,
+    'a second click joins the first',
+  );
+  assert.equal(controls._preservePanelStateDuringLayerClear, true);
+  const result = await first;
+  assert.deepEqual(result.clearedIds, ['flights', 'traffic']);
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].origin, 'user');
+  assert.equal(typeof requests[0].notificationToken, 'symbol');
+  assert.deepEqual(calls, [
+    'busy:true',
+    'notice:Cleared 2 data layers',
+    'busy:false',
+  ]);
+  assert.equal(controls._preservePanelStateDuringLayerClear, false);
+});
+
+test('Clear All says when nothing was selected or a layer would not clear', async (t) => {
+  const { controls, calls } = fixture(t);
+  let next = { targetIds: [], items: [], clearedIds: [], notClearedIds: [] };
+  controls.connect({ clearSelectedLayers: async () => next });
+  await controls.clearSelectedLayers();
+  next = {
+    targetIds: ['cctv'],
+    items: [],
+    clearedIds: [],
+    notClearedIds: ['cctv'],
+  };
+  await controls.clearSelectedLayers();
+  assert.deepEqual(
+    calls.filter((call) => call.startsWith('notice:')),
+    [
+      'notice:No selected data layers',
+      'notice:1 data layer could not be cleared',
+    ],
   );
 });
 
-test('a late installations search cannot publish a notice after disposal', async (t) => {
-  const button = new Button();
-  const { controls, calls } = fixture(t, { _installationsSearchBtn: button });
-  let release;
-  controls._dataManager = {
-    layers: new Map([['military-installations', {}]]),
-    setEnabled: async () => true,
-    isEnabled: () => true,
-  };
-  controls.installations.searchNearby = () =>
-    new Promise((resolve) => {
-      release = resolve;
-    });
-  button.dispatchEvent(new Event('click'));
-  await turn();
+test('a failed Clear All toasts once and resolves with the error', async (t) => {
+  const { controls, calls } = fixture(t);
+  t.mock.method(console, 'warn', () => {});
+  const failure = new Error('boom');
+  controls.connect({
+    clearSelectedLayers: async () => {
+      throw failure;
+    },
+  });
+  const result = await controls.clearSelectedLayers();
+  assert.equal(result.error, failure);
+  assert.deepEqual(result.clearedIds, []);
+  assert.deepEqual(calls, [
+    'busy:true',
+    'notice:Selected data layers could not be cleared',
+    'busy:false',
+  ]);
+});
+
+test('Clear All without a manager, or after stop, does nothing', async (t) => {
+  const { controls, calls } = fixture(t);
+  assert.deepEqual((await controls.clearSelectedLayers()).targetIds, []);
+  controls.connect({
+    clearSelectedLayers: async () => {
+      throw new Error('must not run');
+    },
+  });
   controls.stop();
-  release(true);
-  await turn();
+  assert.equal((await controls.clearSelectedLayers()).cancelled, true);
   assert.deepEqual(calls, []);
 });
 
-test('reconnecting and disposal release each manager subscription exactly once', (t) => {
-  const { controls } = fixture(t);
-  const counts = new Map();
-  const manager = (name) =>
-    Object.fromEntries(
-      [
-        'subscribe',
-        'subscribeVisibilityRequests',
-        'addVisibilityGuard',
-        'subscribeBeforeDestroy',
-      ].map((method) => [
-        method,
-        () => () => {
-          const key = `${name}:${method}`;
-          counts.set(key, (counts.get(key) || 0) + 1);
-        },
-      ]),
-    );
-  controls.connect(manager('a'));
-  controls.connect(manager('b'));
-  assert.equal(counts.size, 4);
+test('user-facing actions convert rejection and semantic false into one toast', async (t) => {
+  const { controls, calls } = fixture(t);
+  t.mock.method(console, 'warn', () => {});
+  assert.equal(
+    await controls._runUserFacingContextAction(async () => true, 'nope'),
+    true,
+  );
+  assert.equal(
+    await controls._runUserFacingContextAction(
+      async () => false,
+      'false fails',
+    ),
+    false,
+  );
+  assert.equal(
+    await controls._runUserFacingContextAction(async () => false, 'kept', {
+      falseIsFailure: false,
+    }),
+    false,
+  );
+  assert.equal(
+    await controls._runUserFacingContextAction(async () => {
+      throw new Error('x');
+    }, 'threw'),
+    false,
+  );
+  assert.deepEqual(calls, ['notice:false fails', 'notice:threw']);
   controls.stop();
-  controls.disconnect();
-  controls.disconnect();
-  controls.connect(manager('c'));
-  assert.equal(counts.size, 8);
-  assert.ok([...counts.values()].every((count) => count === 1));
+  assert.equal(
+    await controls._runUserFacingContextAction(async () => true),
+    false,
+  );
 });
 
-test('a rejected tracked reaction settles without an unhandled rejection', async (t) => {
-  const { controls } = fixture(t);
-  const failure = new Error('source unavailable');
-  const pending = controls._trackContextLayerReaction(Promise.reject(failure));
-  await assert.rejects(pending, failure);
-  await controls._waitForContextLayerSettlement();
-  assert.equal(controls._contextLayerReactionPromises.size, 0);
+test('a broken toast surface cannot turn a failed action into a rejection', async (t) => {
+  t.mock.method(console, 'warn', () => {});
+  const controls = new ContextControls({
+    actions: {
+      showToast: () => {
+        throw new Error('toast broke');
+      },
+      setClearBusy: () => {},
+    },
+  });
+  assert.equal(
+    await controls._runUserFacingContextAction(async () => false),
+    false,
+  );
+  controls.stop();
 });

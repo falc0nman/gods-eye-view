@@ -9,30 +9,6 @@ export class ShellFacade {
     return this._navigation.subscribeCameraHandoff(listener);
   }
 
-  get _models3dModeBtns() {
-    return this._aircraftDisplay._models3dModeBtns;
-  }
-
-  set _models3dModeBtns(value) {
-    this._aircraftDisplay._models3dModeBtns = value;
-  }
-
-  get _models3dEnabled() {
-    return this._aircraftDisplay._models3dEnabled;
-  }
-
-  set _models3dEnabled(value) {
-    this._aircraftDisplay._models3dEnabled = value;
-  }
-
-  get _models3dMode() {
-    return this._aircraftDisplay._models3dMode;
-  }
-
-  set _models3dMode(value) {
-    this._aircraftDisplay._models3dMode = value;
-  }
-
   get _dataManager() {
     return this._layerBindings?._dataManager;
   }
@@ -266,7 +242,8 @@ export class ShellFacade {
   }
 
   set _cockpitDisplayPortal(value) {
-    this._cockpitCoordinator._cockpitDisplayPortal = value;
+    if (this._cockpitCoordinator)
+      this._cockpitCoordinator._cockpitDisplayPortal = value;
   }
 
   get _navigationGeneration() {
@@ -397,14 +374,6 @@ export class ShellFacade {
     this._visualSettings.activeStyle = value;
   }
 
-  get _detectionUserOverridden() {
-    return this._visualSettings._detectionUserOverridden;
-  }
-
-  set _detectionUserOverridden(value) {
-    this._visualSettings._detectionUserOverridden = value;
-  }
-
   get _cockpitVisionMode() {
     return this._visualSettings._cockpitVisionMode;
   }
@@ -419,30 +388,6 @@ export class ShellFacade {
 
   set _cockpitVisionRestore(value) {
     this._visualSettings._cockpitVisionRestore = value;
-  }
-
-  get _contactsDetectionRestore() {
-    return this._visualSettings._contactsDetectionRestore;
-  }
-
-  set _contactsDetectionRestore(value) {
-    this._visualSettings._contactsDetectionRestore = value;
-  }
-
-  get _detectionAllocationBtns() {
-    return this._visualSettings._detectionAllocationBtns;
-  }
-
-  set _detectionAllocationBtns(value) {
-    this._visualSettings._detectionAllocationBtns = value;
-  }
-
-  get _detectionAllocationPreference() {
-    return this._visualSettings._detectionAllocationPreference;
-  }
-
-  set _detectionAllocationPreference(value) {
-    this._visualSettings._detectionAllocationPreference = value;
   }
 
   get _styleParameters() {
@@ -625,26 +570,6 @@ export class ShellFacade {
     return this._visualSettings._syncStagesEnabledFromIntensity(...arguments);
   }
 
-  /**
-   * Contacts-scoped detection (owner playtest 2026-08-18: "when you click on
-   * Contacts, detections should just turn on, and they should stay on in
-   * Cockpit or in third-person tracking inside Contacts").
-   *
-   * The scope is the CONTACTS SESSION, not Cockpit. Cockpit enter/exit and
-   * third-person tracking are moves WITHIN that session and deliberately do not
-   * touch detection — an earlier build hooked this to cockpit enter/exit, which
-   * is exactly what turned detections off when the owner left the cockpit.
-   *
-   * Called from `_syncContextModeButtons`, the single funnel every
-   * `_contextMode` mutation routes through, and gated on the transaction having
-   * SETTLED (`!_contextModeChanging`) so a failed activation can never strand
-   * detection on.
-   * @returns {void}
-   */
-  _syncContactsDetection() {
-    return this._visualSettings._syncContactsDetection(...arguments);
-  }
-
   /** IR hot-target boost (owner playtest 2026-08-16): under the luminance-
    *  mapped NVG/FLIR looks the 3D fleets flip to flat white so contacts read
    *  HOT instead of vanishing mid-gray; restored when the look exits. The
@@ -725,31 +650,9 @@ export class ShellFacade {
     return this._visualSettings._setSharpenEnabled(...arguments);
   }
 
-  /**
-   * Reads and canonicalizes the five-stop density control. The engine derives
-   * Sparse/Balanced/Dense from the same stop.
-   * @returns {void}
-   */
-  _applyDetectionDensityFromUi() {
-    return this._visualSettings._applyDetectionDensityFromUi(...arguments);
-  }
-
   /** Apply responsive keyhole fade controls from normalized UI percentages. */
-  _applyDetectionFadeFromUi() {
-    return this._visualSettings._applyDetectionFadeFromUi(...arguments);
-  }
-
-  _syncDetectionUiFromEngine() {
-    return this._visualSettings._syncDetectionUiFromEngine(...arguments);
-  }
-
-  /**
-   * Activates a detection overlay mode by label (e.g. 'OFF', 'SPARSE', 'PANOPTIC').
-   * @param {string} modeLabel - Detection mode label to set.
-   * @returns {void}
-   */
-  _setDetectionMode(modeLabel) {
-    return this._visualSettings._setDetectionMode(...arguments);
+  _applyKeyholeFadeFromUi() {
+    return this._visualSettings._applyKeyholeFadeFromUi(...arguments);
   }
 
   /**
@@ -793,44 +696,13 @@ export class ShellFacade {
   }
 
   /**
-   * Apply a detection preset's density and mode through the real UI path.
-   *
-   * Deliberately does NOT consult `_detectionUserOverridden` — the CALLER owns
-   * that decision. The style path checks it (an explicit Sparse/Off must
-   * survive a style switch); Cockpit entry does not (owner: detection is on in
-   * the cockpit "regardless").
-   * @param {{mode?: string, densityPct?: number}} det Preset detection config.
-   * @returns {void}
-   */
-  _applyDetectionPreset(det) {
-    return this._visualSettings._applyDetectionPreset(...arguments);
-  }
-
-  /**
    * Applies the global post-processing baseline (GLOBAL_POST_DEFAULTS) at
    * startup before any share-link restore runs. Sets bloom, sharpen, HUD,
-   * and detection to their factory defaults.
+   * and the keyhole fade to their factory defaults.
    * @returns {void}
    */
   _applyGlobalPostDefaults() {
     return this._visualSettings._applyGlobalPostDefaults(...arguments);
-  }
-
-  /**
-   * Detection as a DURABLE preference, for serialization into a share link.
-   *
-   * While Contacts is active it OWNS detection and forces Dense @ 75%. That is
-   * a session-scoped override, not something the operator chose: it is undone
-   * verbatim on deactivation. Serializing the forced values shipped a link that
-   * pinned Dense @ 75% on the recipient — as a durable preference, with no
-   * Contacts mode present to explain or undo it — even though the author's own
-   * setting was (say) OFF @ 50%. Publish what deactivation would restore.
-   *
-   * `_contactsDetectionRestore` is exactly that snapshot and is null whenever
-   * Contacts does not own detection, so the live values are used normally.
-   */
-  _shareableDetectionState() {
-    return this._visualSettings._shareableDetectionState(...arguments);
   }
 
   /** Current shareable visual preferences; subscriptions include an initial snapshot. */
@@ -934,34 +806,12 @@ export class ShellFacade {
     return this._layerBindings.attachDataManager(...args);
   }
 
-  _handleShareTrackingRestoreStatus(result) {
-    return this._shareRestoration._handleShareTrackingRestoreStatus(
-      ...arguments,
-    );
-  }
-
-  get _contextMode() {
-    return this._contextControls?._contextMode ?? null;
-  }
-
-  get _contextModeChanging() {
-    return this._contextControls?._contextModeChanging ?? false;
-  }
-
   get _preservePanelStateDuringLayerClear() {
     return this._contextControls?._preservePanelStateDuringLayerClear ?? false;
   }
 
   _runUserFacingContextAction(...args) {
     return this._contextControls?._runUserFacingContextAction(...args);
-  }
-
-  _waitForContextLayerSettlement(...args) {
-    return this._contextControls?._waitForContextLayerSettlement(...args);
-  }
-
-  _syncContextModeButtons(...args) {
-    return this._contextControls?._syncContextModeButtons(...args);
   }
 
   _setCockpitDisclosure(...args) {
@@ -1149,19 +999,6 @@ export class ShellFacade {
     return this._panelChrome._restorePanelState(...arguments);
   }
 
-  /**
-   * Reads current detection overlay state (engine mode + UI density percent).
-   * @returns {{detectionMode: string, densityPct: number|null, allocationStrategy:string, fadePct:number, outsideOpacityPct:number}}
-   */
-  getDetectionState() {
-    return this._visualSettings.getDetectionState(...arguments);
-  }
-
-  /** Read-only overlay diagnostics used by browser QA and regression harnesses. */
-  getDetectionDiagnostics() {
-    return this._visualSettings.getDetectionDiagnostics(...arguments);
-  }
-
   /** Whether the full-globe celestial overlay is enabled by user preference. */
   get celestialRingEnabled() {
     return this._visualSettings.celestialRingEnabled;
@@ -1172,74 +1009,7 @@ export class ShellFacade {
   }
 
   /**
-   * Reads global context mode state for voice/state-sync consumers.
-   * @returns {{mode: 'flights'|'space-missions'|null, active: boolean, changing: boolean, entering: 'flights'|'space-missions'|null, snapshotCaptured: boolean}}
-   */
-  getContextModeState(...args) {
-    return this._contextControls?.getContextModeState(...args);
-  }
-
-  /**
-   * Sets global context mode (Contacts / Space Missions / off) for voice.
-   * @param {'contacts'|'space-missions'|'off'|null} mode - Requested context target.
-   * @param {object} [options]
-   * @param {string|Symbol|null} [options.notificationToken]
-   * @param {AbortSignal|null} [options.signal]
-   * @param {Function|null} [options.isCurrent]
-   * @param {boolean} [options.claimVisualAuthority] Whether this request is a
-   *   genuine operator/voice Context intent that should take the visual restore
-   *   lane. Cockpit choreography calls this facade INTERNALLY for its own
-   *   enter/rollback steps; those transitions are not a Context request by the
-   *   operator and must stay inert, so they pass `false`.
-   * @returns {Promise<{ok:boolean, mode:'flights'|'space-missions'|null, active:boolean, action:string, error?:string}>}
-   */
-  setContextMode(...args) {
-    return this._contextControls?.setContextMode(...args);
-  }
-
-  /**
-   * Returns cockpit status for voice/state sync and navigation operations.
-   * @returns {{active:boolean, entryAllowed:boolean, visionMode:string, subject:{id:string,layerId:string}|null, navigation:{canPrevious:boolean,canNext:boolean,canFocus:boolean}|null, awareness?: object}|null}
-   */
-  getCockpitState(...args) {
-    return this._cockpitCoordinator.getCockpitState(...args);
-  }
-
-  /**
-   * Point Cockpit entry at a requested contact layer before it enters.
-   *
-   * Reuses the filtered Context navigation NEXT already uses, so "cockpit in
-   * that military helicopter" lands on the same contact "next military
-   * helicopter" would. Cockpit flies aircraft only; vessel and installation
-   * layers are refused by name rather than silently ignored.
-   * @param {object} options Retarget request.
-   * @param {string} options.targetLayer Requested contact layer.
-   * @param {string|null} options.aircraftClass Optional class filter.
-   * @param {{layerId: string}|null} options.currentTarget Current tracker.
-   * @param {{layerId: string}|null} options.selectedTarget Pending selection.
-   * @returns {{ok: boolean, retargeted?: boolean, error?: string}} Outcome.
-   */
-  _retargetCockpitEntryLayer(...args) {
-    return this._cockpitCoordinator._retargetCockpitEntryLayer(...args);
-  }
-
-  /**
-   * Controls cockpit entry/exit and context navigation.
-   * @param {'enter'|'exit'|'next'|'previous'|'status'} action - Cockpit action.
-   * @param {object} [options]
-   * @param {string|Symbol|null} [options.notificationToken]
-   * @param {'flights'|'military'|'ais-live-vessels'|'military-installations'|null} [options.targetLayer]
-   * @param {string|null} [options.aircraftClass]
-   * @param {{layerId:'flights'|'military',id:string}|null} [options.selectedTarget]
-   * @param {{layerId:'flights'|'military',id:string}|null} [options.rollbackTarget]
-   * @returns {{ok:boolean, action:string, error?:string, state?:object}}
-   */
-  controlCockpit(...args) {
-    return this._cockpitCoordinator.controlCockpit(...args);
-  }
-
-  /**
-   * Snapshots the full visual state (active style, bloom, sharpen, HUD, detection,
+   * Snapshots the full visual state (active style, bloom, sharpen, HUD, keyhole fade,
    * per-style shader uniform values) for serialization or scene recipe capture.
    * @returns {object} Serializable visual state object.
    */
@@ -1438,35 +1208,6 @@ export class ShellFacade {
     return this._feedback._showToast(message);
   }
 
-  /** One 3D toggle drives BOTH aircraft layers (commercial + military) so all planes flip together. */
-  _setModels3dParams(...args) {
-    return this._aircraftDisplay._setModels3dParams(...args);
-  }
-
-  _syncModels3dFromLayerState(...args) {
-    return this._aircraftDisplay._syncModels3dFromLayerState(...args);
-  }
-
-  _syncModels3dModeRow(...args) {
-    return this._aircraftDisplay._syncModels3dModeRow(...args);
-  }
-
-  _initModels3dToggle(...args) {
-    return this._aircraftDisplay._initModels3dToggle(...args);
-  }
-
-  _setModels3dEnabled(...args) {
-    return this._aircraftDisplay._setModels3dEnabled(...args);
-  }
-
-  _setModels3dMode(...args) {
-    return this._aircraftDisplay._setModels3dMode(...args);
-  }
-
-  _syncModels3dButtonState(...args) {
-    return this._aircraftDisplay._syncModels3dButtonState(...args);
-  }
-
   /**
    * Reuses the production Display controls inside Cockpit without cloning
    * stateful inputs or event listeners. Comment anchors preserve each group's
@@ -1474,29 +1215,29 @@ export class ShellFacade {
    * @returns {void}
    */
   _initCockpitDisplayPortal(...args) {
-    return this._cockpitCoordinator._initCockpitDisplayPortal(...args);
+    return this._cockpitCoordinator?._initCockpitDisplayPortal(...args);
   }
 
   /**
-   * Moves the shared HUD, Detection, Parameters, and 3D controls into or out
+   * Moves the shared HUD and Parameters controls into or out
    * of Cockpit.
    * @param {boolean} active Whether Cockpit owns the Display control groups.
    * @returns {void}
    */
   _setCockpitDisplayPortalActive(...args) {
-    return this._cockpitCoordinator._setCockpitDisplayPortalActive(...args);
+    return this._cockpitCoordinator?._setCockpitDisplayPortalActive(...args);
   }
 
   get _cockpitDisplayPortalActive() {
-    return this._cockpitCoordinator._cockpitDisplayPortalActive;
+    return this._cockpitCoordinator?._cockpitDisplayPortalActive;
   }
 
   get _displayPortalScrollRestoreOwner() {
-    return this._cockpitCoordinator._displayPortalScrollRestoreOwner;
+    return this._cockpitCoordinator?._displayPortalScrollRestoreOwner;
   }
 
   get _standardDisplayScrollTop() {
-    return this._cockpitCoordinator._standardDisplayScrollTop;
+    return this._cockpitCoordinator?._standardDisplayScrollTop;
   }
 
   /**
@@ -1506,17 +1247,6 @@ export class ShellFacade {
    */
   _updateHudButtonState() {
     return this._visualSettings._updateHudButtonState(...arguments);
-  }
-
-  /**
-   * Updates the detection toggle button label and CSS classes to reflect
-   * the current density-derived profile. Also toggles the density and
-   * allocation controls together.
-   * @param {string} modeLabel - Current detection mode label.
-   * @returns {void}
-   */
-  _updateDetectionButton(modeLabel) {
-    return this._visualSettings._updateDetectionButton(...arguments);
   }
 
   /**

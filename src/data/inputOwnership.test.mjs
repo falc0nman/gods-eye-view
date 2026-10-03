@@ -115,26 +115,8 @@ test('every scene click handler consults ownership before it picks', () => {
   // appear here too.
   const guarded = [
     ['src/data/trackingClickGesture.js', 'onClick(click, gesture);'],
-    ['src/data/localGeojsonCore.js', 'viewer.scene.pick(click.position)'],
     ['src/data/cctvGizmo.js', 'pickGizmoPart(event.position)'],
-    ['src/layers/alpr/presentation.js', 'viewer.scene.pick(click.position)'],
-    ['src/layers/bikeshare/selection.js', 'viewer.scene.pick(click.position)'],
-    ['src/layers/firms/selection.js', 'scene.pick(click.position)'],
-    [
-      'src/layers/installations/selection.js',
-      'viewer.scene.pick(click.position)',
-    ],
-    ['src/layers/launches/lifecycle.js', 'drillPick(movement.position'],
     ['src/layers/radio/interaction.js', 'pickedRadioStationAt(click.position)'],
-    [
-      'src/layers/satellites/interaction.js',
-      'viewer.scene.pick(click.position)',
-    ],
-    [
-      'src/layers/submarineCables/interaction.js',
-      'viewer.scene.pick(click.position)',
-    ],
-    ['src/layers/vessels/selection.js', 'viewer.scene.pick(click.position)'],
   ];
   for (const [file, firstPick] of guarded) {
     const source = read(file);
@@ -162,10 +144,7 @@ test('ambient selection handlers never claim the pointer themselves', () => {
   // moment a user clicked anything. Only tools claim.
   for (const file of [
     'src/data/trackingClickGesture.js',
-    'src/data/localGeojsonCore.js',
     'src/data/cctvGizmo.js',
-    'src/layers/vessels/selection.js',
-    'src/layers/satellites/interaction.js',
   ]) {
     assert.doesNotMatch(
       read(file),

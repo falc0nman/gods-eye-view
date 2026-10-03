@@ -22,8 +22,6 @@ export function bindDisplayControls({ elements, actions }) {
     ['celestialButton', 'toggleCelestial'],
     ['hudButton', 'toggleHud'],
     ['sonarButton', 'toggleSonar'],
-    ['detectionButton', 'cycleDetection'],
-    ['modelsButton', 'toggleModels'],
   ])
     listen(elements[name], 'click', action);
   for (const [name, action] of [
@@ -32,7 +30,6 @@ export function bindDisplayControls({ elements, actions }) {
     ['scopeFeatherSlider', 'setScopeFeather'],
   ])
     listen(elements[name], 'input', action, integer);
-  listen(elements.densitySlider, 'input', 'setDensity', (el) => el.value);
   listen(elements.hudLayout, 'change', 'setHudLayout', (el) => el.value);
   for (const [name, action] of [
     ['sonarRingsSlider', 'setSonarRings'],
@@ -44,12 +41,6 @@ export function bindDisplayControls({ elements, actions }) {
     listen(elements[name], 'input', action, integer);
   for (const el of elements.styleButtons || [])
     listen(el, 'click', 'setStyle', (el) => el.dataset.style);
-  for (const el of elements.allocationButtons || [])
-    listen(el, 'click', 'setAllocation', (el) => el.dataset.allocation);
-  for (const el of elements.modelModeButtons || [])
-    listen(el, 'click', 'setModelsMode', (el) =>
-      el.dataset.mode === 'all' ? 'all' : 'proximity',
-    );
   for (const el of elements.fadeSliders || []) listen(el, 'input', 'setFade');
   return {
     destroy() {

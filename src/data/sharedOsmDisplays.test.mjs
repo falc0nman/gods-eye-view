@@ -2,14 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as C from 'cesium';
 import { showOsmCredit, hideOsmCredit } from './dataCredits.js';
-import { createInfrastructureLayers } from './infrastructure.js';
-import { createBhoteKoshiLocatorLayer } from './bhoteKoshiLocator.js';
 import { createWorldAnnotationRenderer } from '../annotations/worldAnnotationRenderer.js';
 import * as annotations from '../annotations/worldAnnotationRenderer.js';
 import { createDirectionsLayer } from '../layers/directions/index.js';
 import { createLifecycle as createCctvLifecycle } from '../layers/cctv/lifecycle.js';
 import * as input from './inputOwnership.js';
-import { createOverpassAlprSource } from '../layers/alpr/source.js';
 
 const noop = () => {};
 const overlayHost = { setEntries: noop, setVisible: noop, clearSource: noop };
@@ -35,25 +32,6 @@ function viewer(t) {
 function assertCredit(v) {
   assert.ok(v.credits.some((credit) => credit.showOnScreen && credit.html.includes('>© OpenStreetMap<')));
 }
-for (const index of [0, 1]) test(`${index ? 'dams' : 'datacenters'} introduce the shared OSM credit when data displays`, async (t) => {
-  const v = viewer(t);
-  t.mock.method(globalThis, 'fetch', async () => ({ ok: true, text: async () => JSON.stringify({ type: 'Feature', id: 'test', properties: { name: 'Site' }, geometry: { type: 'Polygon', coordinates: [[[0, 0], [0.01, 0], [0, 0.01], [0, 0]]] } }) }));
-  const layer = createInfrastructureLayers({ overlayHost, registerEntityContext: noop, selectEntityContext: noop, clearSelectedEntityContextForLayer: noop, removeEntityContextsForLayer: noop, governorRequestRender: noop, showOsmCredit, hideOsmCredit })[index];
-  await layer.enable(v);
-  assert.equal(layer.getStats().count, 1);
-  assertCredit(v);
-  layer.destroy(v);
-  assert.equal(v.credits.filter(c => c.showOnScreen).length, 0);
-});
-
-test('Nepal locator introduces the shared OSM credit', async (t) => {
-  const v = viewer(t);
-  const layer = createBhoteKoshiLocatorLayer({ boundaryResolver: async () => ({ name: 'Nepal', ring: [[80, 26], [88, 26], [88, 30], [80, 30]] }), overlayHost, requestRender: noop, scheduleFrame: () => 1, cancelFrame: noop });
-  await layer.init(v); await layer.enable(v, { origin: 'scene' });
-  assertCredit(v); await layer.destroy(v);
-  assert.equal(v.credits.filter(c => c.showOnScreen).length, 0);
-});
-
 test('voice route geometry introduces the shared OSM credit', (t) => {
   const v = viewer(t), renderer = createWorldAnnotationRenderer(v);
   renderer.add({ id: 'route', type: 'route', color: 'primary', anchor: { lat: 0, lon: 0 }, path: [{ lat: 0, lon: 0 }, { lat: 0.01, lon: 0.01 }] });
@@ -89,6 +67,3 @@ test('Warendorf webcam display introduces the shared OSM credit', (t) => {
   assert.equal(v.credits.filter(c => c.showOnScreen).length, 0);
 });
 
-test('optional Overpass ALPR adapter uses the shared contributor wording', () => {
-  assert.equal(createOverpassAlprSource().attribution.text, '© OpenStreetMap contributors');
-});

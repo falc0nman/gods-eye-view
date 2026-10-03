@@ -68,10 +68,10 @@ check, not a JavaScript sandbox. Common voice controls cannot depend on a
 Realtime protocol implementation. Negative fixtures cover indirect helpers,
 self-package imports, symlinks and unreachable files.
 
-Source factories have dedicated exports for ALPR, bikeshare, CCTV, earthquakes,
-FIRMS, installations, launches, radio, satellites and traffic. They preserve the
-same factory implementations without loading layer rendering. ALPR/earthquake
-record normalization and CCTV source endpoint policy have plain owners separate
+Source factories have dedicated exports for CCTV,
+installations, launches, radio, satellites and traffic. They preserve the
+same factory implementations without loading layer rendering. CCTV source
+endpoint policy has a plain owner separate
 from geometry/cards. Source exports do not start acquisition at import time.
 
 Other layer `ingestion.js` files may still coordinate Cesium resources; the
@@ -172,9 +172,9 @@ response limits and cache policy. The boundary gate checks this portable entry
 separately from the Node providers. Satellite rendering and launch replay remain
 in their existing browser modules.
 
-## Terrain, traffic, fires and bike-share providers
+## Terrain and traffic providers
 
-`gods-eye-view/server/providers/terrain`, `/traffic`, `/firms` and `/gbfs`
+`gods-eye-view/server/providers/terrain` and `/traffic`
 are separate Node-only entries. Each owns its existing middleware and
 process-scoped cache or request handling. Standalone composition mounts them in
 the original order; their imports do not start acquisition.
@@ -182,19 +182,11 @@ the original order; their imports do not start acquisition.
 `gods-eye-view/sources/terrain` exports existing point-key, retry and cache
 reconstruction mechanics with injectable acquisition dependencies.
 `gods-eye-view/sources/traffic` exports tile math and budget calculations.
-`gods-eye-view/sources/gbfs` exports host/path acceptance and cache-header rules.
 These entries import no Node middleware, application configuration or rendering.
 Callers retain their request admission and transport policy.
 
-`gods-eye-view/sources/firms-csv` exports the existing CSV parser, header
-recognition, acquisition-time conversion and trailing-day filter independently
-of the Node middleware. It imports no Node, DOM, rendering or network code.
-The Node provider continues using the same implementation; contract fixtures
-cover malformed rows, acquisition times, empty feeds and the inclusive time
-window. The boundary gate checks each entry independently.
-
-Browser terrain sampling, traffic matching/drawing, fire overlays and bike-share
-layer lifecycle remain in their current modules. This extraction changes no
+Browser terrain sampling and traffic matching/drawing remain in their current
+modules. This extraction changes no
 source defaults, credentials, quotas, data interpretation or visual behavior.
 
 ## Local search, regional context, voice and setup
@@ -625,11 +617,6 @@ explicit operations. Both exports exclude Cesium, DOM and application assembly.
 The snapshot renderer applies record changes; rendering owns a weak map of
 geometry and billboard resources used by cards, picking and trails.
 
-`gods-eye-view/sources/reference` constructs fresh earthquake and bundled cable
-source instances independently of standalone setup. Individual sources remain
-available through `layers/earthquakes/source` and `layers/submarine-cables/source`.
-The latter retains the bundled dataset’s attribution and licensing requirements.
-
 ## Geocoding and feature-query providers
 
 `createDefaultPlaceSearch` accepts an explicit Nominatim selection:
@@ -665,7 +652,7 @@ An empty search array is a definitive miss. HTTP failures, malformed results
 and oversized responses remain retryable. Attribution identifies OpenStreetMap /
 Nominatim.
 
-Vector tile sources supply traffic roads, ALPR records and keyless military
+Vector tile sources supply traffic roads and keyless military
 areas. Operator-configured Overpass supplies named installations and annotation geometry (administrative boundaries,
 neighborhoods, streets, building/grounds outlines and monument candidates).
 Nominatim forward/reverse lookup does not replace those queries. Layer source

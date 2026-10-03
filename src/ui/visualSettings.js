@@ -5,7 +5,6 @@ import {
   STYLES,
   GLOBAL_POST_DEFAULTS,
   STYLE_PRESET_DEFAULTS,
-  MILITARY_DETECTION_PRESET,
 } from './effects.js';
 import { createStyleParameters } from './visualInput.js';
 import * as Cesium from 'cesium';
@@ -15,23 +14,10 @@ import {
   decodeBloomIntensity,
 } from '../bloom.js';
 import {
-  ALLOCATION_STRATEGIES,
-  canonicalizeDensity,
-  defaultDensityForProfile,
-  normalizeAllocationStrategy,
-  normalizeProfile,
-  profileForDensity,
-} from '../data/detectionPolicy.js';
-import {
   applyCockpitVisionStageIntensities,
   captureCockpitVisionBaseline,
   normalizeCockpitVisionMode,
 } from '../cockpitVisionPolicy.js';
-import {
-  applyContactsDetection,
-  shareCacheNeedsHeal,
-  shareableDetectionState,
-} from '../contactsDetectionPolicy.js';
 import {
   applyCyberSonarSettings,
   isCyberSonarEnabled,
@@ -39,9 +25,8 @@ import {
   setCyberSonarEnabled,
 } from '../cyberSonar.js';
 import { cyberVisualDefaultsForHudTransition } from '../hudLayouts.js';
-const DETECTION_ALLOCATION_STORAGE_KEY = 'gev:detection-allocation:v1';
 
-/** Own visual preferences, detection overrides and display-control state. */
+/** Own visual preferences and display-control state. */
 export class VisualSettings {
   async restoreShareState(state) {
     const {
@@ -59,11 +44,8 @@ export class VisualSettings {
       sharpenIntensity,
       hudVariant,
       hudVisible,
-      detectionMode,
-      detectionDensity,
-      detectionAllocation,
-      detectionFadePct,
-      detectionOutsideOpacityPct,
+      keyholeFadePct,
+      keyholeOutsideOpacityPct,
       celestialRing,
       scopeEnabled,
       scopeFeatherPct,
@@ -104,29 +86,16 @@ export class VisualSettings {
       this.hud.setMode(hudVisible ? 'on' : 'off');
       this._updateHudButtonState();
     }
-    if (typeof detectionDensity === 'number' && this._detectionDensitySlider) {
-      const pct = canonicalizeDensity(detectionDensity);
-      this._detectionDensitySlider.value = String(pct);
-      this._detectionDensityValue.textContent = `${pct}%`;
-      this._applyDetectionDensityFromUi();
-    }
-    if (detectionAllocation) {
-      this._setDetectionAllocation(detectionAllocation, {
-        syncShare: false,
-        persist: false,
-      });
-    }
-    if (typeof detectionFadePct === 'number' && this._detectionFadeSlider) {
-      this._detectionFadeSlider.value = String(detectionFadePct);
+    if (typeof keyholeFadePct === 'number' && this._keyholeFadeSlider) {
+      this._keyholeFadeSlider.value = String(keyholeFadePct);
     }
     if (
-      typeof detectionOutsideOpacityPct === 'number' &&
-      this._detectionOpacitySlider
+      typeof keyholeOutsideOpacityPct === 'number' &&
+      this._keyholeOpacitySlider
     ) {
-      this._detectionOpacitySlider.value = String(detectionOutsideOpacityPct);
+      this._keyholeOpacitySlider.value = String(keyholeOutsideOpacityPct);
     }
-    this._applyDetectionFadeFromUi();
-    if (detectionMode) this._setDetectionMode(detectionMode);
+    this._applyKeyholeFadeFromUi();
     if (typeof celestialRing === 'boolean') {
       this.setCelestialRingEnabled(celestialRing, {
         syncShare: false,
@@ -171,8 +140,6 @@ export class VisualSettings {
     readDataManager,
     readShareLinks,
     readCelestialRing,
-    readContextMode,
-    readContextChanging,
     readDisplayPortalActive,
   }) {
     Object.assign(this, elements, operations, {
@@ -184,8 +151,6 @@ export class VisualSettings {
       readDataManager,
       readShareLinks,
       readCelestialRing,
-      readContextMode,
-      readContextChanging,
       readDisplayPortalActive,
     });
     this._lifetime = new UiLifetime();
@@ -197,24 +162,8 @@ export class VisualSettings {
     });
     this.activeStyle = 'normal';
     document.documentElement.dataset.gevStyle = this.activeStyle;
-    this._detectionUserOverridden = false;
     this._cockpitVisionMode = 'optical';
     this._cockpitVisionRestore = null;
-    this._contactsDetectionRestore = null;
-    this._detectionAllocationBtns = [
-      document.getElementById('detection-allocation-elastic'),
-      document.getElementById('detection-allocation-weighted'),
-    ].filter(Boolean);
-    let storedDetectionAllocation = 'ELASTIC';
-    try {
-      storedDetectionAllocation =
-        localStorage.getItem(DETECTION_ALLOCATION_STORAGE_KEY) || 'ELASTIC';
-    } catch {
-      /* unavailable storage */
-    }
-    this._detectionAllocationPreference = normalizeAllocationStrategy(
-      storedDetectionAllocation,
-    );
   }
   get hud() {
     return this.readHud();
@@ -230,12 +179,6 @@ export class VisualSettings {
   }
   get celestialRing() {
     return this.readCelestialRing();
-  }
-  get _contextMode() {
-    return this.readContextMode();
-  }
-  get _contextModeChanging() {
-    return this.readContextChanging();
   }
   get _cockpitDisplayPortalActive() {
     return this.readDisplayPortalActive();
@@ -266,53 +209,6 @@ export class VisualSettings {
 
   _syncStagesEnabledFromIntensity() {
     this._visualEffects.syncStagesEnabledFromIntensity();
-  }
-
-  _syncContactsDetection() {
-    if (this._contextModeChanging) return;
-    const result = applyContactsDetection({
-      active: this._contextMode === 'flights',
-      restore: this._contactsDetectionRestore,
-      // A map style picked DURING the session owns detection on the way out —
-      // its auto-enable preset is younger than the entry snapshot.
-      styleOwnsDetection:
-        !this._detectionUserOverridden &&
-        Boolean(STYLE_PRESET_DEFAULTS[this.activeStyle]?.detection),
-      // The snapshot must cover everything activation mutates — the preset
-      // writes DENSITY as well as mode, so a mode-only snapshot returned
-      // OFF @ 25% as OFF @ 75% and the next manual enable came back Dense.
-      getState: () => {
-        const state = this.getDetectionState();
-        return { mode: state.detectionMode, densityPct: state.densityPct };
-      },
-      // Owner playtest: the force-on lands on the tactical look the military
-      // styles apply — the SAME preset object — not on whatever profile the
-      // operator last happened to leave detection at.
-      applyPreset: () => this._applyDetectionPreset(MILITARY_DETECTION_PRESET),
-      // The preset applier IS the state replayer: same density-then-mode order,
-      // same slider writes, so a restore round-trips exactly.
-      restoreState: (state) => this._applyDetectionPreset(state),
-    });
-    const hadOwnership = Boolean(this._contactsDetectionRestore);
-    this._contactsDetectionRestore = result.restore;
-    // Serialization reads that ownership: while Contacts holds it the link
-    // carries the SAVED snapshot, and once released it carries live state. The
-    // share cache therefore goes stale on any ownership transition, whether or
-    // not the detection engine itself moved — and it does not always move.
-    // Exiting while a military style owns detection returns changed:false (the
-    // style's preset already matches), and returning early there left a copied
-    // link claiming the operator's pre-Contacts values while the map showed
-    // Dense @ 75%.
-    if (
-      !shareCacheNeedsHeal({
-        changed: result.changed,
-        hadOwnership,
-        hasOwnership: Boolean(result.restore),
-      })
-    )
-      return;
-    if (result.changed) this._syncDetectionUiFromEngine();
-    this._syncShareState();
   }
 
   _setCockpitVision(mode, active, { revealParameters = false } = {}) {
@@ -375,19 +271,6 @@ export class VisualSettings {
       effective === 'surveillance' ||
       effective === 'thermal' ||
       effective === 'nvg';
-    this._dataManager?.setLayerParams('flights', { irBoost });
-    this._dataManager?.setLayerParams('military', { irBoost });
-    // Layers whose in-scene sprites restyle for a sensor preset need the
-    // EFFECTIVE style — a cockpit vision override sets no map style, so the
-    // map's own style event never fires for it.
-    window.dispatchEvent(
-      new CustomEvent('gev:vision-change', {
-        detail: {
-          style: effective,
-          cockpit: Boolean(cockpitMode && cockpitMode !== 'optical'),
-        },
-      }),
-    );
     // Fog blends distant geometry toward an effectively-BLACK color in this
     // app (the Cesium globe is hidden), so beyond ~100 km every 3D aircraft
     // fogs to a black silhouette — lighting and shaders can't reach past it
@@ -508,24 +391,13 @@ export class VisualSettings {
     this._layoutRightPanels();
   }
 
-  _applyDetectionDensityFromUi() {
-    const { getDetectionMode, setDetectionTuning } = this.services;
-    if (!this._detectionDensitySlider) return;
-    const pct = canonicalizeDensity(this._detectionDensitySlider.value);
-    this._detectionDensitySlider.value = String(pct);
-    if (this._detectionDensityValue)
-      this._detectionDensityValue.textContent = `${pct}%`;
-    setDetectionTuning({ densityPct: pct });
-    this._updateDetectionButton(getDetectionMode());
-  }
-
-  _applyDetectionFadeFromUi() {
+  _applyKeyholeFadeFromUi() {
     const { setKeyholeFadeTuning } = this.services;
     const fadePct = Math.max(
       0,
-      Math.min(40, Math.round(Number(this._detectionFadeSlider?.value) || 0)),
+      Math.min(40, Math.round(Number(this._keyholeFadeSlider?.value) || 0)),
     );
-    const outsideOpacityValue = this._detectionOpacitySlider?.value;
+    const outsideOpacityValue = this._keyholeOpacitySlider?.value;
     const outsideOpacityPct = Math.max(
       0,
       Math.min(
@@ -535,78 +407,19 @@ export class VisualSettings {
         ),
       ),
     );
-    if (this._detectionFadeSlider)
-      this._detectionFadeSlider.value = String(fadePct);
-    if (this._detectionFadeValue)
-      this._detectionFadeValue.textContent = `${fadePct}%`;
-    if (this._detectionOpacitySlider)
-      this._detectionOpacitySlider.value = String(outsideOpacityPct);
-    if (this._detectionOpacityValue)
-      this._detectionOpacityValue.textContent = `${outsideOpacityPct}%`;
+    if (this._keyholeFadeSlider)
+      this._keyholeFadeSlider.value = String(fadePct);
+    if (this._keyholeFadeValue)
+      this._keyholeFadeValue.textContent = `${fadePct}%`;
+    if (this._keyholeOpacitySlider)
+      this._keyholeOpacitySlider.value = String(outsideOpacityPct);
+    if (this._keyholeOpacityValue)
+      this._keyholeOpacityValue.textContent = `${outsideOpacityPct}%`;
     setKeyholeFadeTuning({
       fadeRatio: fadePct / 100,
       outsideOpacity: outsideOpacityPct / 100,
     });
     this.viewer.scene.requestRender?.();
-  }
-
-  _setDetectionAllocation(strategy, { syncShare = true, persist = true } = {}) {
-    const { setDetectionTuning } = this.services;
-    const raw = String(strategy || '')
-      .trim()
-      .toUpperCase();
-    if (!ALLOCATION_STRATEGIES.includes(raw)) return false;
-    const normalized = normalizeAllocationStrategy(raw);
-    this._detectionAllocationPreference = normalized;
-    setDetectionTuning({ allocationStrategy: normalized });
-    for (const button of this._detectionAllocationBtns) {
-      const active = button.dataset.allocation === normalized;
-      button.classList.toggle('active', active);
-      button.setAttribute('aria-checked', String(active));
-    }
-    if (persist) {
-      try {
-        localStorage.setItem(DETECTION_ALLOCATION_STORAGE_KEY, normalized);
-      } catch {
-        /* best effort */
-      }
-    }
-    if (syncShare) this._syncShareState();
-    return true;
-  }
-
-  _syncDetectionUiFromEngine() {
-    const { getKeyholeFadeTuning, getDetectionTuning, getDetectionMode } =
-      this.services;
-    const tuning = getDetectionTuning();
-    if (this._detectionDensitySlider)
-      this._detectionDensitySlider.value = String(tuning.densityPct);
-    if (this._detectionDensityValue)
-      this._detectionDensityValue.textContent = `${tuning.densityPct}%`;
-    this._setDetectionAllocation(tuning.allocationStrategy, {
-      syncShare: false,
-      persist: false,
-    });
-    const fadeTuning = getKeyholeFadeTuning();
-    if (this._detectionFadeSlider)
-      this._detectionFadeSlider.value = String(
-        Math.round(fadeTuning.fadeRatio * 100),
-      );
-    if (this._detectionOpacitySlider) {
-      this._detectionOpacitySlider.value = String(
-        Math.round(fadeTuning.outsideOpacity * 100),
-      );
-    }
-    this._applyDetectionFadeFromUi();
-    this._updateDetectionButton(getDetectionMode());
-  }
-
-  _setDetectionMode(modeLabel) {
-    const { setDetectionModeByLabel } = this.services;
-    if (!modeLabel) return;
-    setDetectionModeByLabel(modeLabel);
-    this._syncDetectionUiFromEngine();
-    this._syncShareState();
   }
 
   _setHudVariant(variantName, { applyVisualDefaults = false } = {}) {
@@ -740,26 +553,6 @@ export class VisualSettings {
       this.hud.setMode(preset.hudVisible ? 'on' : 'off');
       this._updateHudButtonState();
     }
-
-    // A style may set a detection default (e.g. military styles -> Dense for
-    // the "epic" default view), but ONLY if the user hasn't manually changed
-    // detection this session. Detection is user-controlled and persists across
-    // style switches, so an explicit Sparse/Off choice is never stomped.
-    if (preset.detection && !this._detectionUserOverridden) {
-      this._applyDetectionPreset(preset.detection);
-    }
-  }
-
-  _applyDetectionPreset(det) {
-    if (!det) return;
-    if (typeof det.densityPct === 'number' && this._detectionDensitySlider) {
-      const pct = canonicalizeDensity(det.densityPct);
-      this._detectionDensitySlider.value = String(pct);
-      if (this._detectionDensityValue)
-        this._detectionDensityValue.textContent = `${pct}%`;
-      this._applyDetectionDensityFromUi();
-    }
-    if (det.mode) this._setDetectionMode(String(det.mode).toUpperCase());
   }
 
   _applyGlobalPostDefaults() {
@@ -797,33 +590,15 @@ export class VisualSettings {
       this._updateHudButtonState();
     }
 
-    if (defaults.detectionMode) {
-      this._setDetectionMode(defaults.detectionMode);
+    if (this._keyholeFadeSlider) {
+      this._keyholeFadeSlider.value = String(defaults.keyholeFadePct ?? 7);
     }
-    if (
-      typeof defaults.detectionDensity === 'number' &&
-      this._detectionDensitySlider
-    ) {
-      const density = canonicalizeDensity(defaults.detectionDensity);
-      this._detectionDensitySlider.value = String(density);
-      this._detectionDensityValue.textContent = `${density}%`;
-      this._applyDetectionDensityFromUi();
-    }
-    this._setDetectionAllocation(
-      this._detectionAllocationPreference ||
-        defaults.detectionAllocation ||
-        'ELASTIC',
-      { syncShare: false, persist: false },
-    );
-    if (this._detectionFadeSlider) {
-      this._detectionFadeSlider.value = String(defaults.detectionFadePct ?? 7);
-    }
-    if (this._detectionOpacitySlider) {
-      this._detectionOpacitySlider.value = String(
-        defaults.detectionOutsideOpacityPct ?? 1,
+    if (this._keyholeOpacitySlider) {
+      this._keyholeOpacitySlider.value = String(
+        defaults.keyholeOutsideOpacityPct ?? 1,
       );
     }
-    this._applyDetectionFadeFromUi();
+    this._applyKeyholeFadeFromUi();
     if (typeof defaults.celestialRing === 'boolean') {
       this.setCelestialRingEnabled(defaults.celestialRing, {
         syncShare: false,
@@ -832,23 +607,12 @@ export class VisualSettings {
     }
   }
 
-  _shareableDetectionState() {
-    const { getDetectionMode } = this.services;
-    return shareableDetectionState({
-      owned: this._contactsDetectionRestore,
-      liveMode: getDetectionMode(),
-      liveDensityPct: parseInt(this._detectionDensitySlider?.value || '50', 10),
-    });
-  }
-
   _readShareState() {
     const {
-      getDetectionTuning,
       isScopeMaskEnabled,
       getScopeMaskFeather,
       getScopeTerminusOverride,
     } = this.services;
-    const detection = this._shareableDetectionState();
     return {
       bloomEnabled: this.bloomEnabled,
       sharpenEnabled: this.sharpenEnabled,
@@ -858,12 +622,9 @@ export class VisualSettings {
         sharpenIntensity: parseInt(this._sharpenSlider?.value || '49', 10),
         hudVariant: this.hud.getVariant(),
         hudVisible: this.hud.visible,
-        detectionMode: detection.mode,
-        detectionDensity: detection.densityPct,
-        detectionAllocation: getDetectionTuning().allocationStrategy,
-        detectionFadePct: parseInt(this._detectionFadeSlider?.value || '7', 10),
-        detectionOutsideOpacityPct: parseInt(
-          this._detectionOpacitySlider?.value || '1',
+        keyholeFadePct: parseInt(this._keyholeFadeSlider?.value || '7', 10),
+        keyholeOutsideOpacityPct: parseInt(
+          this._keyholeOpacitySlider?.value || '1',
           10,
         ),
         celestialRingEnabled: this.celestialRingEnabled,
@@ -877,165 +638,6 @@ export class VisualSettings {
         mapStack: this.mapStackController?.getActiveId?.() || 'photoreal',
       },
     };
-  }
-
-  getDetectionState() {
-    const { getDetectionTuning, getDetectionMode } = this.services;
-    const pct = this._detectionDensitySlider
-      ? parseInt(this._detectionDensitySlider.value, 10)
-      : null;
-    return {
-      detectionMode: getDetectionMode(),
-      densityPct: pct,
-      allocationStrategy: getDetectionTuning().allocationStrategy,
-      fadePct: parseInt(this._detectionFadeSlider?.value || '7', 10),
-      outsideOpacityPct: parseInt(
-        this._detectionOpacitySlider?.value || '0',
-        10,
-      ),
-    };
-  }
-
-  getDetectionDiagnostics() {
-    const { readDetectionDiagnostics } = this.services;
-    return readDetectionDiagnostics();
-  }
-
-  setDetection({
-    enabled,
-    mode,
-    densityPct,
-    allocationStrategy,
-    fadePct,
-    outsideOpacityPct,
-  } = {}) {
-    const { getDetectionMode, setDetectionModeByLabel } = this.services;
-    if (enabled !== undefined && typeof enabled !== 'boolean') {
-      return {
-        ok: false,
-        error: `Invalid detection enabled value: ${enabled}`,
-        ...this.getDetectionState(),
-      };
-    }
-    let requestedProfile = null;
-    if (typeof mode === 'string' && mode.trim()) {
-      requestedProfile = normalizeProfile(mode);
-      if (!requestedProfile) {
-        return {
-          ok: false,
-          error: `Unknown detection mode: ${mode}`,
-          ...this.getDetectionState(),
-        };
-      }
-    }
-    let requestedDensity = null;
-    if (densityPct != null) {
-      if (!Number.isFinite(Number(densityPct))) {
-        return {
-          ok: false,
-          error: `Invalid density: ${densityPct}`,
-          ...this.getDetectionState(),
-        };
-      }
-      requestedDensity = canonicalizeDensity(Number(densityPct));
-    }
-    if (
-      requestedProfile &&
-      requestedProfile !== 'OFF' &&
-      requestedDensity != null &&
-      profileForDensity(requestedDensity) !== requestedProfile
-    ) {
-      return {
-        ok: false,
-        error: `Detection mode ${requestedProfile} conflicts with density ${requestedDensity}%`,
-        ...this.getDetectionState(),
-      };
-    }
-    let requestedAllocation = null;
-    if (allocationStrategy != null) {
-      requestedAllocation = String(allocationStrategy).trim().toUpperCase();
-      if (!ALLOCATION_STRATEGIES.includes(requestedAllocation)) {
-        return {
-          ok: false,
-          error: `Unknown allocation strategy: ${allocationStrategy}`,
-          ...this.getDetectionState(),
-        };
-      }
-    }
-    if (fadePct != null) {
-      if (!Number.isFinite(Number(fadePct))) {
-        return {
-          ok: false,
-          error: `Invalid fade distance: ${fadePct}`,
-          ...this.getDetectionState(),
-        };
-      }
-    }
-    if (outsideOpacityPct != null) {
-      if (!Number.isFinite(Number(outsideOpacityPct))) {
-        return {
-          ok: false,
-          error: `Invalid outside opacity: ${outsideOpacityPct}`,
-          ...this.getDetectionState(),
-        };
-      }
-    }
-    const hasExplicitVisualChange =
-      typeof enabled === 'boolean' ||
-      requestedProfile !== null ||
-      requestedDensity !== null ||
-      requestedAllocation !== null ||
-      fadePct != null ||
-      outsideOpacityPct != null;
-    if (hasExplicitVisualChange) {
-      // Voice/scripted detection control counts as an explicit user choice, so
-      // neither style presets nor a still-pending shared visual restore can
-      // overwrite it afterward.
-      this.shareLinkManager?.claimRestoreLane?.('visual');
-      this._detectionUserOverridden = true;
-    }
-    if (requestedAllocation) {
-      this._setDetectionAllocation(requestedAllocation, { syncShare: false });
-    }
-    if (fadePct != null && this._detectionFadeSlider) {
-      this._detectionFadeSlider.value = String(
-        Math.max(0, Math.min(40, Math.round(Number(fadePct)))),
-      );
-    }
-    if (outsideOpacityPct != null && this._detectionOpacitySlider) {
-      this._detectionOpacitySlider.value = String(
-        Math.max(0, Math.min(100, Math.round(Number(outsideOpacityPct)))),
-      );
-    }
-    if (fadePct != null || outsideOpacityPct != null)
-      this._applyDetectionFadeFromUi();
-
-    if (
-      requestedProfile &&
-      requestedProfile !== 'OFF' &&
-      requestedDensity == null
-    ) {
-      requestedDensity = defaultDensityForProfile(requestedProfile);
-    }
-    if (requestedDensity != null && this._detectionDensitySlider) {
-      this._detectionDensitySlider.value = String(requestedDensity);
-      this._applyDetectionDensityFromUi();
-    }
-
-    if (enabled === false || requestedProfile === 'OFF') {
-      setDetectionModeByLabel('OFF');
-    } else if (requestedProfile) {
-      setDetectionModeByLabel(requestedProfile);
-    } else if (enabled === true && getDetectionMode() === 'OFF') {
-      setDetectionModeByLabel(
-        profileForDensity(
-          requestedDensity ?? this._detectionDensitySlider?.value ?? 50,
-        ),
-      );
-    }
-    this._syncDetectionUiFromEngine();
-    this._syncShareState();
-    return { ok: true, ...this.getDetectionState() };
   }
 
   setBloom({ enabled, intensityPct } = {}) {
@@ -1181,12 +783,7 @@ export class VisualSettings {
   }
 
   getVisualState() {
-    const {
-      getDetectionTuning,
-      getDetectionMode,
-      isScopeMaskEnabled,
-      getScopeMaskFeather,
-    } = this.services;
+    const { isScopeMaskEnabled, getScopeMaskFeather } = this.services;
     const styleParams = {};
     for (const [styleName, stage] of Object.entries(this.stages)) {
       const shader = STYLES[styleName];
@@ -1212,13 +809,12 @@ export class VisualSettings {
         visible: this.hud.visible,
         variant: this.hud.getVariant(),
       },
+      // The keyhole fade keeps its historical `detection` key so stored
+      // scenes and share links keep restoring it.
       detection: {
-        mode: getDetectionMode(),
-        density: parseInt(this._detectionDensitySlider?.value || '50', 10),
-        allocation: getDetectionTuning().allocationStrategy,
-        fadePct: parseInt(this._detectionFadeSlider?.value || '7', 10),
+        fadePct: parseInt(this._keyholeFadeSlider?.value || '7', 10),
         outsideOpacityPct: parseInt(
-          this._detectionOpacitySlider?.value || '0',
+          this._keyholeOpacitySlider?.value || '0',
           10,
         ),
       },
@@ -1290,39 +886,18 @@ export class VisualSettings {
     }
 
     const detectionState = state.detection || {};
-    if (
-      typeof detectionState.density === 'number' &&
-      this._detectionDensitySlider
-    ) {
-      const pct = canonicalizeDensity(detectionState.density);
-      this._detectionDensitySlider.value = String(pct);
-      if (this._detectionDensityValue)
-        this._detectionDensityValue.textContent = `${pct}%`;
-      this._applyDetectionDensityFromUi();
-    }
-    if (detectionState.allocation) {
-      this._setDetectionAllocation(detectionState.allocation, {
-        syncShare: false,
-      });
-    }
-    if (
-      typeof detectionState.fadePct === 'number' &&
-      this._detectionFadeSlider
-    ) {
-      this._detectionFadeSlider.value = String(detectionState.fadePct);
+    if (typeof detectionState.fadePct === 'number' && this._keyholeFadeSlider) {
+      this._keyholeFadeSlider.value = String(detectionState.fadePct);
     }
     if (
       typeof detectionState.outsideOpacityPct === 'number' &&
-      this._detectionOpacitySlider
+      this._keyholeOpacitySlider
     ) {
-      this._detectionOpacitySlider.value = String(
+      this._keyholeOpacitySlider.value = String(
         detectionState.outsideOpacityPct,
       );
     }
-    this._applyDetectionFadeFromUi();
-    if (detectionState.mode) {
-      this._setDetectionMode(detectionState.mode);
-    }
+    this._applyKeyholeFadeFromUi();
 
     if (state.mapStack) {
       // The stack switch is itself a MUTATION, not merely a suspension point,
@@ -1418,24 +993,6 @@ export class VisualSettings {
       this._setHudVariant(preset.hudVariant);
     }
 
-    if (preset.detectionMode) {
-      this._setDetectionMode(preset.detectionMode);
-    }
-    if (
-      typeof preset.detectionDensity === 'number' &&
-      this._detectionDensitySlider
-    ) {
-      const density = canonicalizeDensity(preset.detectionDensity);
-      this._detectionDensitySlider.value = String(density);
-      this._detectionDensityValue.textContent = `${density}%`;
-      this._applyDetectionDensityFromUi();
-    }
-    if (preset.detectionAllocation) {
-      this._setDetectionAllocation(preset.detectionAllocation, {
-        syncShare: false,
-      });
-    }
-
     if (preset.styleParams && typeof preset.styleParams === 'object') {
       for (const [styleName, params] of Object.entries(preset.styleParams)) {
         const stage = this.stages[styleName];
@@ -1511,7 +1068,6 @@ export class VisualSettings {
       restore = false,
     } = {},
   ) {
-    const { setDetectionStyle } = this.services;
     if (!restore) this.shareLinkManager?.claimRestoreLane?.('visual');
     if (styleName === this.activeStyle) {
       if (revealParameters && styleName !== 'normal')
@@ -1567,8 +1123,6 @@ export class VisualSettings {
     this.hud.onStyleChange(styleName);
     this._updateHudButtonState();
 
-    // Sync detection overlay tone to active post-process style
-    setDetectionStyle(styleName);
     this._syncIrBoost();
     window.dispatchEvent(
       new CustomEvent('gev:style-change', {
@@ -1602,50 +1156,6 @@ export class VisualSettings {
     this._scheduleAdaptivePanelLayout({ settle: true });
   }
 
-  _updateDetectionButton(modeLabel) {
-    const btn = this._detectionBtn;
-    const enabled = modeLabel !== 'OFF';
-    btn.setAttribute('aria-pressed', String(enabled));
-    btn.setAttribute(
-      'aria-label',
-      enabled
-        ? `Detection overlay: ${String(modeLabel).toLowerCase()}`
-        : 'Detection overlay: off',
-    );
-    btn.classList.remove('active', 'god', 'panoptic');
-    if (modeLabel === 'SPARSE') {
-      btn.querySelector('.pp-label').textContent = 'SPARSE';
-      btn.classList.add('active');
-    } else if (modeLabel === 'BALANCED') {
-      btn.querySelector('.pp-label').textContent = 'BALANCED';
-      btn.classList.add('active');
-    } else if (modeLabel === 'DENSE') {
-      btn.querySelector('.pp-label').textContent = 'DENSE';
-      btn.classList.add('active', 'panoptic');
-    } else {
-      btn.querySelector('.pp-label').textContent = 'DETECT';
-    }
-
-    if (this._detectionSliderRow) {
-      this._detectionSliderRow.classList.toggle('visible', modeLabel !== 'OFF');
-    }
-    if (this._detectionAllocationRow) {
-      this._detectionAllocationRow.classList.toggle(
-        'visible',
-        modeLabel !== 'OFF',
-      );
-    }
-    if (this._detectionFadeRow) {
-      this._detectionFadeRow.classList.toggle('visible', modeLabel !== 'OFF');
-    }
-    if (this._detectionOpacityRow) {
-      this._detectionOpacityRow.classList.toggle(
-        'visible',
-        modeLabel !== 'OFF',
-      );
-    }
-    this._layoutRightPanels();
-  }
   stop() {
     this._lifetime.destroy();
     this._styleParameters?.destroy();
@@ -1655,8 +1165,6 @@ export class VisualSettings {
     if (!this._irBoostActive) return;
     if (this._irFogWasEnabled != null && this.viewer?.scene?.fog)
       this.viewer.scene.fog.enabled = this._irFogWasEnabled;
-    this._dataManager?.setLayerParams('flights', { irBoost: false });
-    this._dataManager?.setLayerParams('military', { irBoost: false });
     this._irBoostActive = false;
     this._irFogWasEnabled = null;
   }

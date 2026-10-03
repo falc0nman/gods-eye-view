@@ -52,31 +52,15 @@
       </div>
     </div>
     <div class="pp-toggle-group">
-      <button class="pp-toggle-btn" id="detection-toggle" title="Detection Overlay (D)" aria-label="Detection overlay" aria-pressed="false">
-        <span class="pp-icon">&#x25A3;</span>
-        <span class="pp-label">DETECT</span>
-      </button>
-      <div class="pp-slider-row detection-slider-row" id="detection-slider-row">
-        <label class="pp-slider-mini-label" for="detection-density-slider">Density</label>
-        <input type="range" class="pp-slider" id="detection-density-slider" min="0" max="100" step="25" value="50" aria-label="Detection label density" />
-        <span class="pp-slider-value" id="detection-density-value">50%</span>
+      <div class="pp-slider-row keyhole-fade-row visible" id="keyhole-fade-row">
+        <label class="pp-slider-mini-label" for="keyhole-fade-slider">Fade</label>
+        <input type="range" class="pp-slider" id="keyhole-fade-slider" min="0" max="40" step="1" value="7" aria-label="Keyhole fade distance" title="World-overlay fade distance outside the keyhole as a percentage of its radius" />
+        <span class="pp-slider-value" id="keyhole-fade-value">7%</span>
       </div>
-      <div class="pp-slider-row detection-allocation-row" id="detection-allocation-row">
-        <span class="pp-slider-mini-label">Allocation</span>
-        <div class="pp-mode-seg detection-allocation-seg" role="radiogroup" aria-label="Detection label allocation">
-          <button class="pp-mode-btn active" id="detection-allocation-elastic" data-allocation="ELASTIC" role="radio" aria-checked="true">Elastic</button>
-          <button class="pp-mode-btn" id="detection-allocation-weighted" data-allocation="WEIGHTED" role="radio" aria-checked="false">Weighted</button>
-        </div>
-      </div>
-      <div class="pp-slider-row detection-fade-row" id="detection-fade-row">
-        <label class="pp-slider-mini-label" for="detection-fade-slider">Fade</label>
-        <input type="range" class="pp-slider" id="detection-fade-slider" min="0" max="40" step="1" value="7" aria-label="Detection fade distance" title="World-overlay fade distance outside the keyhole as a percentage of its radius" />
-        <span class="pp-slider-value" id="detection-fade-value">7%</span>
-      </div>
-      <div class="pp-slider-row detection-opacity-row" id="detection-opacity-row">
-        <label class="pp-slider-mini-label" for="detection-opacity-slider">Outside</label>
-        <input type="range" class="pp-slider" id="detection-opacity-slider" min="0" max="100" step="1" value="1" aria-label="Detection opacity outside the keyhole" title="World-overlay label and card opacity beyond the fade distance" />
-        <span class="pp-slider-value" id="detection-opacity-value">1%</span>
+      <div class="pp-slider-row keyhole-opacity-row visible" id="keyhole-opacity-row">
+        <label class="pp-slider-mini-label" for="keyhole-opacity-slider">Outside</label>
+        <input type="range" class="pp-slider" id="keyhole-opacity-slider" min="0" max="100" step="1" value="1" aria-label="Overlay opacity outside the keyhole" title="World-overlay label and card opacity beyond the fade distance" />
+        <span class="pp-slider-value" id="keyhole-opacity-value">1%</span>
       </div>
     </div>
     <!-- The one shared preset-parameter surface is inserted here at runtime. -->
@@ -87,23 +71,6 @@
         <button class="panel-collapse-btn" id="param-panel-collapse-btn" data-collapse-target="param-slider-panel" title="Collapse panel">−</button>
       </div>
       <div id="param-sliders"></div>
-    </div>
-    <div class="pp-toggle-group">
-      <!-- 3D aircraft is DEFAULT-ON in Proximity (owner directive 2026-08-22), so the
-           button ships lit and the mode row ships open — the same markup-carries-the-default
-           convention as #scope-toggle. ui.js re-syncs both from durable layer state, which
-           is what flips them back for a share link or a stored session carrying 3D off. -->
-      <button class="pp-toggle-btn active" id="models3d-toggle" aria-pressed="true" title="3D aircraft — flat icons zoomed out, 3D models up close">
-        <span class="pp-icon">&#x2708;</span>
-        <span class="pp-label">3D</span>
-      </button>
-      <div class="pp-slider-row visible" id="models3d-mode-row">
-        <span class="pp-slider-mini-label">Models</span>
-        <div class="pp-mode-seg" role="radiogroup" aria-label="3D model coverage">
-          <button class="pp-mode-btn active" id="models3d-mode-proximity" data-mode="proximity" role="radio" aria-checked="true">Proximity</button>
-          <button class="pp-mode-btn" id="models3d-mode-all" data-mode="all" role="radio" aria-checked="false">All</button>
-        </div>
-      </div>
     </div>
     <div class="pp-toggle-group">
       <button class="pp-toggle-btn" id="scope-toggle" title="Scope — the circular viewport mask" aria-pressed="false">

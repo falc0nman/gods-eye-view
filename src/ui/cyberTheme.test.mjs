@@ -75,7 +75,6 @@ function styleOwner(t, initialVariant = 'cyber') {
     _styleIndicator: {},
     _setBloomEnabled: (value) => calls.push(['bloom', value]),
     _setSharpenEnabled: (value) => calls.push(['sharpen', value]),
-    _applyDetectionPreset: (value) => calls.push(['detection', value]),
     _syncShareState: () => calls.push(['share', variant]),
   });
   for (const name of [
@@ -88,7 +87,7 @@ function styleOwner(t, initialVariant = 'cyber') {
     '_syncCockpitInheritedStyle',
     '_syncCyberSonarControl',
     '_scheduleAdaptivePanelLayout',
-    '_applyDetectionFadeFromUi',
+    '_applyKeyholeFadeFromUi',
   ])
     owner[name] = () => {};
   return { owner, hud, root, calls };
@@ -113,7 +112,6 @@ test('visual styles retain Cyber through real preset application without droppin
     assert.deepEqual(calls.at(-1), ['share', 'cyber']);
   }
   assert.equal(owner.stages.thermal.uniforms.sensitivity, 0.85);
-  assert.equal(calls.filter(([name]) => name === 'detection').length, 3);
   assert.equal(
     calls.filter(([name, value]) => name === 'bloom' && value === false).length,
     3,
@@ -326,9 +324,6 @@ test('the Display selector, voice schema and final stylesheet expose Cyber', () 
   const display = read('./templates/display-controls.html');
   const stylesheet = read('../../style.css');
   const hud = read('../hud.js');
-  const detection = read('../data/detection.js');
-  const civilRendering = read('../layers/flights/rendering.js');
-  const militaryRendering = read('../layers/military/rendering.js');
   const setHud = GEV_ACTION_SCHEMAS.find((schema) => schema.name === 'set_hud');
 
   assert.match(display, /<option value="cyber">Cyber<\/option>/);
@@ -365,26 +360,7 @@ test('the Display selector, voice schema and final stylesheet expose Cyber', () 
   );
   assert.doesNotMatch(cyberStyles, /--cyber-sonar-angle/);
   assert.match(cyberStyles, /prefers-reduced-motion: reduce/);
-  assert.match(detection, /candidate\.sonarFactor \?\? 1/);
-  assert.match(detection, /sonarActive && !obj\.skipLabel/);
-  assert.match(detection, /const bracketAlpha = admissionAlpha \* sonarFactor/);
-  assert.match(detection, /sonarSampler\.label\(sonarFactor\)/);
-  assert.match(detection, /createCyberSonarSampler\(width, height, now\)/);
   assert.match(cyberStyles, /data-cyber-sonar='off'/);
-  assert.match(detection, /governorRequestRender\('cyber-sonar-cadence'\)/);
-  assert.match(
-    detection,
-    /const animatingCount = countAnimatingRenderEntries\(renderEntries\);/,
-  );
-  assert.doesNotMatch(detection, /sonarActive \? 1 : 0/);
-  assert.match(
-    civilRendering,
-    /alpha: flightState\._irBoost \? 1 : treatment\.alpha/,
-  );
-  assert.match(
-    militaryRendering,
-    /baseAlpha:[\s\S]*?alpha: flightState\._irBoost \? 1 : treatment\.alpha/,
-  );
   assert.match(
     cyberStyles,
     /#title-bar \.title-logo #globe \{[\s\S]*?fill: var\(--cyber-red\);[\s\S]*?stroke: var\(--cyber-red-bright\);/,
@@ -450,7 +426,7 @@ test('the Display selector, voice schema and final stylesheet expose Cyber', () 
   assert.match(cyberStyles, /right: 62px;/);
   assert.match(cyberStyles, /bottom: calc\(2vh \+ 11rem\);/);
   assert.doesNotMatch(cyberStyles, /NAV 01  \/\/  COMMAND BUS  \/\/  VIS 03/);
-  assert.match(cyberStyles, /data-layer-id='satellites'/);
+  assert.match(cyberStyles, /data-layer-id='traffic'/);
   assert.match(cyberStyles, /#search-toggle::before/);
   assert.match(cyberStyles, /VISUAL MATRIX  \/\/  03/);
   assert.match(cyberStyles, /body\.cockpit-mode #cockpit-hud/);

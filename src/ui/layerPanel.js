@@ -19,34 +19,11 @@ const FEED_STATE_LABELS = Object.freeze({
 const PANEL_GROUPS = [
   {
     label: 'Movement',
-    ids: [
-      'satellites',
-      'flights',
-      'military',
-      'local-adsb',
-      'ais-live-vessels',
-      'traffic',
-      'transit',
-      'bikeshare',
-    ],
+    ids: ['traffic'],
   },
   {
     label: 'Cameras',
     ids: ['cctv', 'recent-imagery'],
-  },
-  {
-    label: 'Infrastructure',
-    ids: [
-      'alpr-cameras',
-      'military-installations',
-      'local-datacenters',
-      'telegeography-submarine-cables',
-      'local-dams',
-    ],
-  },
-  {
-    label: 'Events',
-    ids: ['rocket-launches', 'earthquakes', 'local-firms', 'fire-perimeters'],
   },
   {
     label: 'Weather',
@@ -70,12 +47,7 @@ const PANEL_POSITIONS = new Map(
   PANEL_ORDER.map(({ id }, index) => [id, index]),
 );
 const PANEL_LABELS = {
-  'ais-live-vessels': 'Live Vessels',
-  bikeshare: 'Bike Share',
   cctv: 'Cameras',
-  'alpr-cameras': 'Mapped ALPR Cameras',
-  'local-datacenters': 'Data Centers',
-  'local-firms': 'Active Fires',
 };
 
 function panelLabel(layer) {

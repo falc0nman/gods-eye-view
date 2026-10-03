@@ -2,7 +2,7 @@ import { createTerrainHeights } from '../services/terrainHeights.js';
 import { createGroundFloor } from '../services/groundFloor.js';
 import { createMeshFloorSampler } from '../services/meshFloorSampler.js';
 import { createGroundSnap } from '../services/groundSnap.js';
-import { createFireAnchors } from '../layers/firms/anchors.js';
+import { createFireAnchors } from '../services/fireAnchors.js';
 
 /** Own the DEM, coarse floors and mesh samples used by one application. */
 export function createSurfaceServices({

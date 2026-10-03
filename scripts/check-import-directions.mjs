@@ -30,9 +30,6 @@ const compatibilityEdge = (from, to) =>
 const portableExport = (key) =>
   key.startsWith('./sources/') ||
   /\/source$/.test(key) ||
-  /^\.\/layers\/(?:flights|military|vessels)\/(?:records|ingestion)$/.test(
-    key,
-  ) ||
   [
     './director',
     './voice/action-schemas',
@@ -147,14 +144,6 @@ export function checkImportDirections(root) {
         report(
           file,
           'Actions must consume feed state without the manager facade',
-        );
-      if (
-        file === 'src/app/constructCatalog.js' &&
-        to === 'src/data/localGeojson.js'
-      )
-        report(
-          file,
-          'Catalog must use the services owner without compatibility layer construction',
         );
     }
     return record;
