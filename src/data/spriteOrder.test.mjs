@@ -7,9 +7,8 @@ import {
   unregisterSpriteCollection,
 } from './spriteOrder.js';
 import flightsLayer from './flights.js';
-import aisLiveVesselsLayer from './aisLiveVessels.js';
 
-const ORDER = ['cctv', 'directions', 'ais', 'military', 'flights'];
+const ORDER = ['cctv', 'directions', 'military', 'flights'];
 
 function makePrimitives(initial = []) {
   return {
@@ -37,7 +36,6 @@ test('restoreSpriteOrder raises live collections bottom-to-top and skips destroy
   }
   const primitives = makePrimitives([
     collections.flights,
-    collections.ais,
     collections.cctv,
     collections.directions,
     collections.military,
@@ -45,9 +43,9 @@ test('restoreSpriteOrder raises live collections bottom-to-top and skips destroy
 
   restoreSpriteOrder({ scene: { primitives } });
 
-  assert.deepEqual(primitives.calls, ['cctv', 'ais', 'military', 'flights']);
+  assert.deepEqual(primitives.calls, ['cctv', 'military', 'flights']);
   assert.deepEqual(primitives.items.map((item) => item.id), [
-    'directions', 'cctv', 'ais', 'military', 'flights',
+    'directions', 'cctv', 'military', 'flights',
   ]);
 
   for (const id of ORDER) unregisterSpriteCollection(id);
@@ -98,15 +96,12 @@ test('restoreSpriteOrder never raises a registered collection absent from scene 
   unregisterSpriteCollection('flights', flights);
 });
 
-test('flights and AIS enable paths are wired through the shared sprite restorer', () => {
+test('the flights enable path is wired through the shared sprite restorer', () => {
   const viewer = { id: 'viewer' };
   const calls = [];
   const restoreSpy = (value) => calls.push(value);
-  for (const layerId of ['flights', 'ais']) {
-    restoreSpriteOrderOnEnable(layerId, viewer, restoreSpy);
-  }
-  assert.deepEqual(calls, [viewer, viewer]);
+  restoreSpriteOrderOnEnable('flights', viewer, restoreSpy);
+  assert.deepEqual(calls, [viewer]);
 
   assert.match(flightsLayer.enable.toString(), /restoreSpriteOrderOnEnable\('flights', viewer\)/);
-  assert.match(aisLiveVesselsLayer.enable.toString(), /restoreSpriteOrderOnEnable\('ais', activeViewer\)/);
 });

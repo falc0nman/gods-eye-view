@@ -59,7 +59,6 @@ const REQUIRED_CREDIT_SUBSTRINGS = [
   'OpenStreetMap contributors', // ODbL — roads
   'adsb.lol',                    // ODbL — military traces
   'OpenSky Network',             // flights
-  'AISStream',                   // vessels
   'City of Austin',              // CCTV
 ];
 

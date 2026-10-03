@@ -8,7 +8,6 @@ import { cctvProxy } from './cctv.js';
 import { defaultSourceRoot } from './common/source-root.js';
 import { localReceiversProxy } from './local-receivers.js';
 import { adsbLolProxy } from './aircraft/adsb-lol.js';
-import { aisLiveProxy } from './vessels/ais-live.js';
 import { trackBackfillProxies } from './aircraft/tracks.js';
 import { openAiRealtimeProxy } from './openai.js';
 import { googlePlacesContextProxy } from './places.js';
@@ -43,7 +42,6 @@ function localProviderRegistry({ notificationTransport } = {}) {
   );
   registry.registerLegacy('local-receivers', localReceiversProxy);
   registry.registerLegacy('adsb-lol', adsbLolProxy);
-  registry.registerLegacy('ais-live', aisLiveProxy);
   registry.registerLegacy('track-backfill', trackBackfillProxies);
   registry.registerLegacy('openai-realtime', openAiRealtimeProxy);
   registry.registerLegacy('google-places-context', googlePlacesContextProxy);

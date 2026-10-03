@@ -47,11 +47,6 @@ export const ANALYST_LAYERS = {
     text: ['callsign', 'icao24', 'originCountry', 'operator', 'aircraftClass'],
     flags: ['military', 'onGround'],
   },
-  'ais-live-vessels': {
-    numeric: ['speedKts', 'courseDeg'],
-    text: ['name', 'mmsi', 'shipType', 'destination', 'navStatus'],
-    flags: [],
-  },
 };
 
 const EARTH_R_KM = 6371;

@@ -82,7 +82,7 @@ export const ACTION_DESCRIPTIONS = {
       properties: {
         layerId: {
           description:
-            'Common-name mapping for the non-obvious ids: ships/vessels/boats → ais-live-vessels; street traffic/congestion → traffic; traffic cameras → cctv; internet radio/stations → radio; local ADS-B/my receiver/my antenna (aircraft heard by a local RTL-SDR receiver) → local-adsb; radar/weather radar/rain (national MRMS mosaic) → weather-radar; single-radar NEXRAD/velocity/correlation coefficient/level 3 radar → nexrad; storm/tornado/severe/flash flood warnings → nws-warnings; chasers/my team/team positions → team-chasers.',
+            'Common-name mapping for the non-obvious ids: street traffic/congestion → traffic; traffic cameras → cctv; internet radio/stations → radio; local ADS-B/my receiver/my antenna (aircraft heard by a local RTL-SDR receiver) → local-adsb; radar/weather radar/rain (national MRMS mosaic) → weather-radar; single-radar NEXRAD/velocity/correlation coefficient/level 3 radar → nexrad; storm/tornado/severe/flash flood warnings → nws-warnings; chasers/my team/team positions → team-chasers.',
           $position: 1,
         },
       },
@@ -302,36 +302,33 @@ export const ACTION_DESCRIPTIONS = {
   },
   track_entity: {
     description:
-      'Find and follow a specific aircraft (callsign/ICAO hex) or ship (name/MMSI) on enabled layers. Camera follows the entity.',
+      'Find and follow a specific aircraft (callsign/ICAO hex) on enabled layers. Camera follows the entity.',
     $position: 1,
     parameters: {
       properties: {
         query: {
-          description: 'Callsign, ship name, ICAO hex, or MMSI.',
+          description: 'Callsign or ICAO hex.',
           $position: 1,
         },
         layerId: {
-          description:
-            'Optional layer hint: flights | military | ais-live-vessels.',
+          description: 'Optional layer hint: flights | military.',
           $position: 1,
         },
       },
     },
   },
   stop_tracking: {
-    description:
-      'Stop following the tracked aircraft and clear any selected vessel.',
+    description: 'Stop following the tracked aircraft.',
     $position: 1,
   },
   frame_overhead: {
     description:
-      'Cinematically frame entities near the current view: pulls the camera back and angles it so nearby aircraft or ships are visible together.',
+      'Cinematically frame entities near the current view: pulls the camera back and angles it so nearby aircraft are visible together.',
     $position: 1,
     parameters: {
       properties: {
         radiusKm: {
-          description:
-            'Search radius around the view target. Defaults: 150 aircraft, 120 ships.',
+          description: 'Search radius around the view target. Default 150.',
           $position: 1,
         },
       },
@@ -486,12 +483,12 @@ export const ACTION_DESCRIPTIONS = {
   },
   analyst_query: {
     description:
-      'Answer questions ABOUT the data currently loaded on the map — counts, lists, superlatives, and attribute filters over live layers (flights, military, ships). Examples: "how many flights over Texas", "which ships are headed to Oakland", "anything above 40,000 feet", "fastest thing in view". Queries ONLY client-side data from ENABLED layers — if the needed layer is off, say so and offer to enable it. For a follow-up about the previous answer\'s set ("which of those is closest?"), set followUp=true and send only the new filters/sort.',
+      'Answer questions ABOUT the data currently loaded on the map — counts, lists, superlatives, and attribute filters over live layers (flights, military). Examples: "how many flights over Texas", "which flights are headed to Oakland", "anything above 40,000 feet", "fastest thing in view". Queries ONLY client-side data from ENABLED layers — if the needed layer is off, say so and offer to enable it. For a follow-up about the previous answer\'s set ("which of those is closest?"), set followUp=true and send only the new filters/sort.',
     $position: 1,
     parameters: {
       properties: {
         layers: {
-          description: 'Layers to query. ships/vessels → ais-live-vessels.',
+          description: 'Layers to query.',
           $position: 2,
         },
         scope: {
@@ -512,7 +509,7 @@ export const ACTION_DESCRIPTIONS = {
         },
         filters: {
           description:
-            'Attribute predicates, ANDed. ALTITUDE IS METERS (40,000 ft = 12192). Fields: altitudeM, speedMps, military, onGround, aircraftClass, callsign, operator, routeOrigin, routeDestination, originCountry (flights); speedKts, shipType, destination (ships).',
+            'Attribute predicates, ANDed. ALTITUDE IS METERS (40,000 ft = 12192). Fields: altitudeM, speedMps, military, onGround, aircraftClass, callsign, operator, routeOrigin, routeDestination, originCountry (flights).',
           $position: 1,
         },
         sortBy: {

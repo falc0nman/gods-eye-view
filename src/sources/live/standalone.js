@@ -11,7 +11,6 @@ import {
   readsbSnapshot,
   readsbIdentities,
 } from './aircraft.js';
-import { normalizeVesselTrack, vesselSnapshot } from './vessels.js';
 
 const defaultFetch = (...args) => globalThis.fetch(...args);
 const header = (response, name) => response.headers?.get?.(name);
@@ -159,52 +158,6 @@ export function createAdsbLolSource({
                 baseTimeMs,
                 readsb: true,
               }),
-        complete: false,
-      };
-    },
-  };
-}
-
-export function createAisStreamSource({
-  fetchImpl = defaultFetch,
-  apiUrl = '/api/ais-live',
-  origin = () => globalThis.location?.origin || 'http://localhost',
-} = {}) {
-  return {
-    label: 'AISStream',
-    async getSnapshot({ maxRows = 12000 } = {}, { signal } = {}) {
-      const url = new URL(apiUrl, origin());
-      url.searchParams.set('maxRows', String(maxRows));
-      const { response, payload } = await readResponse(
-        fetchImpl,
-        url.toString(),
-        { signal, cache: 'no-store' },
-        'AIS live',
-      );
-      if (!response.ok) {
-        const error = httpError(response, 'AIS live');
-        const reasons = {
-          'missing-key': 'AISSTREAM_API_KEY not set',
-          'auth-failed': 'API key rejected — check AISSTREAM_API_KEY',
-          unsupported: 'live feed unsupported',
-          error: 'feed down',
-          closed: 'feed disconnected',
-        };
-        error.message = reasons[payload?.status] || error.message;
-        throw error;
-      }
-      return { ...vesselSnapshot(payload), status: response.status };
-    },
-    async getTrack(reference, { signal } = {}) {
-      const { response, payload } = await readResponse(
-        fetchImpl,
-        '/api/ais-live/track?mmsi=' + encodeURIComponent(reference),
-        { signal },
-        'AIS live',
-      );
-      if (!response.ok) throw httpError(response, 'AIS live');
-      return {
-        records: normalizeVesselTrack(payload?.samples),
         complete: false,
       };
     },

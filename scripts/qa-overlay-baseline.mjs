@@ -32,7 +32,6 @@ const LAYER_WAIT_MS = 60_000;
 const KNOWN_OVERLAY_CANVASES = new Set([
   'world-overlay-canvas',
   'tracked-readout',
-  'vessel-labels',
   'cctv-cards',
 ]);
 
@@ -40,18 +39,15 @@ const SCENES = Object.freeze([
   { id: 'cctv-street', layers: ['cctv'], cctvHeightM: 1_500 },
   { id: 'cctv-city', layers: ['cctv'], cctvHeightM: 6_000 },
   { id: 'cctv-high', layers: ['cctv'], cctvHeightM: 12_000 },
-  { id: 'vessels', layers: ['ais-live-vessels'], camera: [4.05, 51.93, 18_000, 0.3, -1.25] },
   { id: 'detection-25', layers: ['flights'], detectionDensity: 25, camera: [-98, 38, 2_500_000, 0, -Math.PI / 2] },
   { id: 'detection-50', layers: ['flights'], detectionDensity: 50, camera: [-98, 38, 2_500_000, 0, -Math.PI / 2] },
   { id: 'detection-100', layers: ['flights'], detectionDensity: 100, camera: [-98, 38, 2_500_000, 0, -Math.PI / 2] },
   { id: 'tracked-civil-aircraft', layers: ['flights'], trackedFlight: true, camera: [-98, 38, 2_500_000, 0, -Math.PI / 2] },
-  { id: 'missions-selected', layers: ['rocket-launches'], missionSelected: true, camera: [0, 15, 18_000_000, 0, -Math.PI / 2] },
   { id: 'cockpit-mode', layers: ['flights'], trackedFlight: true, cockpit: true, camera: [-98, 38, 2_500_000, 0, -Math.PI / 2] },
 ]);
 
 const SCENE_ALIASES = Object.freeze({
   'tracked-civil': 'tracked-civil-aircraft',
-  missions: 'missions-selected',
   cockpit: 'cockpit-mode',
 });
 
@@ -172,14 +168,6 @@ async function installDeterministicDevEndpoints(page) {
       });
       return;
     }
-    if (url.pathname === '/api/ais-live') {
-      await request.respond({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ status: 'connected', rows: [], lastMessageAt: null }),
-      });
-      return;
-    }
     await request.continue();
   });
 }
@@ -272,7 +260,7 @@ function printScene(result) {
   }
   const exposed = result.samples?.rest?.exposedCounts;
   if (exposed && Object.values(exposed).some((value) => value != null)) {
-    console.log(`  exposed     : CCTV cards=${exposed.cctvOwnedEntries ?? 'n/a'}/${exposed.cctvEntryLimit ?? 'n/a'} · vessel objects=${exposed.vesselSourceObjects ?? 'n/a'}`);
+    console.log(`  exposed     : CCTV cards=${exposed.cctvOwnedEntries ?? 'n/a'}/${exposed.cctvEntryLimit ?? 'n/a'}`);
   }
   console.log('');
 }
@@ -381,7 +369,7 @@ async function readLayerState(page, layerId) {
 async function waitForLayer(page, layerId) {
   const dataBearing = new Set([
     'cctv',
-    'ais-live-vessels', 'flights', 'rocket-launches',
+    'flights',
   ]);
   if (!dataBearing.has(layerId)) return readLayerState(page, layerId);
   try {
@@ -428,10 +416,6 @@ async function readEntityInventory(page) {
     };
     const labelGroup = (entityId) => {
       const id = String(entityId || '');
-      if (id.startsWith('rocket-launch:')) return 'mission-anchor';
-      if (id.startsWith('rocket-satellite:')) return 'mission-live-or-estimated';
-      if (id.startsWith('rocket-orbit-label:')) return 'mission-orbit';
-      if (id.startsWith('rocket-reentry-label:')) return 'mission-reentry';
       if (id.startsWith('cctv-')) return 'cctv';
       return id.includes(':') ? id.split(':', 1)[0] : '(other)';
     };
@@ -542,13 +526,6 @@ async function prepareCctv(page, heightM) {
   return null;
 }
 
-async function prepareVessels(page) {
-  const state = await readLayerState(page, 'ais-live-vessels');
-  if (!(state?.stats?.count > 0)) return `AIS unavailable (${state?.stats?.error || 'no live vessels'})`;
-  await sleep(2_500);
-  return null;
-}
-
 async function prepareDetection(page, densityPct) {
   const sourceStates = await Promise.all(['flights'].map((id) => readLayerState(page, id)));
   if (!sourceStates.some((state) => (state?.stats?.count || 0) > 0)) {
@@ -597,34 +574,13 @@ async function prepareTrackedFlight(page, cockpit) {
   return null;
 }
 
-async function prepareMission(page) {
-  const state = await readLayerState(page, 'rocket-launches');
-  if (!(state?.stats?.count > 0)) return `Mission feed unavailable (${state?.stats?.error || 'no missions'})`;
-  const selected = await page.evaluate(() => {
-    const button = document.querySelector('[data-mission-roster-index="0"]');
-    if (!button) return false;
-    button.click();
-    return true;
-  });
-  if (!selected) return 'Mission roster did not expose a selectable mission';
-  try {
-    await page.waitForFunction(() => String(window.__godsEyeView.viewer.selectedEntity?.id || '').startsWith('rocket-launch:'), { timeout: 10_000 });
-  } catch {
-    return 'Mission selection did not reach the Cesium selected entity';
-  }
-  await sleep(2_000);
-  return null;
-}
-
 async function prepareScene(page, scene) {
   if (scene.camera) await setCamera(page, scene.camera);
   const layerActivations = await activateLayers(page, scene.layers);
   let skipReason = null;
   if (scene.cctvHeightM) skipReason = await prepareCctv(page, scene.cctvHeightM);
-  if (!skipReason && scene.id === 'vessels') skipReason = await prepareVessels(page);
   if (!skipReason && scene.detectionDensity) skipReason = await prepareDetection(page, scene.detectionDensity);
   if (!skipReason && scene.trackedFlight) skipReason = await prepareTrackedFlight(page, scene.cockpit);
-  if (!skipReason && scene.missionSelected) skipReason = await prepareMission(page);
   await sleep(DEFAULT_SETTLE_MS);
   return { layerActivations, skipReason };
 }
@@ -673,7 +629,6 @@ async function samplePhase(page, moving) {
     const manager = window.__godsEyeView.dataManager;
     const cctvEntry = manager.layers.get('cctv');
     const cctvState = cctvEntry?.initialized ? cctvEntry.module.getUIState?.() : null;
-    const vesselsEntry = manager.layers.get('ais-live-vessels');
     return {
       intervals,
       canvasMetrics,
@@ -681,7 +636,6 @@ async function samplePhase(page, moving) {
       exposedCounts: {
         cctvOwnedEntries: cctvState?.ambientCards?.count ?? null,
         cctvEntryLimit: cctvState?.ambientCards?.limit ?? null,
-        vesselSourceObjects: vesselsEntry?.initialized ? vesselsEntry.module.getStats?.()?.count ?? null : null,
       },
       elapsedMs: performance.now() - startedAt,
     };

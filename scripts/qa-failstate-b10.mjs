@@ -6,13 +6,7 @@
  * Drives the REAL app in headless Chromium and asserts that dead/failed feeds
  * are SURFACED to the user instead of a healthy-looking empty state.
  *
- * Node-side request interception (page.setRequestInterception) fabricates the
- * upstream failures so the run is deterministic and never depends on live
- * AISStream availability:
- *
- *   (i)  AIS invalid key   — /api/ais-live is answered with
- *        {rows:[],status:'error',error:'invalid key'}. Assert the layer's
- *        getStats().error is set (feed down) — NOT a clean 'just now · 0'.
+ * Checks:
  *
  *   (iii) DETECT with no data — enable panoptic detection with NO data layers.
  *        Assert the shared #world-overlay-canvas is non-empty (mode banner drawn),
@@ -169,15 +163,6 @@ async function main() {
     await page.setRequestInterception(true);
     page.on('request', (req) => {
       const url = req.url();
-      // (i) AIS invalid-key: the exact payload the spec calls for.
-      if (url.includes('/api/ais-live') && !url.includes('/track')) {
-        req.respond({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({ rows: [], status: 'error', error: 'invalid key' }),
-        });
-        return;
-      }
       req.continue();
     });
 
@@ -297,52 +282,6 @@ async function main() {
       );
       if (!passed) exitCode = 1;
     }
-
-    // ── (i) AIS invalid key → surfaced error, not a clean empty ──────────────
-    console.log('\n(i) AIS invalid-key: enabling ais-live-vessels...');
-    const aisStats = await page.evaluate(async () => {
-      const dm = window.__godsEyeView.dataManager;
-      await dm.setEnabled('ais-live-vessels', true);
-      const mod = dm.layers.get('ais-live-vessels').module;
-      // DataLayerManager intentionally treats enable() as a synchronous
-      // lifecycle hook, while this layer starts its first poll asynchronously
-      // from enable(). Wait on the layer's public loading state instead of a
-      // machine-speed-dependent fixed delay so the assertion always observes
-      // the injected response, not an in-flight request.
-      const deadline = Date.now() + 5000;
-      while (mod.getStats().loading && Date.now() < deadline) {
-        await new Promise((r) => setTimeout(r, 50));
-      }
-      return mod.getStats();
-    });
-    {
-      const hasError = typeof aisStats.error === 'string' && aisStats.error.length > 0;
-      const cleanEmpty = !hasError && (aisStats.count === 0);
-      record(
-        'AIS: dead feed surfaces an error (not clean empty)',
-        hasError && !cleanEmpty,
-        `stats=${JSON.stringify({ error: aisStats.error, count: aisStats.count, lastUpdate: aisStats.lastUpdate })}`,
-      );
-      if (!hasError) exitCode = 1;
-    }
-    const aisControl = await readLayerControl(page, 'ais-live-vessels', 'UNAVAILABLE');
-    const aisChipHonest = aisControl.feedState === 'unavailable'
-      && aisControl.ariaLabel === 'Live AIS Vessels: UNAVAILABLE';
-    const aisMetaHonest = /^UNAVAILABLE · AISStream · /i.test(aisControl.meta)
-      && aisStats.error
-      && aisControl.meta.includes(aisStats.error);
-    record(
-      'AIS: layer control reads UNAVAILABLE',
-      aisChipHonest,
-      JSON.stringify(aisControl),
-    );
-    record(
-      'AIS: layer metadata names the upstream error',
-      aisMetaHonest,
-      `meta=${JSON.stringify(aisControl.meta)}`,
-    );
-    if (!aisChipHonest || !aisMetaHonest) exitCode = 1;
-    await captureLayerControl(page, 'ais-live-vessels', 'failstate-ais-unavailable.png');
 
     // ── (iii) DETECT with no data layers → mode banner drawn (non-blank) ─────
     console.log('\n(iii) DETECT with no data layers: disabling data layers, enabling panoptic...');

@@ -15,10 +15,6 @@ export function createStandaloneCatalog({
     surface,
     sources: createStandaloneLayerSources(),
     signal,
-    vesselOptions: {
-      maxRows: import.meta.env?.VITE_AIS_LIVE_MAX_ROWS,
-      maxLabels: import.meta.env?.VITE_AIS_LIVE_LABEL_MAX_ROWS,
-    },
   });
 }
 

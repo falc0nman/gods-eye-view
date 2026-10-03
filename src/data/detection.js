@@ -111,8 +111,6 @@ const LAYER_WEIGHTS = Object.freeze({
   traffic: 1.15,
   cctv: 1.1,
   flights: 1,
-  satellites: 1,
-  'ais-live-vessels': 1,
 });
 
 /** @constant {string} FONT - Monospace font used for callsign/overlay text. */

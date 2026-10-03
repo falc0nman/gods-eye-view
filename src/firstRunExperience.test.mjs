@@ -588,10 +588,10 @@ test('the voice TOOL SCHEMA matches the pinned release — the mission mapping i
   // Re-derived again for the storm-chase layer ids and their mapping, and
   // for each GW-57 removal taking its layers out of enums, mappings and
   // analyst fields.
-  assert.equal(block.length, 22974, 'serialized tool schema length drifted');
+  assert.equal(block.length, 22669, 'serialized tool schema length drifted');
   assert.equal(
     crypto.createHash('sha256').update(block).digest('hex'),
-    '90f0a1c3ebad1ef2dbed65b0e2498a21754e184bab8341d45b4e3a062970e26b',
+    '7aca9f57f64c59acaae2ad13341dea5ebb2d4722072d6e1ac6be4c4f735501fb',
     'the first-run missions must ride EXISTING tools: no schema edit, no cache bust',
   );
   const instructions = fs.readFileSync(new URL('../server/providers/openai/instructions.js', import.meta.url), 'utf8');

@@ -77,7 +77,6 @@ export class StyleManager extends ShellFacade {
       flightsLayer,
       militaryFlightsLayer,
       cctvLayer,
-      aisLiveVesselsLayer,
       localAdsbLayer,
     } = services;
     this.services = services;
@@ -122,7 +121,6 @@ export class StyleManager extends ShellFacade {
       tracking: {
         flightsLayer,
         militaryFlightsLayer,
-        aisLiveVesselsLayer,
       },
       searchInput: this._locationSearch,
       interruptCameraMotion: services.interruptCameraMotion,
@@ -298,7 +296,6 @@ export class StyleManager extends ShellFacade {
         interruptCameraMotion: services.interruptCameraMotion,
         flightsLayer: services.flightsLayer,
         militaryFlightsLayer: services.militaryFlightsLayer,
-        aisLiveVesselsLayer: services.aisLiveVesselsLayer,
       },
       elements: {
         _locationPills: this._locationPills,
@@ -409,7 +406,6 @@ export class StyleManager extends ShellFacade {
         militaryFlightsLayer,
         localAdsbLayer,
         cctvLayer,
-        aisLiveVesselsLayer,
       ].filter(Boolean),
       (modeLabel) => {
         this._updateDetectionButton(modeLabel);
@@ -550,9 +546,8 @@ export class StyleManager extends ShellFacade {
     return this._navigation._stampNavigation(...arguments);
   }
 
-  /** Release every follow owner while preserving Contact and vessel selection. */
+  /** Release every follow owner. */
   _releaseFollowCamera({
-    preserveVesselSelection = true,
     preserveCameraFlight = false,
     trackingOrigin = 'tool',
   } = {}) {
@@ -1314,7 +1309,7 @@ export class StyleManager extends ShellFacade {
   beginLocationNavigation() {
     this._stampNavigation();
     this.cockpitView?.exit({ restoreTracking: false });
-    return this._releaseFollowCamera({ preserveVesselSelection: false });
+    return this._releaseFollowCamera();
   }
 
   /** Wire the top-center action that clears only manager-owned data layers. */

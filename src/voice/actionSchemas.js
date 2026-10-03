@@ -130,7 +130,6 @@ const schemas = [
             'traffic',
             'cctv',
             'radio',
-            'ais-live-vessels',
             'local-adsb',
             'weather-radar',
             'nexrad',
@@ -159,7 +158,6 @@ const schemas = [
             'traffic',
             'cctv',
             'radio',
-            'ais-live-vessels',
             'weather-radar',
             'nexrad',
             'nws-warnings',
@@ -512,7 +510,7 @@ const schemas = [
       properties: {
         target: {
           type: 'string',
-          enum: ['flights', 'military', 'vessels'],
+          enum: ['flights', 'military'],
         },
         radiusKm: {
           type: 'number',
@@ -725,7 +723,7 @@ const schemas = [
           type: 'array',
           items: {
             type: 'string',
-            enum: ['flights', 'military', 'ais-live-vessels'],
+            enum: ['flights', 'military'],
           },
         },
         scope: {

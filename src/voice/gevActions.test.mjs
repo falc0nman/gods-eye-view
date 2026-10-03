@@ -52,8 +52,8 @@ test('track_entity narration names aircraft callsign → registration → icao24
   // otherwise the voice says "ae1fa4" at a plane the UI is labelling N123AB.
   assert.equal(formatTrackedEntityLabel({ ...found, callsign: null }, 'q'), 'N123AB');
   assert.equal(formatTrackedEntityLabel({ ...found, callsign: '  ', registration: ' ' }, 'q'), 'ae1fa4');
-  // Vessels carry no registration and keep their own links.
-  assert.equal(formatTrackedEntityLabel({ name: 'EVER GIVEN', mmsi: 353136000 }, 'q'), 'EVER GIVEN');
+  // A contact with neither callsign nor registration falls back to its name.
+  assert.equal(formatTrackedEntityLabel({ name: 'LIFEGUARD 1' }, 'q'), 'LIFEGUARD 1');
   assert.equal(formatTrackedEntityLabel(null, 'the tanker'), 'the tanker');
 });
 
@@ -504,34 +504,6 @@ test('successful voice overhead framing stamps and releases the old owner before
   assert.deepEqual(order, ['stamp:frame', 'release', 'cancel', 'fly:released']);
 });
 
-test('tracked aircraft yields to vessel voice flights before the flight begins', async () => {
-  globalThis.window = globalThis.window || { clearTimeout, setTimeout, requestIdleCallback: null };
-  for (const kind of ['vessel']) {
-    const { order, viewer, styleManager } = createVoiceNavigationHarness();
-    const module = {
-      findByQuery: () => ({ mmsi: '123456789', name: 'Test vessel', latitude: 29.75, longitude: -95.35 }),
-      selectById(id) { order.push(`select:${id}`); return true; },
-    };
-    const layerId = 'ais-live-vessels';
-    const dataManager = {
-      layers: new Map([[layerId, { module }]]),
-      isEnabled: (id) => id === layerId,
-      getAll: () => [],
-    };
-    const runner = createGevActionRunner({ viewer, styleManager, dataManager });
-    const result = await runner('track_entity', {
-      query: 'Test vessel',
-      layerId,
-    });
-    assert.equal(result.ok, true, kind);
-    assert.equal(order[0], `stamp:${kind}`);
-    assert.equal(order[1], 'release');
-    assert.equal(order[2], 'cancel');
-    assert.equal(order[3], 'select:123456789');
-    assert.equal(order.at(-1), 'fly:released');
-  }
-});
-
 test('move_camera and fly_route validate first, then use the shared camera authority seam', async () => {
   globalThis.window = globalThis.window || { clearTimeout, setTimeout, requestIdleCallback: null };
   const { order, viewer, styleManager } = createVoiceNavigationHarness();
@@ -626,17 +598,17 @@ test('Cockpit refuses every named voice camera route before camera or selection 
     ['move_camera', { motion: 'stop' }],
     ['fly_route', { label: 'harbor' }],
     ['frame_overhead', { target: 'flights' }],
-    ['track_entity', { query: 'Test vessel', layerId: 'ais-live-vessels' }],
+    ['track_entity', { query: 'ALLOC01', layerId: 'flights' }],
   ];
   for (const [name, args] of cases) {
     const { order, viewer, styleManager } = createVoiceNavigationHarness({ cockpitActive: true });
     let selected = 0;
     const position = viewer.camera.positionWC;
     const modules = new Map([
-      ['flights', { module: { getNearby: () => [{ id: 'flight-1', position }] } }],
-      ['ais-live-vessels', { module: {
-        findByQuery: () => ({ mmsi: '123456789', latitude: 29.75, longitude: -95.35 }),
-        selectById: () => { selected += 1; return true; },
+      ['flights', { module: {
+        getNearby: () => [{ id: 'flight-1', position }],
+        findByQuery: () => ({ icao24: 'abc123', callsign: 'ALLOC01' }),
+        trackById: () => { selected += 1; return true; },
       } }],
     ]);
     const runner = createGevActionRunner({
@@ -672,15 +644,15 @@ test('a newer voice action makes an older deferred navigation authority inert', 
     viewer,
     styleManager,
     dataManager: {
-      layers: new Map([['ais-live-vessels', { module: {
-        findByQuery: () => ({ mmsi: '123456789', name: 'Test vessel', latitude: 29.75, longitude: -95.35 }),
-        selectById: () => true,
+      layers: new Map([['flights', { module: {
+        findByQuery: () => ({ icao24: 'abc123', callsign: 'ALLOC01' }),
+        trackById: () => true,
       } }]]),
       isEnabled: () => true,
       getAll: () => [],
     },
   });
-  assert.equal((await runner('track_entity', { query: 'Test vessel', layerId: 'ais-live-vessels' })).ok, true);
+  assert.equal((await runner('track_entity', { query: 'ALLOC01', layerId: 'flights' })).ok, true);
   let staleReleased = false;
   assert.equal(reassertNavigationHandoff({
     generation: oldGeneration,

@@ -1,8 +1,5 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { once } from 'node:events';
-import { WebSocketServer } from 'ws';
-import { setTimeout as delay } from 'node:timers/promises';
 import * as providers from '../../server/providers/live.js';
 import * as portable from '../../src/data/adsbLolFallback.js';
 
@@ -52,7 +49,6 @@ function environment(t, values) {
 test('live entry resolves in Node and aircraft normalization stays independently portable', async () => {
   const entry = await import('gods-eye-view/server/providers/live');
   assert.equal(entry.openSkyProxy, providers.openSkyProxy);
-  assert.equal(entry.aisLiveProxy, providers.aisLiveProxy);
   const normalizer = await import('gods-eye-view/sources/adsb-lol');
   assert.equal(
     normalizer.normalizeAdsbLolAircraftState,
@@ -155,80 +151,6 @@ test('military aircraft route preserves fresh cache and stale response after ups
   now += 13_000;
   assert.equal((await request('/api/adsblol/mil')).body, first.body);
   assert.equal(calls, 2);
-});
-
-test('AIS preview route ingests through the socket, returns tracks and disposes before restart', async (t) => {
-  const upstream = new WebSocketServer({ host: '127.0.0.1', port: 0 });
-  await once(upstream, 'listening');
-  const sockets = [];
-  t.after(async () => {
-    for (const socket of sockets) socket.terminate();
-    await new Promise((resolve) => upstream.close(resolve));
-  });
-  environment(t, {
-    AISSTREAM_API_KEY: 'fixture-key',
-    AISSTREAM_URL: `ws://127.0.0.1:${upstream.address().port}`,
-    AISSTREAM_BOUNDING_BOXES: undefined,
-    AISSTREAM_MESSAGE_TYPES: undefined,
-    AISSTREAM_SILENCE_TIMEOUT_MS: '0',
-  });
-  upstream.on('connection', (socket) => {
-    sockets.push(socket);
-    socket.on('message', (raw) => {
-      assert.equal(JSON.parse(raw).APIKey, 'fixture-key');
-      for (const [lat, epoch] of [
-        [30, Math.floor(Date.now() / 1000) - 120],
-        [30.01, Math.floor(Date.now() / 1000) - 60],
-      ]) {
-        socket.send(
-          JSON.stringify({
-            MessageType: 'PositionReport',
-            MetaData: {
-              MMSI: 123456789,
-              latitude: lat,
-              longitude: -97,
-              time_utc: new Date(epoch * 1000).toISOString(),
-            },
-            Message: {
-              PositionReport: {
-                UserID: 123456789,
-                Sog: 10,
-                Cog: 90,
-                TrueHeading: 511,
-              },
-            },
-          }),
-        );
-      }
-    });
-  });
-  const plugin = providers.aisLiveProxy();
-  t.after(() => plugin.closeBundle());
-  const request = install(plugin, true);
-  let res;
-  for (let i = 0; i < 100; i++) {
-    res = await request('/api/ais-live');
-    if (JSON.parse(res.body).rows.length) break;
-    await delay(10);
-  }
-  const data = JSON.parse(res.body);
-  assert.equal(data.status, 'live');
-  assert.equal(data.rows[0].mmsi, '123456789');
-  assert.equal(data.rows[0].heading, null);
-  const history = await request('/api/ais-live', '/track?mmsi=123456789');
-  assert.equal(JSON.parse(history.body).samples.length, 2);
-  assert.equal(
-    (await request('/api/ais-live', '/track?mmsi=bad')).statusCode,
-    400,
-  );
-  assert.equal(sockets.length, 1);
-  plugin.closeBundle();
-  for (let i = 0; i < 100 && sockets[0].readyState !== 3; i++) await delay(10);
-  assert.equal(sockets[0].readyState, 3);
-  const restarted = install(plugin);
-  await restarted('/api/ais-live');
-  for (let i = 0; i < 100 && sockets.length < 2; i++) await delay(10);
-  assert.equal(sockets.length, 2);
 });
 
 test('military aircraft route serves stale cache on an upstream 429 and cools down for Retry-After', async (t) => {

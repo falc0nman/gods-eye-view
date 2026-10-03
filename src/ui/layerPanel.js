@@ -19,7 +19,7 @@ const FEED_STATE_LABELS = Object.freeze({
 const PANEL_GROUPS = [
   {
     label: 'Movement',
-    ids: ['flights', 'military', 'local-adsb', 'ais-live-vessels', 'traffic'],
+    ids: ['flights', 'military', 'local-adsb', 'traffic'],
   },
   {
     label: 'Cameras',
@@ -47,7 +47,6 @@ const PANEL_POSITIONS = new Map(
   PANEL_ORDER.map(({ id }, index) => [id, index]),
 );
 const PANEL_LABELS = {
-  'ais-live-vessels': 'Live Vessels',
   cctv: 'Cameras',
 };
 

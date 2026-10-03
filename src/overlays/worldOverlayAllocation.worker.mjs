@@ -7,11 +7,6 @@ import {
   setOverlayEntries,
 } from './worldOverlay.js';
 import {
-  applyVesselOverlayPolicy,
-  VESSEL_OVERLAY_SOURCE_ID,
-  vesselOverlayCohortLimit,
-} from '../data/vesselLabels.js';
-import {
   createTrackedOverlayEntry,
   TRACKED_OVERLAY_SOURCE_ID,
   TRACKED_OVERLAY_SOURCE_OPTIONS,
@@ -326,73 +321,12 @@ function buildWorkload(count) {
   return { entries, positions, drifts };
 }
 
-function buildPhase3VesselsWorkload(count) {
-  const vesselAmbientCount = vesselOverlayCohortLimit(
-    VIEWPORT_WIDTH,
-    VIEWPORT_HEIGHT,
-  );
-  const expectedCount = vesselAmbientCount + 1;
-  if (count !== expectedCount)
-    throw new Error(`phase3-vessels requires ${expectedCount} entries`);
-  const workload = buildWorkload(count);
-  const vessels = [];
-  for (let index = 0; index < workload.entries.length; index++) {
-    const position = workload.entries[index].position;
-    const vesselIndex = index;
-    const selected = vesselIndex === vesselAmbientCount;
-    const entry = applyVesselOverlayPolicy(
-      {
-        id: selected ? 'vessel:selected' : `vessel:${vesselIndex}`,
-        position,
-        gapPx: selected ? 12 : 10,
-        accent: '57, 213, 255',
-        title: selected ? 'SELECTED VESSEL' : `VESSEL ${vesselIndex}`,
-        details: selected
-          ? ['CARGO · 14.5KT · 231°', 'MMSI 353136000 · POS: LIVE']
-          : ['CARGO · 14.5KT · 231°'],
-        selected,
-        priority: selected ? 100000 : vesselAmbientCount - vesselIndex,
-      },
-      12_000_000,
-    );
-    entry.horizonCull = false;
-    vessels.push(entry);
-  }
-  return {
-    ...workload,
-    registrations: [
-      {
-        sourceId: VESSEL_OVERLAY_SOURCE_ID,
-        entries: vessels,
-        options: {
-          collisionCapacity: vesselAmbientCount,
-          cohortLimit: vesselAmbientCount,
-        },
-      },
-    ],
-    ambientCardCapacity: AMBIENT_CARD_COLLISION_CAPACITY,
-  };
-}
-
 function buildPhase3TrackedWorkload(count) {
-  const vesselAmbientCount = vesselOverlayCohortLimit(
-    VIEWPORT_WIDTH,
-    VIEWPORT_HEIGHT,
-  );
-  const expectedCount = vesselAmbientCount + 1;
-  if (count !== expectedCount)
-    throw new Error(`phase3-tracked requires ${expectedCount} entries`);
-  const workload = buildPhase3VesselsWorkload(count);
-  const vesselRegistration = workload.registrations.find(
-    ({ sourceId }) => sourceId === VESSEL_OVERLAY_SOURCE_ID,
-  );
-  const selectedIndex = vesselRegistration.entries.findIndex(
-    ({ selected }) => selected,
-  );
-  const selected = vesselRegistration.entries.splice(selectedIndex, 1)[0];
+  if (count !== 1) throw new Error('phase3-tracked requires 1 entry');
+  const workload = buildWorkload(count);
   const trackedEntity = {
     gevTrackedId: 'flights:allocation-probe',
-    gevDisplayPosition: selected.position,
+    gevDisplayPosition: workload.entries[0].position,
     gevLabelModel: {
       title: 'ALLOC01',
       details: ['FL350 · 451 kts', 'TEST AIR · A320'],
@@ -401,21 +335,21 @@ function buildPhase3TrackedWorkload(count) {
   };
   const tracked = createTrackedOverlayEntry(trackedEntity);
   tracked.horizonCull = false;
-  vesselRegistration.options = {
-    collisionCapacity: vesselAmbientCount,
-    cohortLimit: vesselAmbientCount,
+  return {
+    ...workload,
+    registrations: [
+      {
+        sourceId: TRACKED_OVERLAY_SOURCE_ID,
+        entries: [tracked],
+        options: TRACKED_OVERLAY_SOURCE_OPTIONS,
+      },
+    ],
+    ambientCardCapacity: AMBIENT_CARD_COLLISION_CAPACITY,
   };
-  workload.registrations.push({
-    sourceId: TRACKED_OVERLAY_SOURCE_ID,
-    entries: [tracked],
-    options: TRACKED_OVERLAY_SOURCE_OPTIONS,
-  });
-  return workload;
 }
 
 function buildPhase4CctvWorkload(count) {
-  const phase3Count =
-    vesselOverlayCohortLimit(VIEWPORT_WIDTH, VIEWPORT_HEIGHT) + 1;
+  const phase3Count = 1;
   const expectedCount = phase3Count + CCTV_AMBIENT_CARD_MAX + 1;
   if (count !== expectedCount)
     throw new Error(`phase4-cctv requires ${expectedCount} entries`);
@@ -465,11 +399,7 @@ function buildPhase4CctvWorkload(count) {
 }
 
 function buildPhase5CctvProjectionWorkload(count) {
-  const phase4Count =
-    vesselOverlayCohortLimit(VIEWPORT_WIDTH, VIEWPORT_HEIGHT) +
-    1 +
-    CCTV_AMBIENT_CARD_MAX +
-    1;
+  const phase4Count = 1 + CCTV_AMBIENT_CARD_MAX + 1;
   const expectedCount = phase4Count + 1;
   if (count !== expectedCount) {
     throw new Error(`phase5-cctv-projection requires ${expectedCount} entries`);
@@ -521,12 +451,7 @@ function buildPhase5MilitaryWorkload(count) {
 }
 
 function buildAllLiveRadioWorkload(count) {
-  const phase5Count =
-    vesselOverlayCohortLimit(VIEWPORT_WIDTH, VIEWPORT_HEIGHT) +
-    1 +
-    CCTV_AMBIENT_CARD_MAX +
-    1 +
-    1;
+  const phase5Count = 1 + CCTV_AMBIENT_CARD_MAX + 1 + 1;
   const expectedCount = phase5Count + RADIO_OVERLAY_COHORT_LIMIT + 1;
   if (count !== expectedCount)
     throw new Error(`all-live-radio requires ${expectedCount} entries`);
@@ -658,21 +583,19 @@ function main() {
   const workload =
     PROFILE === 'phase6-detection'
       ? buildPhase6DetectionWorkload(ENTRY_COUNT)
-      : PROFILE === 'phase3-vessels'
-        ? buildPhase3VesselsWorkload(ENTRY_COUNT)
-        : PROFILE === 'phase3-tracked'
-          ? buildPhase3TrackedWorkload(ENTRY_COUNT)
-          : PROFILE === 'phase4-cctv'
-            ? buildPhase4CctvWorkload(ENTRY_COUNT)
-            : PROFILE === 'phase5-cctv-projection'
-              ? buildPhase5CctvProjectionWorkload(ENTRY_COUNT)
-              : PROFILE === 'phase5-civil'
-                ? buildPhase5CivilWorkload(ENTRY_COUNT)
-                : PROFILE === 'phase5-military'
-                  ? buildPhase5MilitaryWorkload(ENTRY_COUNT)
-                  : PROFILE === 'all-live-radio'
-                    ? buildAllLiveRadioWorkload(ENTRY_COUNT)
-                    : buildWorkload(ENTRY_COUNT);
+      : PROFILE === 'phase3-tracked'
+        ? buildPhase3TrackedWorkload(ENTRY_COUNT)
+        : PROFILE === 'phase4-cctv'
+          ? buildPhase4CctvWorkload(ENTRY_COUNT)
+          : PROFILE === 'phase5-cctv-projection'
+            ? buildPhase5CctvProjectionWorkload(ENTRY_COUNT)
+            : PROFILE === 'phase5-civil'
+              ? buildPhase5CivilWorkload(ENTRY_COUNT)
+              : PROFILE === 'phase5-military'
+                ? buildPhase5MilitaryWorkload(ENTRY_COUNT)
+                : PROFILE === 'all-live-radio'
+                  ? buildAllLiveRadioWorkload(ENTRY_COUNT)
+                  : buildWorkload(ENTRY_COUNT);
   const { entries, positions, drifts } = workload;
   const solveIntervalMs = Number(process.env.GEV_ALLOC_SOLVE_MS) || 125;
   const detectionActive = !!workload.detectionLayer;

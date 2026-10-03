@@ -3,9 +3,7 @@ import assert from 'node:assert/strict';
 import {
   createOpenSkySource,
   createAdsbLolSource,
-  createAisStreamSource,
   normalizeReadsbAircraft,
-  normalizeVesselObservation,
   openSkySnapshot,
   readsbSnapshot,
 } from './index.js';
@@ -101,34 +99,6 @@ test('readsb units and position/contact ages are normalized once against the sou
   );
 });
 
-test('vessel identity, opaque reference and heading/course remain distinct, unknowns stay null', () => {
-  const row = normalizeVesselObservation(
-    {
-      mmsi: '123456789',
-      lat: 30,
-      lon: -97,
-      speed: 10,
-      heading: 45,
-      course: 60,
-      last_position_epoch: now / 1000,
-      extra: 'discard',
-    },
-    'opaque-reference',
-  );
-  assert.equal(row.id, '123456789');
-  assert.equal(row.reference, 'opaque-reference');
-  assert.equal(row.headingDeg, 45);
-  assert.equal(row.courseDeg, 60);
-  assert.equal(row.speedMps, 10 * 0.514444);
-  assert.equal(row.altitudeDatum, 'sea-surface');
-  assert.equal(row.observedAtMs, now);
-  assert.equal('extra' in row, false);
-  assert.equal(
-    normalizeVesselObservation({ mmsi: 'x', lat: null, lon: null }),
-    null,
-  );
-});
-
 test('construction is inert; adapters preserve routes, viewport query, cache epoch and history datum', async () => {
   const requests = [];
   const fetchImpl = async (url, init) => {
@@ -213,53 +183,6 @@ test('denials and outages never start another source and do not echo arbitrary r
     });
     assert.equal(calls, 1);
   }
-});
-
-test('AIS reports limited received coverage and keeps connection state separate from positions', async () => {
-  const source = createAisStreamSource({
-    origin: () => 'http://example.test',
-    fetchImpl: async (url) => {
-      if (url.includes('/track?'))
-        return response({ samples: [{ lat: 30, lon: -97, t: now / 1000 }] });
-      assert.equal(url, 'http://example.test/api/ais-live?maxRows=500');
-      return response({
-        status: 'reconnecting',
-        refreshing: true,
-        rows: [
-          {
-            mmsi: '123456789',
-            lat: 30,
-            lon: -97,
-            last_position_UTC: new Date(now).toISOString(),
-          },
-        ],
-        newestPositionAt: new Date(now).toISOString(),
-      });
-    },
-  });
-  const snapshot = await source.getSnapshot({ maxRows: 500 });
-  assert.equal(snapshot.complete, false);
-  assert.equal(snapshot.stale, true);
-  assert.equal(snapshot.observedAtMs, now);
-  assert.equal(snapshot.transportStatus, 'reconnecting');
-  assert.equal(
-    (await source.getTrack('123456789')).records[0].observedAtMs,
-    now,
-  );
-});
-
-test('a malformed vessel row cannot prevent admission of valid positions', async () => {
-  const source = createAisStreamSource({
-    fetchImpl: async () =>
-      response({
-        status: 'live',
-        rows: [null, { mmsi: '123456789', lat: 30, lon: -97 }],
-      }),
-  });
-  const snapshot = await source.getSnapshot();
-  assert.equal(snapshot.records.length, 1);
-  assert.equal(snapshot.rejectedCount, 1);
-  assert.equal(snapshot.complete, false);
 });
 
 test('out-of-range source epochs do not reach Date or globe time constructors', () => {

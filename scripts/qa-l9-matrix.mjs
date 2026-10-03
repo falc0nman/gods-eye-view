@@ -16,7 +16,7 @@
  *   D · HARNESS  the existing qa-*.mjs fleet, invoked as subprocesses and
  *                aggregated. This runner never reimplements what they cover.
  *   M · MANUAL   the owner-eyes checks (3 voice mic round trips, the LAN
- *                warning, the live-vessel transfer, …). Always reported as
+ *                warning, …). Always reported as
  *                SKIPPED/OWNER-RUN so the coverage math stays honest — the
  *                steps live in the maintainers' release runbook.
  *
@@ -126,7 +126,7 @@ function normalizeVerdict(res) {
 
 /** Environment facts discovered in preflight; checks read this. */
 const env = {
-  // TOMTOM/AIS/OPENAI/OPENSKY →
+  // TOMTOM/OPENAI/OPENSKY →
   //   true    key positively present
   //   false   key positively ABSENT (the endpoint said so in its own words)
   //   'error' the status endpoint is unhealthy — key state UNKNOWN, and any
@@ -164,10 +164,8 @@ function keyGuard(name, state) {
 const CREDIT_EXPECTATIONS = {
   flights: /OpenSky/i,
   military: /adsb\.lol/i,
-  'rocket-launches': /Launch Library|LL2/i,
   traffic: /TomTom|OpenStreetMap/i,
   cctv: /Austin|Caltrans|Transport for London|TfL/i,
-  'ais-live-vessels': /AISStream/i,
   'local-neighborhoods': /DataSF|San Francisco/i,
   'weather-effects': /Open-Meteo/i,
 };
@@ -761,52 +759,6 @@ check({
 });
 
 check({
-  id: 'B8', group: 'B', desc: 'AIS vessel feed is live (/api/ais-live)', needsKey: 'AIS',
-  run: async () => {
-    const r = await jget('/api/ais-live', { timeoutMs: 40000 });
-    const rows = r.json?.rows?.length || 0;
-    const status = r.json?.status;
-    if (!r.ok) return fail(`HTTP ${r.status} status=${status}`);
-    // Rows alone are NOT liveness. The watchdog keeps serving cached vessels
-    // through stale/reconnecting/down — "the cached vessels on screen are
-    // exactly what makes an outage invisible" (src/data/aisLiveVessels.js:183).
-    // A live claim therefore needs status === 'live' AND rows.
-    // ('open' is the pre-watchdog spelling: still accepted by the client, never
-    // emitted by this server — aisWatchdog.js:72.)
-    const healthy = status === 'live' || status === 'open';
-    if (healthy && rows > 0) {
-      return pass(`${rows} vessels, status=${status}, newest=${r.json?.newestPositionAt || 'n/a'}, silentFor=${r.json?.silentForMs ?? 'n/a'}ms`);
-    }
-    if (status === 'auth-failed') {
-      // A rejected key is terminal and is the product's problem to report.
-      return fail(`AISStream rejected the configured key (status=auth-failed, rows=${rows}) — retry is terminal (retryInSec 0)`);
-    }
-    if (healthy && rows === 0) {
-      return skip(`status=live but 0 rows — AISStream connects open-but-silent upstream (their #23/#15); recheck when it wakes`, 'ENV');
-    }
-    if (['stale', 'reconnecting', 'down', 'connecting'].includes(status)) {
-      // Transient/degraded is ENV only because the payload SAYS so — the
-      // honesty is the evidence. rows>0 here means cached, not live.
-      return skip(`feed is ${status}${rows > 0 ? ` while still serving ${rows} CACHED rows` : ''} (attempt=${r.json?.reconnectAttempt ?? 'n/a'}, nextAttemptAt=${r.json?.nextAttemptAt ?? 'n/a'}, silentFor=${r.json?.silentForMs ?? 'n/a'}ms) — surfaced honestly, but this is not a live feed`, 'ENV');
-    }
-    return fail(`unexpected AIS feed status "${status}" with ${rows} rows — not one of live/stale/reconnecting/down/auth-failed/connecting`);
-  },
-});
-
-check({
-  id: 'B9', group: 'B', desc: 'AIS without a key fails HONESTLY (503 + missing-key status, no reconnect loop)',
-  run: async () => {
-    const guard = keyGuard('AIS', env.keys.AIS);
-    if (guard) return guard;
-    if (env.keys.AIS === true) return skip('server HAS an AISStream key', 'N/A');
-    const r = await jget('/api/ais-live');
-    return r.status === 503 && r.json?.status === 'missing-key' && Array.isArray(r.json?.rows)
-      ? pass(`503 status=missing-key, rows=[] — "${String(r.json?.error).slice(0, 60)}"`)
-      : fail(`expected 503/missing-key, got ${r.status} ${r.text.slice(0, 120)}`);
-  },
-});
-
-check({
   id: 'B10', group: 'B', desc: 'TomTom traffic reports LIVE mode with budget accounting', needsKey: 'TOMTOM',
   run: async () => {
     const r = await jget('/api/tomtom/status');
@@ -867,17 +819,6 @@ check({
     return r.ok && Array.isArray(r.json?.cameras)
       ? pass(`cameras[]=${r.json.cameras.length} tracked`)
       : fail(`HTTP ${r.status} ${r.text.slice(0, 100)}`);
-  },
-});
-
-check({
-  id: 'B16', group: 'B', desc: 'Launch Library proxy returns upcoming missions',
-  run: async () => {
-    const r = await jget('/api/launches', { timeoutMs: 45000 });
-    const n = r.json?.results?.length ?? r.json?.launches?.length ?? (Array.isArray(r.json) ? r.json.length : 0);
-    if (r.ok && n > 0) return pass(`${n} launches`);
-    if (r.ok) return skip('proxy up but no upcoming launches listed', 'ENV');
-    return fail(`HTTP ${r.status}`);
   },
 });
 
@@ -946,7 +887,7 @@ check({
 check({
   id: 'B21', group: 'B', desc: 'No proxy echoes credential material back to the client (P1-5 acceptance #4)',
   run: async () => {
-    const paths = ['/api/cctv/sources', '/api/tomtom/status', '/api/ais-live'];
+    const paths = ['/api/cctv/sources', '/api/tomtom/status'];
     const leaked = [];
     const unscannable = [];
     for (const p of paths) {
@@ -959,8 +900,8 @@ check({
       }
       // An error page is not a payload. Scanning five 500s and finding no key
       // is trivially true and proves nothing — a broken app must not satisfy a
-      // negative assertion. The one documented exception is the keyless
-      // 503 {status:'missing-key'} from /api/ais-live, which IS its real shape.
+      // negative assertion. The documented exception is a keyless 503 whose
+      // body names the missing key, which IS its real shape.
       const documentedKeyless = r.status === 503
         && (r.json?.status === 'missing-key' || r.json?.error === 'no_key' || /OPENAI_API_KEY is not set/.test(r.text));
       if (!r.ok && !documentedKeyless) {
@@ -989,7 +930,6 @@ const BROWSER_CHECKS = [
   ['C3', 'Boot produces no uncaught page errors'],
   ['C4', 'Flights layer populates with live contacts'],
   ['C7', 'CCTV layer populates and its frame loop is healthy'],
-  ['C8', 'Vessels: live rows when keyed, honest UNAVAILABLE when not'],
   ['C10', 'Traffic: LIVE mode when keyed, clearly-labelled SIMULATION when not'],
   ['C12', 'Attribution lightbox lists a credit for every enabled layer'],
   ['C13', 'Clean-UI keeps the Google/Cesium credit line visible (ToS)'],
@@ -1093,7 +1033,6 @@ const MANUAL = [
   ['M2', 'Voice mic round trip 2/3 — connect/disconnect twice in one tab'],
   ['M3', 'Voice mic round trip 3/3 — adsbdb enrichment readout on a live tracked flight'],
   ['M4', 'LAN warning path — HOST=0.0.0.0 banner, LAN URL, and a throttled response'],
-  ['M5', 'Live AIS vessel one-click camera transfer — requires status=live, not cached rows (never verified against a live feed)'],
   ['M6', 'CCTV dense-city interaction — cold fill, hover, select, card removal, monitor plane, coverage, auto-hop suspend'],
   ['M7', 'Grounded + airborne tracked aircraft from 2-3 headings (DISPLAY 3D ON, non-TR-3B subject)'],
   ['M8', 'Voice analyst_query: exact unrounded count + scopeLabel, contactsWindow verbatim, follow-up re-filter'],
@@ -1416,70 +1355,6 @@ async function runBrowserGroup(record) {
       return fail(`${ui.count} cameras and ${cards} ambient cards, but frameFetches=0 — the frame loop never ran, so "healthy" is unproven`);
     }
     return pass(`${ui.count} cameras, ${cards} ambient cards, ${fetches} frame fetches (${ui.ambient?.fetchMode}, ${ui.ambient?.fetchesInFlight} in flight), loading=${ui.loading?.active}`);
-  });
-
-  await step('C8', async () => {
-    const guard = keyGuard('AIS', env.keys.AIS);
-    if (guard) return guard;
-    const r = await settle('ais-live-vessels', 30);
-    const s = r.stats || {};
-    // The rendered chip is the honesty claim, so read the chip. An empty layer
-    // that says nothing is exactly the silent-failure this check must catch —
-    // count === 0 is NOT evidence of an honest UNAVAILABLE state.
-    const chipR = await mustEval(() => {
-      const row = document.querySelector('[data-layer-id="ais-live-vessels"]');
-      const btn = row?.querySelector('.data-toggle-btn');
-      return {
-        text: (btn?.textContent || '').trim(),
-        feedState: btn?.dataset?.feedState || null,
-        meta: (row?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 140),
-      };
-    });
-    if (!chipR.ok) return crash(`could not read the vessels layer row: ${chipR.reason}`);
-    const chip = chipR.value;
-    if (!chip) return fail('no [data-layer-id="ais-live-vessels"] row in the DOM — cannot read the surfaced feed state');
-
-    if (env.keys.AIS === false) {
-      const surfaced = chip.feedState === 'unavailable' && /UNAVAILABLE/i.test(chip.text);
-      if (!surfaced) {
-        return fail(`keyless vessels did not SURFACE the unavailable state: chip="${chip.text}" feedState=${chip.feedState} (stats: status=${s.status} error=${s.error}) — a silently empty layer is the failure mode this check exists for`);
-      }
-      if (s.count > 0) return fail(`chip says UNAVAILABLE but the layer reports ${s.count} vessels`);
-      return pass(`keyless and honest: chip="${chip.text}" feedState=unavailable, stats.status=${s.status}, error="${String(s.error || '').slice(0, 40)}", count=0`);
-    }
-    // getStats().status is ONLY ever 'unavailable' or undefined; the feed state
-    // rides on transportStatus (src/data/aisLiveVessels.js:646-668). And cached
-    // rows survive a degraded feed on purpose, so count > 0 is not liveness.
-    const transport = s.transportStatus;
-    const live = transport === 'live' || transport === 'open';
-    if (live && s.count > 0) {
-      // Chip vocabulary: ON / LOADING / DEGRADED / STALE / FALLBACK /
-      // UNAVAILABLE (src/data/manager.js:12-19). A live feed with rows reads ON.
-      return /^ON$/i.test(chip.text)
-        ? pass(`${s.count} vessels live: chip="ON", transport=${transport}, lastMessage=${s.lastMessageAt || 'n/a'}`)
-        : fail(`transport=${transport} with ${s.count} vessels, but the chip reads "${chip.text}" — a live feed must present as ON`);
-    }
-    if (transport === 'auth-failed') {
-      const surfaced = /UNAVAILABLE/i.test(chip.text) && /key rejected/i.test(String(s.error || ''));
-      return surfaced
-        ? fail(`AISStream rejected the key — surfaced correctly (chip="${chip.text}", error="${s.error}", retryInSec=${s.retryInSec}) but a rejected key is a product-blocking failure, not an environment condition`)
-        : fail(`AISStream rejected the key and the UI did not say so: chip="${chip.text}", error="${String(s.error || 'none')}"`);
-    }
-    if (['stale', 'reconnecting', 'down'].includes(transport)) {
-      // Degraded is ENV only when it is SURFACED. Cached rows must read STALE;
-      // no usable rows must read UNAVAILABLE.
-      const expected = s.count > 0 ? /STALE|DEGRADED/i : /UNAVAILABLE|DEGRADED/i;
-      return expected.test(chip.text)
-        ? skip(`feed is ${transport}${s.count > 0 ? ` with ${s.count} CACHED vessels` : ''} and the UI says so (chip="${chip.text}", error="${String(s.error || '').slice(0, 60)}", retryInSec=${s.retryInSec}) — honest degradation, not a live feed`, 'ENV')
-        : fail(`feed is ${transport} with ${s.count} vessels but the chip reads "${chip.text}" — a degraded feed that presents as healthy is exactly the invisible outage this check exists for`);
-    }
-    if (s.count > 0) {
-      return fail(`${s.count} vessels with transport="${transport}" — neither live nor a recognised degraded state, so this cannot be called a live feed (chip="${chip.text}")`);
-    }
-    // Keyed but empty: honest only if the UI says so.
-    return /UNAVAILABLE|LOADING|DEGRADED|STALE/i.test(chip.text)
-      ? skip(`keyed but 0 vessels and the UI says so (chip="${chip.text}", transport=${transport}, error="${String(s.error || '').slice(0, 60)}") — AISStream connects open-but-silent upstream`, 'ENV')
-      : fail(`keyed, 0 vessels, and the chip claims "${chip.text}" — the layer is empty without surfacing it`);
   });
 
   await step('C10', async () => {
@@ -1833,12 +1708,6 @@ async function preflight() {
   };
   env.keys.TOMTOM = await statusKey('/api/tomtom/status');
   try {
-    const ais = await jget('/api/ais-live');
-    if (ais.status === 503 && ais.json?.status === 'missing-key') env.keys.AIS = false;
-    else if (ais.status === 200 && ais.json && Array.isArray(ais.json.rows)) env.keys.AIS = true;
-    else env.keys.AIS = 'error';
-  } catch { env.keys.AIS = 'error'; }
-  try {
     const os = await jget('/api/opensky?lamin=29&lomin=-99&lamax=31&lomax=-97', { timeoutMs: 40000 });
     const reason = os.headers.get('X-OpenSky-Auth-Reason') || '';
     const used = os.headers.get('X-OpenSky-Auth-Mode-Used') || os.headers.get('X-OpenSky-Auth') || '';
@@ -1907,7 +1776,7 @@ async function main() {
     console.log(C.r(`  shell  : HTTP ${env.shellStatus} — the target is RESPONDING but erroring. Running the matrix anyway; this is a product failure, not an environment one.`));
   }
   console.log(`  node   : ${process.versions.node}${env.node24 ? C.d(` (Node 24 available: ${env.node24.label})`) : ''}`);
-  console.log(`  keys   : OpenSky ${keyLabel(env.keys.OPENSKY)} · TomTom ${keyLabel(env.keys.TOMTOM)} · AISStream ${keyLabel(env.keys.AIS)} · OpenAI ${keyLabel(env.keys.OPENAI)}`);
+  console.log(`  keys   : OpenSky ${keyLabel(env.keys.OPENSKY)} · TomTom ${keyLabel(env.keys.TOMTOM)} · OpenAI ${keyLabel(env.keys.OPENAI)}`);
   console.log(C.d('  (key presence is read from each proxy\'s own status report; no key value is ever read or logged)\n'));
 
   const record = (c, rawRes, ms) => {

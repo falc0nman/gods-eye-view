@@ -2,7 +2,6 @@ import { createOpenFreeMapSource } from '../sources/openFreeMap.js';
 import {
   createOpenSkySource,
   createAdsbLolSource,
-  createAisStreamSource,
 } from '../sources/live/standalone.js';
 import { createCctvSource } from '../layers/cctv/source.js';
 import { createRadioSource } from '../layers/radio/source.js';
@@ -20,9 +19,6 @@ export function createStandaloneLayerSources() {
   return {
     flights: createOpenSkySource(),
     military: createAdsbLolSource(),
-    vessels: createAisStreamSource({
-      apiUrl: import.meta.env?.VITE_AIS_LIVE_API_URL || '/api/ais-live',
-    }),
     cctv: createCctvSource(),
     radio: createRadioSource(),
     traffic: createTrafficSource({ mapTiles }),

@@ -1,6 +1,5 @@
 import * as Cesium from 'cesium';
 import { hitTestWorldOverlay } from '../../overlays/worldOverlay.js';
-import { VESSEL_OVERLAY_SOURCE_ID } from '../../data/vesselLabels.js';
 import { isPointerFree } from '../../data/inputOwnership.js';
 import {
   registerPickOwner,
@@ -85,7 +84,7 @@ export function createCyclonesLayer({
     const owner = new cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
     clickHandler = owner;
     // Snapshot before sibling bubble listeners can rebuild the overlay hit
-    // rectangles. A vessel selection does that synchronously in the same click.
+    // rectangles in the same click.
     const canvas = viewer.scene.canvas;
     let capturedHit = null;
     const overlayHit = (x, y) => {
@@ -137,8 +136,8 @@ export function createCyclonesLayer({
         !click?.position
       )
         return;
-      // AIS cards paint above the globe on a pointer-events:none canvas. The
-      // vessel handler resolves this same topmost hit before cyclone geometry.
+      // Overlay cards paint above the globe on a pointer-events:none canvas, so
+      // the topmost overlay hit resolves before cyclone geometry.
       const captureMatches =
         nativeHit &&
         Math.abs(nativeHit.x - click.position.x) < 1 &&
@@ -146,7 +145,6 @@ export function createCyclonesLayer({
       const hit = captureMatches
         ? nativeHit
         : overlayHit(click.position.x, click.position.y);
-      if (hit.sourceId === VESSEL_OVERLAY_SOURCE_ID) return;
       // Storm cards and lead-hour labels paint on the same canvas; a click on
       // one selects its storm. An id from a superseded advisory changes nothing.
       if (hit.sourceId === CYCLONE_OVERLAY_SOURCE_ID) {

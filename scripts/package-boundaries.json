@@ -26,11 +26,7 @@
       "server/providers/aircraft/adsb-lol.js",
       "server/providers/aircraft/enrichment.js",
       "server/providers/aircraft/tracks.js",
-      "server/providers/vessels/ais-store.js",
-      "server/providers/vessels/ais-live.js",
       "src/data/adsbLolFallback.js",
-      "src/data/aisStreamAdapter.js",
-      "src/data/aisWatchdog.js",
       "src/sources/httpBody.js"
     ],
     "external": ["ws"]
@@ -563,8 +559,7 @@
       "src/sources/live/aircraft.js",
       "src/sources/live/contract.js",
       "src/sources/live/index.js",
-      "src/sources/live/standalone.js",
-      "src/sources/live/vessels.js"
+      "src/sources/live/standalone.js"
     ],
     "external": []
   },
@@ -669,30 +664,6 @@
       "src/data/trackingClickGesture.js",
       "src/layers/aircraft/classification.js",
       "src/layers/aircraft/index.js",
-      "src/data/inputOwnership.js"
-    ],
-    "external": ["cesium"]
-  },
-  "vessel-layer": {
-    "exports": ["./layers/vessels"],
-    "modules": [
-      "src/layers/vessels/cards.js",
-      "src/layers/vessels/evidence.js",
-      "src/layers/vessels/index.js",
-      "src/layers/vessels/ingestion.js",
-      "src/layers/vessels/lifecycle.js",
-      "src/layers/vessels/policy.js",
-      "src/layers/vessels/queries.js",
-      "src/layers/vessels/rendering.js",
-      "src/layers/vessels/selection.js",
-      "src/layers/vessels/state.js",
-      "src/layers/vessels/testing.js",
-      "src/layers/vessels/tracking.js",
-      "src/data/iconOrientation.js",
-      "src/data/vesselLabels.js",
-      "src/layers/vessels/records.js",
-      "src/layers/vessels/recordPolicy.js",
-      "src/layers/vessels/snapshotRenderer.js",
       "src/data/inputOwnership.js"
     ],
     "external": ["cesium"]
@@ -936,7 +907,6 @@
       "src/app/data.js",
       "src/app/errors.js",
       "src/app/layerPresentation.js",
-      "src/app/layers/aisLiveVessels.js",
       "src/app/layers/cctv.js",
       "src/app/layers/flights.js",
       "src/app/layers/militaryFlights.js",
@@ -969,7 +939,6 @@
       "src/data/aircraftMeta.js",
       "src/data/aircraftNearbyPolicy.js",
       "src/data/aircraftRecession.js",
-      "src/data/aisLiveVessels.js",
       "src/data/analystEngine.js",
       "src/data/cctv.js",
       "src/data/cctvCards.js",
@@ -1052,7 +1021,6 @@
       "src/data/trafficPresetStyle.js",
       "src/data/trafficQueue.js",
       "src/data/trailRenderer.js",
-      "src/data/vesselLabels.js",
       "src/firstRunExperience.js",
       "src/hud.js",
       "src/hudLocality.js",
@@ -1152,18 +1120,6 @@
       "src/layers/traffic/surface.js",
       "src/layers/traffic/timing.js",
       "src/layers/traffic/viewport.js",
-      "src/layers/vessels/cards.js",
-      "src/layers/vessels/evidence.js",
-      "src/layers/vessels/index.js",
-      "src/layers/vessels/ingestion.js",
-      "src/layers/vessels/lifecycle.js",
-      "src/layers/vessels/policy.js",
-      "src/layers/vessels/queries.js",
-      "src/layers/vessels/rendering.js",
-      "src/layers/vessels/selection.js",
-      "src/layers/vessels/state.js",
-      "src/layers/vessels/testing.js",
-      "src/layers/vessels/tracking.js",
       "src/loadingFeedback.js",
       "src/locationStatus.js",
       "src/locations.js",
@@ -1210,7 +1166,6 @@
       "src/sources/live/aircraft.js",
       "src/sources/live/contract.js",
       "src/sources/live/standalone.js",
-      "src/sources/live/vessels.js",
       "src/splitFlap.js",
       "src/standalone/catalog.js",
       "src/standalone/layerSources.js",
@@ -1299,9 +1254,6 @@
       "src/layers/military/records.js",
       "src/layers/military/recordPolicy.js",
       "src/layers/military/snapshotRenderer.js",
-      "src/layers/vessels/records.js",
-      "src/layers/vessels/recordPolicy.js",
-      "src/layers/vessels/snapshotRenderer.js",
       "src/data/inputOwnership.js",
       "src/annotations/drawMode.js",
       "src/annotations/drawTool.js",
@@ -1468,7 +1420,6 @@
       "src/layers/wind/presentation.js",
       "src/layers/wind/rendering.js",
       "src/layers/weather/rasterTiles.js",
-      "src/app/layers/aisLiveVessels.js",
       "src/app/layers/cctv.js",
       "src/app/layers/flights.js",
       "src/app/layers/militaryFlights.js",
@@ -1534,7 +1485,6 @@
       "src/data/trafficPresetStyle.js",
       "src/data/trafficQueue.js",
       "src/data/trailRenderer.js",
-      "src/data/vesselLabels.js",
       "src/keylessGeocoder.js",
       "src/layers/aircraft/classification.js",
       "src/layers/cctv/calibration.js",
@@ -1629,18 +1579,6 @@
       "src/layers/traffic/surface.js",
       "src/layers/traffic/timing.js",
       "src/layers/traffic/viewport.js",
-      "src/layers/vessels/cards.js",
-      "src/layers/vessels/evidence.js",
-      "src/layers/vessels/index.js",
-      "src/layers/vessels/ingestion.js",
-      "src/layers/vessels/lifecycle.js",
-      "src/layers/vessels/policy.js",
-      "src/layers/vessels/queries.js",
-      "src/layers/vessels/rendering.js",
-      "src/layers/vessels/selection.js",
-      "src/layers/vessels/state.js",
-      "src/layers/vessels/testing.js",
-      "src/layers/vessels/tracking.js",
       "src/locations.js",
       "src/navigationPolicy.js",
       "src/overlays/worldOverlay.js",
@@ -1664,9 +1602,6 @@
       "src/layers/military/records.js",
       "src/layers/military/recordPolicy.js",
       "src/layers/military/snapshotRenderer.js",
-      "src/layers/vessels/records.js",
-      "src/layers/vessels/recordPolicy.js",
-      "src/layers/vessels/snapshotRenderer.js",
       "src/data/inputOwnership.js",
       "src/annotations/worldAnnotationRenderer.js",
       "src/cameraGroundGuard.js",
@@ -1933,22 +1868,6 @@
     "modules": [
       "src/layers/military/ingestion.js",
       "src/layers/military/recordPolicy.js"
-    ],
-    "external": []
-  },
-  "vessel-records": {
-    "exports": ["./layers/vessels/records"],
-    "modules": [
-      "src/layers/vessels/records.js",
-      "src/layers/vessels/recordPolicy.js"
-    ],
-    "external": []
-  },
-  "vessel-ingestion": {
-    "exports": ["./layers/vessels/ingestion"],
-    "modules": [
-      "src/layers/vessels/ingestion.js",
-      "src/layers/vessels/recordPolicy.js"
     ],
     "external": []
   },

@@ -10,7 +10,6 @@ import { LAYER_STATE_REGISTRY } from '../data/layerState.js';
 import { createMilitaryRegistry } from '../layers/aircraft/classification.js';
 import { createApplicationFlights } from './layers/flights.js';
 import { createApplicationMilitary } from './layers/militaryFlights.js';
-import { createApplicationVessels } from './layers/aisLiveVessels.js';
 import { createApplicationCctv } from './layers/cctv.js';
 import { createApplicationRadio } from './layers/radio.js';
 import { createApplicationTraffic } from './layers/traffic.js';
@@ -21,7 +20,6 @@ import { createApplicationLocalAdsb } from './layers/localAdsb.js';
 const SOURCE_METHODS = Object.freeze({
   flights: ['getSnapshot'],
   military: ['getSnapshot'],
-  vessels: ['getSnapshot'],
   cctv: ['getCatalog', 'getHealth', 'getFrameUrl', 'getMediaUrl'],
   radio: ['getDirectory', 'recordClick'],
   traffic: [
@@ -62,7 +60,6 @@ export function createApplicationCatalog({
   sources,
   signal,
   metadata = APPLICATION_LAYER_METADATA,
-  vesselOptions,
   resolveAsset,
 }) {
   if (!signal?.addEventListener)
@@ -99,10 +96,6 @@ export function createApplicationCatalog({
       militaryRegistry,
       resolveAsset,
     });
-    const vessels = createApplicationVessels({
-      source: sources.vessels,
-      options: vesselOptions,
-    });
     const catalog = createLayerCatalog(
       [
         flights,
@@ -118,7 +111,6 @@ export function createApplicationCatalog({
         createApplicationRadio({ surface, source: sources.radio }),
         createApplicationDirections(),
         createApplicationRecentImagery(),
-        vessels,
         createWindLayer({ feed: sources.wind, clock: weatherClock }),
         createWeatherLayer({
           feed: sources.weather,

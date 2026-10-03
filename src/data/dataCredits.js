@@ -118,12 +118,6 @@ export const DATA_CREDITS = [
       'copied, published, or incorporated into other databases without the ' +
       'explicit permission of David J Taylor, Edinburgh',
   },
-  {
-    key: 'aisstream',
-    html:
-      'Live vessels (AIS): ' +
-      '<a href="https://aisstream.io" target="_blank" rel="noopener">AISStream.io</a>',
-  },
 
   {
     key: 'nws-alerts',

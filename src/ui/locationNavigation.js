@@ -308,7 +308,6 @@ export class LocationNavigation {
       interruptCameraMotion,
       flightsLayer,
       militaryFlightsLayer,
-      aisLiveVesselsLayer,
     } = this.services;
     if (this._disposed)
       return Promise.resolve({
@@ -328,11 +327,6 @@ export class LocationNavigation {
     }
     try {
       militaryFlightsLayer.stopTracking?.({ origin: 'tool' });
-    } catch {
-      /* best-effort release */
-    }
-    try {
-      aisLiveVesselsLayer.clearSelection?.();
     } catch {
       /* best-effort release */
     }

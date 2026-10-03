@@ -119,10 +119,6 @@ const LAYER_ALIASES = new Map([
   ['radio', 'radio'],
   ['internet radio', 'radio'],
   ['radio stations', 'radio'],
-  ['ais', 'ais-live-vessels'],
-  ['ships', 'ais-live-vessels'],
-  ['vessels', 'ais-live-vessels'],
-  ['live vessels', 'ais-live-vessels'],
   ['local-adsb', 'local-adsb'],
   ['local adsb', 'local-adsb'],
   ['local ads-b', 'local-adsb'],
@@ -177,7 +173,6 @@ const STACK_ALIASES = new Map([
 const TRACKABLE_FAMILIES = [
   { layerId: 'flights', kind: 'aircraft' },
   { layerId: 'military', kind: 'aircraft' },
-  { layerId: 'ais-live-vessels', kind: 'vessel' },
 ];
 
 const FRAME_TARGETS = new Map([
@@ -186,8 +181,6 @@ const FRAME_TARGETS = new Map([
   ['aircraft', 'flights'],
   ['military', 'military'],
   ['military flights', 'military'],
-  ['vessels', 'ais-live-vessels'],
-  ['ships', 'ais-live-vessels'],
 ]);
 
 const serviceCaches = new WeakMap();
@@ -1731,8 +1724,7 @@ export function cctvVoiceFocusOutcome(
  * Aircraft follow the flight layers' label convention — callsign →
  * registration → icao24 — so the narrated name matches the readout and the
  * detection card instead of speaking a raw hex at a contact the UI is calling
- * `N123AB`. Vessels carry no `registration`, so that link simply falls
- * through to their own name/mmsi links.
+ * `N123AB`.
  * @param {object} found - Layer descriptor from `findByQuery`.
  * @param {string} query - The spoken query, used as the last resort.
  * @returns {string} A non-empty display name.
@@ -1744,7 +1736,6 @@ export function formatTrackedEntityLabel(found, query = '') {
     text(found?.registration) ||
     text(found?.name) ||
     text(found?.icao24) ||
-    text(found?.mmsi) ||
     String(query)
   );
 }
@@ -1770,37 +1761,14 @@ async function trackEntity(viewer, dataManager, styleManager, args = {}) {
     const found = module.findByQuery(query);
     if (!found) continue;
 
-    if (
-      family.kind === 'vessel' &&
-      (!Number.isFinite(found.latitude) || !Number.isFinite(found.longitude))
-    ) {
-      return {
-        ok: false,
-        action: 'track_entity',
-        layerId: family.layerId,
-        kind: family.kind,
-        error: 'The matched vessel has no usable position',
-      };
-    }
-
     return runManagedVoiceNavigation(
       styleManager,
       family.kind,
       'track_entity',
       () => {
-        let trackedOk = false;
-        if (family.kind === 'vessel') {
-          trackedOk = !!module.selectById?.(found.mmsi);
-          flyToLandmark(viewer, found.latitude, found.longitude, {
-            range: 6000,
-            pitch: -45,
-            heading: 0,
-            buildingHeight: 0,
-            duration: 2.0,
-          });
-        } else {
-          trackedOk = !!module.trackById?.(found.icao24, { origin: 'voice' });
-        }
+        const trackedOk = !!module.trackById?.(found.icao24, {
+          origin: 'voice',
+        });
 
         return {
           ok: trackedOk,
@@ -1808,9 +1776,7 @@ async function trackEntity(viewer, dataManager, styleManager, args = {}) {
           layerId: family.layerId,
           kind: family.kind,
           // Aircraft follow the flight layers' label convention (callsign →
-          // registration → icao24) so the spoken name matches what the UI shows;
-          // `registration` is absent on vessels and simply falls through to
-          // their own name/id links.
+          // registration → icao24) so the spoken name matches what the UI shows.
           label: formatTrackedEntityLabel(found, query),
           latitude: found.latitude ?? null,
           longitude: found.longitude ?? null,
@@ -1842,18 +1808,7 @@ function stopAllTracking(viewer, dataManager) {
     const module = dataManager.layers.get(family.layerId)?.module;
     if (!module) continue;
     try {
-      if (family.kind === 'vessel') {
-        if (module.getSelectedInfo?.()) {
-          if (
-            typeof module.clearSelection !== 'function' ||
-            module.clearSelection() === false
-          ) {
-            failed.add(family.layerId);
-          } else {
-            released.push(family.layerId);
-          }
-        }
-      } else if (module.getTrackedInfo?.()) {
+      if (module.getTrackedInfo?.()) {
         if (
           typeof module.stopTracking !== 'function' ||
           module.stopTracking({ origin: 'voice' }) === false
@@ -1926,7 +1881,7 @@ async function frameOverhead(viewer, dataManager, styleManager, args = {}) {
     };
   }
   const module = dataManager.layers.get(layerId)?.module;
-  const defaultRadiusKm = layerId === 'ais-live-vessels' ? 120 : 150;
+  const defaultRadiusKm = 150;
   const radiusKm = clampNumber(args.radiusKm, 10, 20000, defaultRadiusKm);
   const center = getViewTargetCartesian(viewer) || viewer.camera.positionWC;
 
@@ -1995,7 +1950,7 @@ async function frameOverhead(viewer, dataManager, styleManager, args = {}) {
         count: entries.length,
         detectionEnabled,
         nearest: entries.slice(0, 5).map((entry) => ({
-          id: entry.id || entry.icao24 || entry.mmsi || null,
+          id: entry.id || entry.icao24 || null,
           label: entry.label || entry.callsign || entry.name || null,
         })),
       };
@@ -2034,10 +1989,7 @@ function collectTrackedEntities(dataManager) {
     const module = dataManager.layers.get(family.layerId)?.module;
     if (!module) continue;
     try {
-      const info =
-        family.kind === 'vessel'
-          ? module.getSelectedInfo?.()
-          : module.getTrackedInfo?.();
+      const info = module.getTrackedInfo?.();
       if (info)
         tracked.push({ kind: family.kind, layerId: family.layerId, ...info });
     } catch {
@@ -3550,7 +3502,7 @@ async function runAnalystQuery(
   // Compact payload for the voice model: identity + the fields queries sort/
   // filter on. The full record set stays engine-side for follow-ups.
   //
-  // `icao24`/`mmsi` ride along because the tool instructions tell the model to
+  // `icao24` rides along because the tool instructions tell the model to
   // hand this result straight to track_entity, and `id` is a DISPLAY label
   // (callsign, else registration, else hex). A callsign-less contact therefore
   // handed track_entity a tail number the lookup could not resolve, and the
@@ -3559,7 +3511,6 @@ async function runAnalystQuery(
     const compact = { layerKey: r.layerKey, id: r.id };
     for (const k of [
       'icao24',
-      'mmsi',
       'registration',
       'label',
       'callsign',
@@ -3567,10 +3518,6 @@ async function runAnalystQuery(
       'altitudeM',
       'speedMps',
       'speedKts',
-      'frp',
-      'magnitude',
-      'shipType',
-      'destination',
       'operator',
       'routeOrigin',
       'routeDestination',
@@ -3579,10 +3526,6 @@ async function runAnalystQuery(
       'onGround',
       'distanceKm',
       'confidence',
-      'place',
-      'river',
-      'output',
-      'capacity',
     ]) {
       if (r[k] !== null && r[k] !== undefined) compact[k] = r[k];
     }

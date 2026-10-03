@@ -10,7 +10,6 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const ui = readShellSource();
-const vessels = readLayerSource(path.join(ROOT, 'src', 'data', 'aisLiveVessels.js'));
 const voice = fs.readFileSync(path.join(ROOT, 'src', 'voice', 'gevActions.js'), 'utf8');
 const cameraVerbs = fs.readFileSync(path.join(ROOT, 'src', 'cameraVerbs.js'), 'utf8');
 const cockpitTracking = fs.readFileSync(path.join(ROOT, 'src', 'cockpitTracking.js'), 'utf8');
@@ -278,25 +277,3 @@ test('world-focus listener lifecycle is symmetric and idempotent', () => {
   assert.match(ui, /this\._removeWorldRequestFocusListener = null;/);
 });
 
-test('the vessel layer announces valid clicks and never flies cameras', () => {
-  for (const [label, source] of [['vessels', vessels]]) {
-    assert.match(source, /requestWorldFocus\(\{/);
-    assert.doesNotMatch(source, /camera\.flyTo/);
-  }
-  const vesselClick = body(
-    vessels,
-    /handler\.setInputAction\(\s*\(click\) => \{([\s\S]*?)\n\s*\},\s*Cesium\.ScreenSpaceEventType\.LEFT_CLICK,?\s*\);/,
-    'vessel click',
-  );
-  ordered(vesselClick, [
-    "isOwnedByOtherLayer('ais-live-vessels', pickedId)",
-    '_vesselOverlayHost.hitTest?.(',
-    'selectAndFocusVessel(record)',
-  ], 'vessel sibling ownership');
-  const vesselFocus = body(
-    vessels,
-    /function selectAndFocusVessel\(record\) \{([\s\S]*?)\n  \}/,
-    'vessel focus helper',
-  );
-  assert.match(vesselFocus, /requestWorldFocus\(\{/);
-});

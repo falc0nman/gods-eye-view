@@ -107,12 +107,10 @@ export class NavigationController {
   }
 
   _releaseFollowCamera({
-    preserveVesselSelection = true,
     preserveCameraFlight = false,
     trackingOrigin = 'tool',
   } = {}) {
-    const { flightsLayer, militaryFlightsLayer, aisLiveVesselsLayer } =
-      this.tracking;
+    const { flightsLayer, militaryFlightsLayer } = this.tracking;
     try {
       flightsLayer.stopTracking?.({ origin: trackingOrigin });
     } catch {
@@ -122,13 +120,6 @@ export class NavigationController {
       militaryFlightsLayer.stopTracking?.({ origin: trackingOrigin });
     } catch {
       /* best-effort release */
-    }
-    if (!preserveVesselSelection) {
-      try {
-        aisLiveVesselsLayer.clearSelection?.();
-      } catch {
-        /* best-effort release */
-      }
     }
     this.viewer.trackedEntity = undefined;
     this.interruptCameraMotion('explicit-navigation');

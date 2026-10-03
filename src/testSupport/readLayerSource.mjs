@@ -6,7 +6,6 @@ import { fileURLToPath } from 'node:url';
 const LAYER_FOLDERS = Object.freeze({
   'flights.js': '../layers/flights',
   'militaryFlights.js': '../layers/military',
-  'aisLiveVessels.js': '../layers/vessels',
   'traffic.js': '../layers/traffic',
   'cctv.js': '../layers/cctv',
 });

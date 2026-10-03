@@ -199,18 +199,6 @@
   letter-spacing: 2px;
 }
 
-.hud-ais-vessel {
-  margin-top: 6px;
-  max-width: 340px;
-  white-space: pre-line;
-  line-height: 1.35;
-  opacity: 0.64;
-}
-
-.hud-ais-vessel.active {
-  opacity: 0.95;
-}
-
 .hud-classification {
   font-size: 12px;
   letter-spacing: 2.5px;

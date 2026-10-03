@@ -10,14 +10,9 @@ const FLIGHTS = [
   { id: 'N123', lat: 45.0, lon: -122.0, altitudeM: 2000, speedMps: 80, military: false, onGround: false, routeOrigin: null, routeDestination: null },
   { id: 'GND1', lat: 30.19, lon: -97.66, altitudeM: 150, speedMps: 5, military: false, onGround: true, routeOrigin: null, routeDestination: null },
 ];
-const SHIPS = [
-  { id: 'EVERGIVEN', lat: 29.5, lon: -94.9, speedKts: 12, shipType: 'Cargo', destination: 'OAKLAND', navStatus: 'under way' },
-  { id: 'SLOWBOAT', lat: 29.6, lon: -95.0, speedKts: 0.2, shipType: 'Tanker', destination: 'HOUSTON', navStatus: 'anchored' },
-];
-
 function makeEngine() {
   return createAnalystEngine({
-    getRecords: (key) => ({ flights: FLIGHTS, 'ais-live-vessels': SHIPS }[key] || []),
+    getRecords: (key) => ({ flights: FLIGHTS }[key] || []),
     resolveRegionRing: async (name) => (/texland/i.test(name) ? TEXLAND : null),
     getViewContext: () => ({ lat: 30.27, lon: -97.74, viewRadiusKm: 150 }),
   });
@@ -26,7 +21,7 @@ function makeEngine() {
 /** Same world, but Contacts is up with a subject far from the parked camera. */
 function makeContactsEngine(subject) {
   return createAnalystEngine({
-    getRecords: (key) => ({ flights: FLIGHTS, 'ais-live-vessels': SHIPS }[key] || []),
+    getRecords: (key) => ({ flights: FLIGHTS }[key] || []),
     resolveRegionRing: async (name) => (/texland/i.test(name) ? TEXLAND : null),
     // Parked far away, as a high-altitude camera often is.
     getViewContext: () => ({ lat: 45.0, lon: -122.0, viewRadiusKm: 150 }),
@@ -141,14 +136,6 @@ test('analyst: military flag + region compose', async () => {
   });
   assert.equal(r.count, 1);
   assert.equal(r.items[0].id, 'RCH01');
-});
-
-test('analyst: ships headed to Oakland (destination contains)', async () => {
-  const r = await makeEngine().query({
-    layers: ['ais-live-vessels'], scope: { kind: 'anywhere' },
-    filters: [{ field: 'destination', op: 'contains', value: 'oakland' }],
-  });
-  assert.deepEqual(r.items.map((i) => i.id), ['EVERGIVEN']);
 });
 
 test('analyst: nearest sorting attaches distanceKm ascending', async () => {

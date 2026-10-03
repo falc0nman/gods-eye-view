@@ -2,7 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { vesselOverlayCohortLimit } from '../data/vesselLabels.js';
 import { CCTV_AMBIENT_CARD_MAX } from '../data/cctvLod.js';
 import { AMBIENT_CARD_COLLISION_CAPACITY } from './worldOverlay.js';
 import { RADIO_OVERLAY_COHORT_LIMIT } from '../data/radio.js';
@@ -89,6 +88,21 @@ import { isCalibratedAllocationRuntime } from '../../scripts/run-unit-tests.mjs'
  * row; the remaining budgets are unchanged and still pass
  * on Node 24.14, so the measured figures above are pre-removal history.
  *
+ * GW-57 then removed the AIS vessels layer. Its 112-card ambient cohort and
+ * selected card were the base every Phase 3+ row was built on, so the two
+ * vessel rows are gone and the tracked readout now sits on one generic
+ * position. The remaining rows were re-measured on Node 24.14 (stable across
+ * repeated clean runs) and their frame budgets re-derived with ~30% headroom:
+ *
+ *   profile              | entries | painted | median B/frame | B/candidate | frame budget
+ *   ---------------------+---------+---------+----------------+-------------+-------------
+ *   Phase 4 + CCTV       |      42 |      27 |           3483 |        82.9 |       4,600
+ *   Phase 5 final        |      43 |      27 |           3842 |        89.3 |       5,000
+ *   all-live + Radio     |     108 |      92 |          14549 |       134.7 |      19,000
+ *
+ * Their image-inclusive per-candidate ceilings (210 / 225) are kept as upper
+ * bounds; every row now also sits under the shared 154 ceiling.
+ *
  * The Phase-6 row activates the production detection lane at Dense/100 over a
  * deterministic 5,000-observation, 2,500 km scene. All observations exercise
  * manual projection and batched bracket paint; the shipped global-view label
@@ -122,29 +136,11 @@ const WORKLOADS = [
     saturated: true,
   },
   {
-    name: 'with vessels live',
-    profile: 'phase3-vessels',
-    entries: vesselOverlayCohortLimit(1600, 900) + 1,
-    candidates: vesselOverlayCohortLimit(1600, 900) + 1,
-    maxBytesPerFrame: 87_500,
-    saturated: true,
-    ambientCardCapacity: AMBIENT_CARD_COLLISION_CAPACITY,
-  },
-  {
-    name: 'with ambient vessels and tracked readout live',
-    profile: 'phase3-tracked',
-    entries: vesselOverlayCohortLimit(1600, 900) + 1,
-    candidates: vesselOverlayCohortLimit(1600, 900) + 1,
-    maxBytesPerFrame: 86_700,
-    saturated: true,
-    ambientCardCapacity: AMBIENT_CARD_COLLISION_CAPACITY,
-  },
-  {
-    name: 'with all Phase 3 sources and CCTV thumbnails live',
+    name: 'with the tracked readout and CCTV thumbnails live',
     profile: 'phase4-cctv',
-    entries: vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1,
-    candidates: vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1,
-    maxBytesPerFrame: 102_400,
+    entries: 1 + CCTV_AMBIENT_CARD_MAX + 1,
+    candidates: 1 + CCTV_AMBIENT_CARD_MAX + 1,
+    maxBytesPerFrame: 4_600,
     maxBytesPerCandidatePerFrame: 210,
     saturated: true,
     ambientCardCapacity: AMBIENT_CARD_COLLISION_CAPACITY,
@@ -153,30 +149,22 @@ const WORKLOADS = [
   {
     name: 'with final Phase 5 host sources live (pre-cable-migration surface)',
     profile: 'phase5-military',
-    entries: vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
-      + 1,
-    candidates: vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
-      + 1,
-    maxBytesPerFrame: 132_000,
+    entries: 1 + CCTV_AMBIENT_CARD_MAX + 1 + 1,
+    candidates: 1 + CCTV_AMBIENT_CARD_MAX + 1 + 1,
+    maxBytesPerFrame: 5_000,
     maxBytesPerCandidatePerFrame: 225,
     saturated: true,
     ambientCardCapacity: AMBIENT_CARD_COLLISION_CAPACITY,
   },
 
   {
-    // Calibrated 2026-08-18 with the 160-winner submarine-cable cohort folded
-    // in (164,711 B/frame median on Node 24.19). GW-57 removed that cohort;
-    // the 182,000 budget and 225 image-inclusive ceiling are kept as upper
-    // bounds until the row is re-measured without it.
+    // Re-measured after GW-57 removed the vessel cohort (14,549 B/frame
+    // median on Node 24.14); the 225 image-inclusive ceiling is unchanged.
     name: 'with every shared-host source and bounded Radio text live',
     profile: 'all-live-radio',
-    entries: vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
-      + 1
-      + RADIO_OVERLAY_COHORT_LIMIT + 1,
-    candidates: vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
-      + 1
-      + RADIO_OVERLAY_COHORT_LIMIT + 1,
-    maxBytesPerFrame: 182_000,
+    entries: 1 + CCTV_AMBIENT_CARD_MAX + 1 + 1 + RADIO_OVERLAY_COHORT_LIMIT + 1,
+    candidates: 1 + CCTV_AMBIENT_CARD_MAX + 1 + 1 + RADIO_OVERLAY_COHORT_LIMIT + 1,
+    maxBytesPerFrame: 19_000,
     maxBytesPerCandidatePerFrame: 225,
     saturated: true,
     ambientCardCapacity: AMBIENT_CARD_COLLISION_CAPACITY,

@@ -100,7 +100,6 @@ const PHRASES = [
 
   // — layers —
   { phrase: 'Turn on the flights layer', expect: 'set_layer_visibility', args: { layerId: 'flights' } },
-  { phrase: 'Show me live vessels', expect: 'set_layer_visibility' },
   { phrase: 'Turn on the storm warnings layer', expect: 'set_layer_visibility' },
   { phrase: 'Turn on street traffic', expect: 'set_layer_visibility', args: { layerId: 'traffic' } },
   { phrase: 'Open the data layers menu', expect: 'show_data_layers_menu' },
@@ -172,7 +171,7 @@ const PHRASES = [
 
   // — analyst queries (tool #22) —
   { phrase: 'How many flights are over Texas right now?', expect: 'analyst_query' },
-  { phrase: 'Which ships are headed to Oakland?', expect: 'analyst_query' },
+  { phrase: 'Which flights are headed to Oakland?', expect: 'analyst_query' },
   { phrase: 'What is the fastest ship near Los Angeles?', expect: 'analyst_query' },
   { phrase: 'Is anything flying above forty thousand feet?', expect: 'analyst_query' },
 
@@ -485,88 +484,6 @@ async function runBehaviorLayer() {
       report(r?.ok === true, 'behavior: frame_overhead frames flights', `result=${JSON.stringify(r)?.slice(0, 140)}`);
     }
 
-    // (4a) Deterministic owner-transfer probes use the real product runner and
-    // camera policy with synthetic target records only. This proves ordering
-    // without claiming that the live AIS stream delivered a vessel.
-    const ownerTransfer = await page.evaluate(async () => {
-      const app = window.__godsEyeView;
-      const runner = window.__gevVoiceCommands?.runner;
-      const { viewer, dataManager, styleManager } = app || {};
-      const vesselEntry = dataManager?.layers?.get('ais-live-vessels');
-      const flightsEntry = dataManager?.layers?.get('flights');
-      if (!runner || !vesselEntry || !flightsEntry) {
-        return { error: 'required product modules unavailable' };
-      }
-
-      const original = {
-        isEnabled: dataManager.isEnabled,
-        vesselModule: vesselEntry.module,
-        flightsModule: flightsEntry.module,
-        flyToBoundingSphere: viewer.camera.flyToBoundingSphere,
-      };
-      const flightStarts = [];
-      let currentKind = null;
-      let vesselSelections = 0;
-      viewer.camera.flyToBoundingSphere = function (...args) {
-        flightStarts.push({ kind: currentKind, trackingReleased: !viewer.trackedEntity });
-        return original.flyToBoundingSphere.apply(this, args);
-      };
-      dataManager.isEnabled = function (id) {
-        if (['ais-live-vessels', 'flights'].includes(id)) return true;
-        return original.isEnabled.call(this, id);
-      };
-      vesselEntry.module = {
-        ...original.vesselModule,
-        findByQuery: () => ({
-          mmsi: '999000111', name: 'QA synthetic vessel',
-          latitude: 29.7604, longitude: -95.3698,
-        }),
-        selectById: () => { vesselSelections += 1; return true; },
-      };
-      flightsEntry.module = {
-        ...original.flightsModule,
-        getNearby: () => [{
-          id: 'qa-aircraft',
-          position: viewer.camera.positionWC.clone(),
-        }],
-      };
-
-      const results = {};
-      try {
-        for (const [kind, args] of [
-          ['vessel', { query: 'QA synthetic vessel', layerId: 'ais-live-vessels' }],
-        ]) {
-          const sentinel = viewer.entities.add({ id: `qa-prior-${kind}` });
-          viewer.trackedEntity = sentinel;
-          const generationBefore = styleManager._navigationGeneration;
-          currentKind = kind;
-          const result = await runner('track_entity', args);
-          results[kind] = {
-            ok: result?.ok === true,
-            generationAdvanced: styleManager._navigationGeneration > generationBefore,
-            trackingReleased: !viewer.trackedEntity,
-          };
-          viewer.camera.cancelFlight();
-          viewer.entities.remove(sentinel);
-        }
-
-      } finally {
-        viewer.camera.flyToBoundingSphere = original.flyToBoundingSphere;
-        dataManager.isEnabled = original.isEnabled;
-        vesselEntry.module = original.vesselModule;
-        flightsEntry.module = original.flightsModule;
-      }
-      return { results, flightStarts, vesselSelections };
-    });
-    const takeoversPass = ['vessel'].every((kind) => {
-      const result = ownerTransfer?.results?.[kind];
-      const flight = ownerTransfer?.flightStarts?.find((candidate) => candidate.kind === kind);
-      return result?.ok && result?.generationAdvanced && result?.trackingReleased
-        && flight?.trackingReleased;
-    }) && ownerTransfer?.vesselSelections === 1;
-    report(takeoversPass,
-      'behavior: synthetic vessel voice targets take camera authority from tracked aircraft',
-      `syntheticTarget=true result=${JSON.stringify(ownerTransfer)?.slice(0, 240)}`);
     // (4b) analyst engine end-to-end: count flights over Texas (region ring
     // via NE-pack/admin machinery), then a follow-up over the same set.
     // A cold boundary lookup can exceed the resolver's budget; it answers
@@ -645,9 +562,8 @@ async function runBehaviorLayer() {
       `drawn=${r?.drawn} failed=${r?.failed}`);
 
     // Camera-verb scenarios: shed the heavy layers first — headless
-    // SwiftShader drops to ~1 fps with vessels loaded and every
+    // SwiftShader drops to ~1 fps with heavy layers loaded and every
     // motion assert starves (environment, not product).
-    await run('set_layer_visibility', { layerId: 'ais-live-vessels', enabled: false });
     await settle(1500);
 
     // (6c) move_camera orbit ONCE: bounded eased ~30° heading advance.

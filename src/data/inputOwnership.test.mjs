@@ -117,7 +117,6 @@ test('every scene click handler consults ownership before it picks', () => {
     ['src/data/trackingClickGesture.js', 'onClick(click, gesture);'],
     ['src/data/cctvGizmo.js', 'pickGizmoPart(event.position)'],
     ['src/layers/radio/interaction.js', 'pickedRadioStationAt(click.position)'],
-    ['src/layers/vessels/selection.js', 'viewer.scene.pick(click.position)'],
   ];
   for (const [file, firstPick] of guarded) {
     const source = read(file);
@@ -146,7 +145,6 @@ test('ambient selection handlers never claim the pointer themselves', () => {
   for (const file of [
     'src/data/trackingClickGesture.js',
     'src/data/cctvGizmo.js',
-    'src/layers/vessels/selection.js',
   ]) {
     assert.doesNotMatch(
       read(file),

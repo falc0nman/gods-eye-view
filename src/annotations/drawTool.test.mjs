@@ -205,14 +205,6 @@ test('the draw modules are registered for formatting and boundary checks', () =>
       `${file} must be owned by at least one boundary group`,
     );
   }
-  // Every layer that consults the shared claim has to own the module it reads,
-  // or its bundle fails the boundary check.
-  for (const group of ['vessel-layer']) {
-    assert.ok(
-      boundaries[group]?.modules.includes('src/data/inputOwnership.js'),
-      `${group} consults the pointer claim and must own the module`,
-    );
-  }
   const exports = JSON.parse(read('package.json')).exports;
   assert.equal(exports['./annotations'], './src/annotations/index.js');
 });

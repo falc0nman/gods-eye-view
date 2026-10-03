@@ -1,6 +1,5 @@
 import flights from '../data/flights.js';
 import military from '../data/militaryFlights.js';
-import vessels from '../data/aisLiveVessels.js';
 import { configureCctvSource } from '../data/cctv.js';
 import { configureRadioSource } from '../data/radio.js';
 import { configureTrafficSource } from '../data/traffic.js';
@@ -28,6 +27,5 @@ export function configureApplicationSources({
     military.setSource(live.military);
     defer(configureMilitaryRegistrySource(live.military, { signal }));
   }
-  if (live.vessels) vessels.setSource(live.vessels);
 }
-export const liveLayers = Object.freeze({ flights, military, vessels });
+export const liveLayers = Object.freeze({ flights, military });
