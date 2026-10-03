@@ -159,15 +159,6 @@ export class LayerBindings {
             .trim()
             .toLowerCase() || null,
       },
-      satellites: {
-        key: 'selectedSatTrackingId',
-        normalize: (value) => {
-          const candidate = Number(value);
-          return Number.isFinite(candidate) && candidate > 0
-            ? Math.trunc(candidate)
-            : null;
-        },
-      },
     }[layerId];
     if (!config) return;
     const selectedValue = cleared ? null : config.normalize(event?.detail?.id);
@@ -196,7 +187,6 @@ export class LayerBindings {
     for (const [otherLayerId, otherKey] of [
       ['flights', 'selectedFlightsTrackingId'],
       ['military', 'selectedMilitaryTrackingId'],
-      ['satellites', 'selectedSatTrackingId'],
     ]) {
       if (otherLayerId === layerId) continue;
       this._dataManager.setLayerParams(

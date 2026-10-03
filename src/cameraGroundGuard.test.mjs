@@ -128,7 +128,7 @@ function handoffFixture(t) {
   const navigation = new NavigationController({
     viewer,
     tracking: Object.fromEntries(['flightsLayer', 'militaryFlightsLayer',
-      'satellitesLayer', 'aisLiveVesselsLayer', 'militaryAwarenessLayer',
+      'aisLiveVesselsLayer', 'militaryAwarenessLayer',
       'rocketLaunchesLayer'].map((key) => [key, {}])),
     cancelOrientation() {}, clearLocation() {}, cancelShareSelection() {},
     getDataManager() {}, interruptCameraMotion() {}, stopOrbit() {},

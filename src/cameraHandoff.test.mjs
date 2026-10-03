@@ -46,12 +46,11 @@ test('one explicit tracking selection clears sibling IDs before publishing its d
   assert.match(persist, /adoptLayerParams\?\.\(\s*layerId,/);
   assert.match(persist, /\['flights', 'selectedFlightsTrackingId'\]/);
   assert.match(persist, /\['military', 'selectedMilitaryTrackingId'\]/);
-  assert.match(persist, /\['satellites', 'selectedSatTrackingId'\]/);
   assert.match(persist, /if \(otherLayerId === layerId\) continue;/);
   assert.match(
     persist,
     /for \(const \[otherLayerId, otherKey\][\s\S]*?setLayerParams\(\s*otherLayerId,[\s\S]*?adoptLayerParams\?\.\(\s*layerId,/,
-    'the previous family clears before Flight/Military/Satellite publishes the new durable ID',
+    'the previous family clears before Flight/Military publishes the new durable ID',
   );
 });
 
@@ -64,10 +63,8 @@ test('navigation clears dormant tracker IDs without aborting unrelated layer res
   assert.doesNotMatch(stamp, /cancelPendingRestores\(\)/);
   assert.match(stamp, /flightsLayer\.cancelPendingTrackingRestore\?\.\(\)/);
   assert.match(stamp, /militaryFlightsLayer\.cancelPendingTrackingRestore\?\.\(\)/);
-  assert.match(stamp, /satellitesLayer\.cancelPendingTrackingRestore\?\.\(\)/);
   assert.match(stamp, /if \(\s*!passivelyClearedShareSelection\s*&&\s*!flightsLayer\.getTrackedInfo\?\.\(\)\s*\)[\s\S]*?selectedFlightsTrackingId: null/);
   assert.match(stamp, /if \(\s*!passivelyClearedShareSelection\s*&&\s*!militaryFlightsLayer\.getTrackedInfo\?\.\(\)\s*\)[\s\S]*?selectedMilitaryTrackingId: null/);
-  assert.match(stamp, /if \(\s*!passivelyClearedShareSelection\s*&&\s*!satellitesLayer\.getTrackedInfo\?\.\(\)\s*\)[\s\S]*?selectedSatTrackingId: null/);
 });
 
 test('accepted navigation releases through PR15-aware ownership before flight', () => {
@@ -89,7 +86,6 @@ test('accepted navigation releases through PR15-aware ownership before flight', 
   );
   ordered(release, [
     'origin: trackingOrigin',
-    'satellitesLayer.stopTracking?.({ origin: trackingOrigin })',
     'this.viewer.trackedEntity = undefined;',
     "interruptCameraMotion('explicit-navigation')",
     'this.viewer.camera.cancelFlight();',

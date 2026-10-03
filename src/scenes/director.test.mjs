@@ -493,12 +493,10 @@ test('a shot captured while tracking never re-establishes tracking on playback',
     await director._applyLayerStates({
       flights: { enabled: true, params: { models3d: true, selectedFlightsTrackingId: 'a835af' } },
       military: { enabled: true, params: { selectedMilitaryTrackingId: 'ae1460' } },
-      satellites: { enabled: true, params: { catalog: 'dense', selectedSatTrackingId: 25544 } },
     });
 
     const pushed = Object.fromEntries(dataManager.setParamsCalls.map((call) => [call.id, call.params]));
     assert.deepEqual(pushed.flights, { models3d: true });
-    assert.deepEqual(pushed.satellites, { catalog: 'dense' });
     // Nothing survived military's params, so nothing is pushed at all.
     assert.equal(Object.hasOwn(pushed, 'military'), false);
     for (const call of dataManager.setParamsCalls) {

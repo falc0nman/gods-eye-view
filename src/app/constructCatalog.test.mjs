@@ -39,7 +39,7 @@ test('catalogs construct distinct layers and classification from their supplied 
     signal: b.signal,
     surface: fixtureSurface(b.signal),
   });
-  assert.equal(first.layers.length, 20);
+  assert.equal(first.layers.length, 19);
   for (const id of ['nexrad', 'nws-warnings', 'team-chasers'])
     assert.ok(first.get(id), `${id} (storm chase) is registered`);
   assert.ok(first.get('local-adsb'), 'Local ADS-B is registered');
@@ -94,8 +94,8 @@ test('catalogs construct distinct layers and classification from their supplied 
   for (const layer of first.layers)
     assert.notEqual(layer, second.get(layer.id));
   assert.equal(
-    catalogControlServices(first).satellitesLayer,
-    first.get('satellites'),
+    catalogControlServices(first).flightsLayer,
+    first.get('flights'),
   );
   assert.equal(callsA.length, 0, 'construction must not acquire');
   await first.militaryRegistry.refreshMilitaryRegistryIfStale();

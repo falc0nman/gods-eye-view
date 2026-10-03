@@ -308,7 +308,6 @@ export class LocationNavigation {
       interruptCameraMotion,
       flightsLayer,
       militaryFlightsLayer,
-      satellitesLayer,
       aisLiveVesselsLayer,
       militaryAwarenessLayer,
     } = this.services;
@@ -342,11 +341,6 @@ export class LocationNavigation {
       } catch {
         /* best-effort release */
       }
-    }
-    try {
-      satellitesLayer.stopTracking?.({ origin: 'tool' });
-    } catch {
-      /* best-effort release */
     }
     this.viewer.trackedEntity = undefined;
     this.viewer.camera.cancelFlight();

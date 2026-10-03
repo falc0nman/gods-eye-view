@@ -119,9 +119,9 @@ test('real dev and built-preview servers serve provider JSON and terminate unkno
           assert.equal(response.headers.get('cache-control'), 'no-store');
         }
       }
-      const tle = await fetch(origin + '/api/celestrak/invalid!');
-      assert.equal(tle.status, 400);
-      assert.equal(await tle.text(), 'invalid group');
+      const tle = await fetch(origin + '/api/celestrak/stations');
+      assert.equal(tle.status, 404, 'GW-57 removed the CelesTrak proxy');
+      assert.deepEqual(await tle.json(), { error: 'Unknown API route' });
       {
         const write = await fetch(origin + '/api/setup/keys', {
           method: 'POST',

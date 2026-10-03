@@ -190,7 +190,7 @@ export const ACTION_DESCRIPTIONS = {
   },
   set_map_stack: {
     description:
-      'Switch the basemap/imagery stack (NOT the satellites data layer and NOT a visual style filter).',
+      'Switch the basemap/imagery stack (NOT a visual style filter).',
     $position: 1,
     parameters: {
       properties: {
@@ -302,18 +302,17 @@ export const ACTION_DESCRIPTIONS = {
   },
   track_entity: {
     description:
-      'Find and follow a specific aircraft (callsign/ICAO hex), ship (name/MMSI), or satellite (name/NORAD id) on enabled layers. Camera follows the entity.',
+      'Find and follow a specific aircraft (callsign/ICAO hex) or ship (name/MMSI) on enabled layers. Camera follows the entity.',
     $position: 1,
     parameters: {
       properties: {
         query: {
-          description:
-            'Callsign, ship name, satellite name, ICAO hex, MMSI, or NORAD id.',
+          description: 'Callsign, ship name, ICAO hex, or MMSI.',
           $position: 1,
         },
         layerId: {
           description:
-            'Optional layer hint: flights | military | ais-live-vessels | satellites.',
+            'Optional layer hint: flights | military | ais-live-vessels.',
           $position: 1,
         },
       },
@@ -321,18 +320,18 @@ export const ACTION_DESCRIPTIONS = {
   },
   stop_tracking: {
     description:
-      'Stop following the tracked aircraft/satellite and clear any selected vessel.',
+      'Stop following the tracked aircraft and clear any selected vessel.',
     $position: 1,
   },
   frame_overhead: {
     description:
-      'Cinematically frame entities near the current view: pulls the camera back and angles it so nearby aircraft, ships, or satellites are visible together.',
+      'Cinematically frame entities near the current view: pulls the camera back and angles it so nearby aircraft or ships are visible together.',
     $position: 1,
     parameters: {
       properties: {
         radiusKm: {
           description:
-            'Search radius around the view target. Defaults: 150 aircraft, 120 ships, 3000 satellites.',
+            'Search radius around the view target. Defaults: 150 aircraft, 120 ships.',
           $position: 1,
         },
       },
@@ -487,7 +486,7 @@ export const ACTION_DESCRIPTIONS = {
   },
   analyst_query: {
     description:
-      'Answer questions ABOUT the data currently loaded on the map — counts, lists, superlatives, and attribute filters over live layers (flights, military, ships, satellites). Examples: "how many flights over Texas", "which ships are headed to Oakland", "anything above 40,000 feet", "fastest thing in view". For satellites, counts and ranks cover only bounded examined loaded records; omitted records can change nearest/count. Queries ONLY client-side data from ENABLED layers — if the needed layer is off, say so and offer to enable it. For a follow-up about the previous answer\'s set ("which of those is closest?"), set followUp=true and send only the new filters/sort.',
+      'Answer questions ABOUT the data currently loaded on the map — counts, lists, superlatives, and attribute filters over live layers (flights, military, ships). Examples: "how many flights over Texas", "which ships are headed to Oakland", "anything above 40,000 feet", "fastest thing in view". Queries ONLY client-side data from ENABLED layers — if the needed layer is off, say so and offer to enable it. For a follow-up about the previous answer\'s set ("which of those is closest?"), set followUp=true and send only the new filters/sort.',
     $position: 1,
     parameters: {
       properties: {
@@ -527,34 +526,5 @@ export const ACTION_DESCRIPTIONS = {
         },
       },
     },
-  },
-  next_iss_pass: {
-    description:
-      "When the user asks when the ISS / the space station will next fly over: returns the next geometric ISS pass with estimated visibility for the current camera location (or an explicit lat/lon) — rise time (ISO + minutes from now), rise compass direction, peak elevation, and duration. Requires the satellites layer to have loaded its catalog at least once this session; if it hasn't, tell the user to enable the satellites layer and try again.",
-    $position: 1,
-    parameters: {
-      properties: {
-        latitude: {
-          description:
-            'Optional observer latitude. Omit to use the current camera position.',
-          $position: 3,
-        },
-        longitude: {
-          description:
-            'Optional observer longitude. Omit to use the current camera position.',
-          $position: 3,
-        },
-        minElevationDeg: {
-          description:
-            'Minimum peak elevation (deg) to count as a pass. Default 10.',
-          $position: 3,
-        },
-      },
-    },
-  },
-  next_satellite_pass: {
-    description:
-      'Predict the next pass in 24 hours for one satellite in the loaded catalog, identified by exact NORAD ID or name. Ambiguous names return candidates: ask for a choice rather than selecting one. Defaults to geometric passes; visibleOnly requires estimated illumination and a dark observer sky, which does not guarantee naked-eye visibility. Uses camera location unless coordinates are supplied.',
-    $position: 1,
   },
 };

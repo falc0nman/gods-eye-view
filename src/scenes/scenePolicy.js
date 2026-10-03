@@ -39,7 +39,6 @@ import { contextLayerEnableBlockReason } from '../contextModePolicy.js';
 export const SCENE_TRACKING_PARAM_KEYS = Object.freeze([
   'selectedFlightsTrackingId',
   'selectedMilitaryTrackingId',
-  'selectedSatTrackingId',
 ]);
 
 /**

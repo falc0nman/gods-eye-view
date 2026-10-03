@@ -348,19 +348,6 @@ try {
     { diag: dAnimOff, detection: detectionStillOn },
   );
 
-  // ── 2c. satellites holder enters and leaves diagnostics ───────────────
-  await page.evaluate(async () => {
-    await window.__godsEyeView.dataManager.setEnabled('satellites', true, { origin: 'user' });
-  });
-  const dSat = await diag();
-  check('satellites enable registers its holder', dSat?.holds.includes('satellites'), dSat);
-  await page.evaluate(async () => {
-    await window.__godsEyeView.dataManager.setEnabled('satellites', false, { origin: 'user' });
-  });
-  await new Promise((r) => setTimeout(r, 2_000));
-  const dSatOff = await diag();
-  check('satellites disable releases its holder', !dSatOff?.holds.includes('satellites'), dSatOff);
-
   // ── 3. camera movement renders (Cesium-native path) ───────────────────
   const duringMove = await Promise.all([
     countFrames(2_500),

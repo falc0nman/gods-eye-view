@@ -1,5 +1,4 @@
 import { openSkyProxy } from './aircraft/opensky.js';
-import { celestrakProxy } from './space.js';
 import { tomtomProxy } from './traffic.js';
 import { terrainHeightsProxy } from './terrain.js';
 import { adsbdbProxy } from './aircraft/enrichment.js';
@@ -35,7 +34,6 @@ function localProviderRegistry({ notificationTransport } = {}) {
     notificationTransport,
   });
   registry.registerLegacy('opensky', openSkyProxy);
-  registry.registerLegacy('celestrak', celestrakProxy);
   registry.registerLegacy('tomtom', tomtomProxy);
   registry.registerLegacy('terrain-heights', terrainHeightsProxy);
   registry.registerLegacy('adsbdb', adsbdbProxy);

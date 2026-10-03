@@ -41,9 +41,9 @@ const SCENES = Object.freeze([
   { id: 'cctv-city', layers: ['cctv'], cctvHeightM: 6_000 },
   { id: 'cctv-high', layers: ['cctv'], cctvHeightM: 12_000 },
   { id: 'vessels', layers: ['ais-live-vessels'], camera: [4.05, 51.93, 18_000, 0.3, -1.25] },
-  { id: 'detection-25', layers: ['flights', 'satellites'], detectionDensity: 25, camera: [-98, 38, 2_500_000, 0, -Math.PI / 2] },
-  { id: 'detection-50', layers: ['flights', 'satellites'], detectionDensity: 50, camera: [-98, 38, 2_500_000, 0, -Math.PI / 2] },
-  { id: 'detection-100', layers: ['flights', 'satellites'], detectionDensity: 100, camera: [-98, 38, 2_500_000, 0, -Math.PI / 2] },
+  { id: 'detection-25', layers: ['flights'], detectionDensity: 25, camera: [-98, 38, 2_500_000, 0, -Math.PI / 2] },
+  { id: 'detection-50', layers: ['flights'], detectionDensity: 50, camera: [-98, 38, 2_500_000, 0, -Math.PI / 2] },
+  { id: 'detection-100', layers: ['flights'], detectionDensity: 100, camera: [-98, 38, 2_500_000, 0, -Math.PI / 2] },
   { id: 'tracked-civil-aircraft', layers: ['flights'], trackedFlight: true, camera: [-98, 38, 2_500_000, 0, -Math.PI / 2] },
   { id: 'missions-selected', layers: ['rocket-launches'], missionSelected: true, camera: [0, 15, 18_000_000, 0, -Math.PI / 2] },
   { id: 'cockpit-mode', layers: ['flights'], trackedFlight: true, cockpit: true, camera: [-98, 38, 2_500_000, 0, -Math.PI / 2] },
@@ -381,7 +381,7 @@ async function readLayerState(page, layerId) {
 async function waitForLayer(page, layerId) {
   const dataBearing = new Set([
     'cctv',
-    'ais-live-vessels', 'flights', 'satellites', 'rocket-launches',
+    'ais-live-vessels', 'flights', 'rocket-launches',
   ]);
   if (!dataBearing.has(layerId)) return readLayerState(page, layerId);
   try {
@@ -550,7 +550,7 @@ async function prepareVessels(page) {
 }
 
 async function prepareDetection(page, densityPct) {
-  const sourceStates = await Promise.all(['flights', 'satellites'].map((id) => readLayerState(page, id)));
+  const sourceStates = await Promise.all(['flights'].map((id) => readLayerState(page, id)));
   if (!sourceStates.some((state) => (state?.stats?.count || 0) > 0)) {
     return 'Detection sources exposed no observations';
   }

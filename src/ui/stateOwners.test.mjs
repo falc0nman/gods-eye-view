@@ -8,7 +8,6 @@ function navigation() {
     [
       'flightsLayer',
       'militaryFlightsLayer',
-      'satellitesLayer',
       'aisLiveVesselsLayer',
       'militaryAwarenessLayer',
       'rocketLaunchesLayer',

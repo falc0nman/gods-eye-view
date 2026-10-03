@@ -450,7 +450,7 @@ test('the Display selector, voice schema and final stylesheet expose Cyber', () 
   assert.match(cyberStyles, /right: 62px;/);
   assert.match(cyberStyles, /bottom: calc\(2vh \+ 11rem\);/);
   assert.doesNotMatch(cyberStyles, /NAV 01  \/\/  COMMAND BUS  \/\/  VIS 03/);
-  assert.match(cyberStyles, /data-layer-id='satellites'/);
+  assert.match(cyberStyles, /data-layer-id='flights'/);
   assert.match(cyberStyles, /#search-toggle::before/);
   assert.match(cyberStyles, /VISUAL MATRIX  \/\/  03/);
   assert.match(cyberStyles, /body\.cockpit-mode #cockpit-hud/);

@@ -109,11 +109,11 @@ test('the tracked card anchors to the visual position without repurposing the di
 test('tracked entry factory pins the production protected-lane policy', () => {
   const display = { x: 4, y: 5, z: 6 };
   const entry = createTrackedOverlayEntry({
-    gevTrackedId: 'satellites:25544',
+    gevTrackedId: 'flights:abc123',
     gevDisplayPosition: () => display,
-    gevLabelModel: { title: 'ISS', details: ['420 km · NORAD 25544'], accent: '#ffd84d' },
+    gevLabelModel: { title: 'ALLOC01', details: ['FL350 · 451 kts'], accent: '#ffd84d' },
   });
-  assert.equal(entry.id, 'satellites:25544');
+  assert.equal(entry.id, 'flights:abc123');
   assert.equal(entry.position(), display);
   assert.equal(entry.protected, true);
   assert.equal(entry.paintLane, 'tracked');
@@ -275,7 +275,6 @@ test('tracking layers write gevLabelModel and expose only their cached display p
   const files = await Promise.all([
     'flights.js',
     'militaryFlights.js',
-    'satellites.js',
     'militaryInstallations.js',
   ].map(async (name) => [name, readLayerSource(new URL(`./${name}`, import.meta.url))]));
   const sources = Object.fromEntries(files);
@@ -285,10 +284,8 @@ test('tracking layers write gevLabelModel and expose only their cached display p
   }
   assert.match(sources['flights.js'], /gevDisplayPosition\s*=\s*parts\.motion\._trackedDisplayCached/);
   assert.match(sources['militaryFlights.js'], /gevDisplayPosition\s*=\s*parts\.motion\._trackedDisplayCached/);
-  assert.ok(sources['satellites.js'].includes('gevDisplayPosition = _trackedDisplayCached'));
   assert.equal(sources['flights.js'].includes('_trackedEntity.label.text'), false);
   assert.equal(sources['militaryFlights.js'].includes('_trackedEntity.label.text'), false);
-  assert.equal(sources['satellites.js'].includes('_trackedEntity.label.text'), false);
 });
 
 test('civilian and military trail heads use the lower-centre model anchor and weak-texture tint', async () => {

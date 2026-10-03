@@ -42,7 +42,7 @@ function sweepLayerParamKeys() {
 /** The layer registry as main.js builds it (src/main.js dataManager.register calls). */
 const REGISTERED = new Set([
   'bhote-koshi-2026', 'bhote-koshi-locator',
-  'flights', 'military', 'earthquakes', 'satellites', 'rocket-launches', 'traffic',
+  'flights', 'military', 'traffic',
   'cctv', 'radio', 'ais-live-vessels', 'military-installations',
   'military-awareness', 'local-datacenters', 'local-dams',
 ]);
@@ -57,11 +57,11 @@ test('undeclared layers are never torn down by a four-layer recipe', () => {
   // absent layer off, so a recipe authored against four layers destroyed the
   // twelve added since — with no restore pass to put them back.
   const plan = sceneLayerPlan(
-    { flights: { enabled: true }, satellites: { enabled: false } },
+    { flights: { enabled: true }, traffic: { enabled: false } },
     REGISTERED,
   );
   const touched = plan.map((entry) => entry.id);
-  assert.deepEqual(touched, ['flights', 'satellites']);
+  assert.deepEqual(touched, ['flights', 'traffic']);
   for (const untouched of ['cctv', 'radio', 'local-dams', 'local-datacenters']) {
     assert.ok(!touched.includes(untouched), `${untouched} must be left alone`);
   }
@@ -98,10 +98,10 @@ test('layers no longer registered are skipped, not pushed at the data manager', 
 
 test('per-layer params ride along only when the shot carries them', () => {
   const plan = sceneLayerPlan(
-    { satellites: { enabled: true, params: { catalog: 'dense' } }, flights: { enabled: true } },
+    { cctv: { enabled: true, params: { coverageMode: 'viewshed' } }, flights: { enabled: true } },
     REGISTERED,
   );
-  assert.deepEqual(plan[0], { id: 'satellites', enabled: true, params: { catalog: 'dense' } });
+  assert.deepEqual(plan[0], { id: 'cctv', enabled: true, params: { coverageMode: 'viewshed' } });
   assert.equal(plan[1].params, undefined);
 });
 
@@ -136,7 +136,7 @@ test('stripping leaves a tracking-free params object untouched', () => {
   assert.equal(stripSceneTrackingParams(params), params);
   assert.equal(stripSceneTrackingParams(undefined), undefined);
   assert.equal(stripSceneTrackingParams(null), undefined);
-  assert.ok(SCENE_TRACKING_PARAM_KEYS.length >= 3);
+  assert.ok(SCENE_TRACKING_PARAM_KEYS.length >= 2);
 });
 
 test('every selection-shaped layer param is classified, whatever its spelling', () => {
@@ -147,7 +147,7 @@ test('every selection-shaped layer param is classified, whatever its spelling', 
   // any match must be explicitly stripped or explicitly kept.
   const classified = new Set([...SCENE_TRACKING_PARAM_KEYS, ...SCENE_KEPT_SELECTION_PARAM_KEYS]);
   const swept = sweepLayerParamKeys();
-  assert.ok(swept.size >= 6, `expected the known layer param surfaces, saw ${swept.size}`);
+  assert.ok(swept.size >= 5, `expected the known layer param surfaces, saw ${swept.size}`);
 
   const seen = new Set();
   for (const [file, keys] of swept) {

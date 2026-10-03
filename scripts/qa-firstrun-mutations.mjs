@@ -431,8 +431,8 @@ const MUTATIONS = [
   {
     defect: 'the voice TOOL SCHEMA is edited (a Realtime prompt-cache bust)',
     file: 'voiceTools',
-    from: "            'military',\n            'satellites',",
-    to: "            'military',\n            'infrastructure-mode',\n            'satellites',",
+    from: "            'military',\n            'traffic',",
+    to: "            'military',\n            'infrastructure-mode',\n            'traffic',",
   },
 ];
 

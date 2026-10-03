@@ -164,7 +164,6 @@ function keyGuard(name, state) {
 const CREDIT_EXPECTATIONS = {
   flights: /OpenSky/i,
   military: /adsb\.lol/i,
-  satellites: /CelesTrak/i,
   'rocket-launches': /Launch Library|LL2/i,
   traffic: /TomTom|OpenStreetMap/i,
   cctv: /Austin|Caltrans|Transport for London|TfL/i,
@@ -764,36 +763,6 @@ check({
 });
 
 check({
-  id: 'B4', group: 'B', desc: 'CelesTrak TLE proxy serves and caches (/api/celestrak/stations)',
-  run: async () => {
-    const r = await jget('/api/celestrak/stations', { timeoutMs: 40000 });
-    if (!r.ok) return fail(`HTTP ${r.status}`);
-    const lines = r.text.split('\n').filter((l) => /^1 /.test(l)).length;
-    const cache = r.headers.get('x-tle-cache');
-    return lines > 0 ? pass(`${lines} TLE records, x-tle-cache=${cache}`) : fail('no TLE lines in response');
-  },
-});
-
-check({
-  id: 'B5', group: 'B', desc: 'TLEs are FRESH (epoch under 14 days — a stale catalog silently mis-propagates)',
-  run: async () => {
-    const r = await jget('/api/celestrak/stations', { timeoutMs: 40000 });
-    if (!r.ok) return fail(`HTTP ${r.status}`);
-    const line1 = r.text.split('\n').find((l) => /^1 /.test(l));
-    if (!line1) return fail('no TLE line 1 found');
-    // Columns 19-32: epoch YYDDD.DDDDDDDD
-    const yy = Number(line1.slice(18, 20));
-    const ddd = Number(line1.slice(20, 32));
-    const year = yy < 57 ? 2000 + yy : 1900 + yy;
-    const epoch = new Date(Date.UTC(year, 0, 1) + (ddd - 1) * 86400000);
-    const ageDays = (Date.now() - epoch.getTime()) / 86400000;
-    return ageDays >= 0 && ageDays < 14
-      ? pass(`newest epoch ${epoch.toISOString().slice(0, 10)} (${ageDays.toFixed(1)} d old)`)
-      : fail(`TLE epoch ${epoch.toISOString().slice(0, 10)} is ${ageDays.toFixed(1)} days old`);
-  },
-});
-
-check({
   id: 'B8', group: 'B', desc: 'AIS vessel feed is live (/api/ais-live)', needsKey: 'AIS',
   run: async () => {
     const r = await jget('/api/ais-live', { timeoutMs: 40000 });
@@ -979,7 +948,7 @@ check({
 check({
   id: 'B21', group: 'B', desc: 'No proxy echoes credential material back to the client (P1-5 acceptance #4)',
   run: async () => {
-    const paths = ['/api/cctv/sources', '/api/tomtom/status', '/api/celestrak/stations', '/api/ais-live'];
+    const paths = ['/api/cctv/sources', '/api/tomtom/status', '/api/ais-live'];
     const leaked = [];
     const unscannable = [];
     for (const p of paths) {
@@ -1021,7 +990,6 @@ const BROWSER_CHECKS = [
   ['C2', 'Photorealistic 3D basemap attached (globe alive on arrival)'],
   ['C3', 'Boot produces no uncaught page errors'],
   ['C4', 'Flights layer populates with live contacts'],
-  ['C5', 'Satellites layer propagates the live catalog'],
   ['C7', 'CCTV layer populates and its frame loop is healthy'],
   ['C8', 'Vessels: live rows when keyed, honest UNAVAILABLE when not'],
   ['C10', 'Traffic: LIVE mode when keyed, clearly-labelled SIMULATION when not'],
@@ -1124,7 +1092,7 @@ check({
 
 // ─── M · OWNER-EYES (never automated; steps in the runbook) ───────────────
 const MANUAL = [
-  ['M1', 'Voice mic round trip 1/3 — "when is the next ISS pass?" (next_iss_pass)'],
+  ['M1', 'Voice mic round trip 1/3 — "turn on the radar" (set_layer_visibility)'],
   ['M2', 'Voice mic round trip 2/3 — connect/disconnect twice in one tab'],
   ['M3', 'Voice mic round trip 3/3 — adsbdb enrichment readout on a live tracked flight'],
   ['M4', 'LAN warning path — HOST=0.0.0.0 banner, LAN URL, and a throttled response'],
@@ -1347,7 +1315,7 @@ async function runBrowserGroup(record) {
     quiesced = true;
     await evalBounded(async () => {
       const dm = window.__godsEyeView.dataManager;
-      const heavy = ['cctv', 'traffic', 'flights', 'satellites',
+      const heavy = ['cctv', 'traffic', 'flights',
         'military-installations'];
       for (const id of heavy) {
         if (!dm.layers.has(id)) continue;
@@ -1424,12 +1392,6 @@ async function runBrowserGroup(record) {
     return /adsb\.lol/i.test(src)
       ? skip(`${s.count} contacts but via the adsb.lol FALLBACK (source=${src}) — OpenSky credentials needed for the live claim`, 'OWNER-RUN')
       : pass(`${s.count} contacts, source=${src || 'OpenSky'}, stale=${!!s.stale}`);
-  });
-
-  await step('C5', async () => {
-    const r = await settle('satellites', 40);
-    const s = r.stats || {};
-    return s.count > 0 ? pass(`${s.count} satellites, status=${s.status || 'nominal'}`) : fail(`0 satellites (status=${s.status} error=${s.error || ''})`);
   });
 
   await step('C7', async () => {
@@ -1640,7 +1602,7 @@ async function runBrowserGroup(record) {
     // standalone (`--only C12`) nothing is on, and it would pass vacuously off
     // the static credit list — so self-arm a deterministic set first.
     const armed = (await evalBounded(() => [...(window.__godsEyeView.dataManager.getEnabledLayerIds?.() || [])], null, 20000)) || [];
-    const SELF_ARM = ['flights', 'satellites', 'cctv'];
+    const SELF_ARM = ['flights', 'cctv'];
     if (armed.length === 0) {
       for (const id of SELF_ARM) {
         // eslint-disable-next-line no-await-in-loop

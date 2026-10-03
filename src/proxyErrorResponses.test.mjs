@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { readResponseTextCapped, coalesceProxyRequest } from './sources/httpBody.js';
 
-const source = ['local.js', 'common/http.js', 'aircraft/enrichment.js', 'terrain.js', 'space/celestrak.js', '../../src/data/spaceProviderRequests.js']
+const source = ['local.js', 'common/http.js', 'aircraft/enrichment.js', 'terrain.js']
   .map(file => readFileSync(new URL(`../server/providers/${file}`, import.meta.url), 'utf8'))
   .join('\n');
 const detail = 'fixture-secret-token /internal/example <html>';
@@ -35,8 +35,7 @@ function fixture(name, overrides = {}, preview = false) {
     resolveTerrainHeightRequest: async () => { throw new Error(detail); },
     ...overrides,
   };
-  const helpers = ['celestrakTleUrl'].map(extract).join('\n');
-  const plugin = new Function(...Object.keys(deps), `${helpers}\n${extract(name)}\nreturn ${name}();`)(...Object.values(deps));
+  const plugin = new Function(...Object.keys(deps), `${extract(name)}\nreturn ${name}();`)(...Object.values(deps));
   let middleware;
   plugin[preview ? 'configurePreviewServer' : 'configureServer']({ middlewares: { use(_route, handler) { middleware = handler; } } });
   return {
@@ -50,38 +49,6 @@ function fixture(name, overrides = {}, preview = false) {
     },
   };
 }
-
-test('CelesTrak unexpected failures hide details', async () => {
-  const app = fixture('celestrakProxy', { Date: { now() { throw new Error(detail); } } });
-  const res = await app.request('/active');
-  assert.equal(res.status, 500);
-  assert.equal(res.body, 'celestrak proxy error');
-  assert.equal(res.headers['x-tle-cache'], 'ERROR');
-});
-
-test('CelesTrak retains invalid-group and unavailable responses', async () => {
-  const app = fixture('celestrakProxy');
-  assert.equal((await app.request('/../')).status, 400);
-  const res = await app.request('/active');
-  assert.equal(res.status, 502);
-  assert.equal(res.headers['x-tle-cache'], 'NONE');
-});
-
-test('CelesTrak retains fresh and stale TLE caches', async () => {
-  let now = Date.now();
-  let calls = 0;
-  const app = fixture('celestrakProxy', {
-    Date: { now: () => now },
-    fetch: async () => { if (++calls > 1) throw new Error(detail); return new Response('1 valid-fixture-TLE'); },
-  });
-  assert.equal((await app.request('/active')).headers['x-tle-cache'], 'MISS');
-  assert.equal((await app.request('/active')).headers['x-tle-cache'], 'HIT');
-  now += 7 * 3600_000;
-  const stale = await app.request('/active');
-  assert.equal(stale.status, 200);
-  assert.equal(stale.body, '1 valid-fixture-TLE');
-  assert.equal(stale.headers['x-tle-cache'], 'STALE-ERROR');
-});
 
 test('terrain unexpected failures hide details', async () => {
   const res = await fixture('terrainHeightsProxy').request('/?points=1,2');

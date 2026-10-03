@@ -48,8 +48,7 @@ export class NavigationController {
   } = {}) {
     cancelCameraArrival(this.viewer);
     this.cancelOrientation();
-    const { flightsLayer, militaryFlightsLayer, satellitesLayer } =
-      this.tracking;
+    const { flightsLayer, militaryFlightsLayer } = this.tracking;
     this._navigationGeneration += 1;
     this._cameraHandoffs?.publish();
     // A newer destination owns the camera, so the last free-text search is no
@@ -66,11 +65,6 @@ export class NavigationController {
       }
       try {
         militaryFlightsLayer.cancelPendingTrackingRestore?.();
-      } catch {
-        /* best effort */
-      }
-      try {
-        satellitesLayer.cancelPendingTrackingRestore?.();
       } catch {
         /* best effort */
       }
@@ -93,18 +87,6 @@ export class NavigationController {
           'military',
           {
             selectedMilitaryTrackingId: null,
-          },
-          { origin: 'tool' },
-        );
-      }
-      if (
-        !passivelyClearedShareSelection &&
-        !satellitesLayer.getTrackedInfo?.()
-      ) {
-        this.getDataManager()?.setLayerParams(
-          'satellites',
-          {
-            selectedSatTrackingId: null,
           },
           { origin: 'tool' },
         );
@@ -132,7 +114,6 @@ export class NavigationController {
     const {
       flightsLayer,
       militaryFlightsLayer,
-      satellitesLayer,
       aisLiveVesselsLayer,
       militaryAwarenessLayer,
     } = this.tracking;
@@ -162,11 +143,6 @@ export class NavigationController {
           /* best-effort release */
         }
       }
-    }
-    try {
-      satellitesLayer.stopTracking?.({ origin: trackingOrigin });
-    } catch {
-      /* best-effort release */
     }
     this.viewer.trackedEntity = undefined;
     this.interruptCameraMotion('explicit-navigation');

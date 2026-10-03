@@ -195,32 +195,6 @@ test('analyst: route fields queryable from cached enrichment only', async () => 
   assert.deepEqual(r.items.map((i) => i.id), ['SWA1'], 'null route fields never match');
 });
 
-test('analyst: satellites are a queryable layer', async () => {
-  const SATS = [
-    { id: 'ISS (ZARYA)', noradId: '25544', name: 'ISS (ZARYA)', lat: 30.3, lon: -97.7, altitudeM: 410000, satelliteClass: 'STATION · ISS', group: 'stations' },
-    { id: 'GPS BIIR-2', noradId: '24876', name: 'GPS BIIR-2', lat: 51.0, lon: 0.0, altitudeM: 20200000, satelliteClass: 'NAV · GPS', group: 'gps-ops' },
-  ];
-  const eng = createAnalystEngine({
-    getRecords: (key) => ({ satellites: SATS }[key] || []),
-    resolveRegionRing: async (name) => (/texland/i.test(name) ? TEXLAND : null),
-    getViewContext: () => ({ lat: 30.27, lon: -97.74, viewRadiusKm: 150 }),
-  });
-
-  const sats = await eng.query({
-    layers: ['satellites'], scope: { kind: 'view' }, sortBy: 'distance', limit: 2,
-  });
-  assert.equal(sats.ok, true);
-  assert.equal(sats.count, 1, 'GPS sat is out of the Austin view radius');
-  assert.equal(sats.items[0].noradId, '25544');
-  assert.ok(Number.isFinite(sats.items[0].distanceKm));
-
-  const nav = await eng.query({
-    layers: ['satellites'], scope: { kind: 'anywhere' },
-    filters: [{ field: 'satelliteClass', op: 'contains', value: 'NAV' }],
-  });
-  assert.deepEqual(nav.items.map((i) => i.id), ['GPS BIIR-2']);
-});
-
 test('helpers: haversine sanity + scope radius', () => {
   const km = haversineKm(30.2672, -97.7431, 29.7604, -95.3698); // Austin→Houston
   assert.ok(km > 200 && km < 280, `Austin-Houston ~235km, got ${km}`);
@@ -230,11 +204,11 @@ test('helpers: haversine sanity + scope radius', () => {
 
 test('bounded loaded cohorts disclose truncation before filtering and retain it on follow-up', async () => {
   const engine = createAnalystEngine({
-    getRecords: () => [{ id: 'sample sat', lat: 0, lon: 0, name: 'sample' }],
+    getRecords: () => [{ id: 'sample flight', lat: 0, lon: 0, callsign: 'sample' }],
     getRecordCoverage: () => ({ basis: 'bounded-loaded-records', recordsExamined: 1, loadedCount: 3000, sourceTruncated: true }),
     getViewContext: () => ({ lat: 0, lon: 0, viewRadiusKm: 25 }),
   });
-  const result = await engine.query({ layers: ['satellites'], scope: { kind: 'anywhere' }, sortBy: 'distance' });
+  const result = await engine.query({ layers: ['flights'], scope: { kind: 'anywhere' }, sortBy: 'distance' });
   assert.equal(result.count, 1);
   assert.equal(result.coverage.layersQueried[0].sourceTruncated, true);
   assert.match(result.coverage.note, /omitted records may change the nearest item or count/);

@@ -532,11 +532,6 @@
 }
 
 :root[data-ui-theme='cyber']
-  .data-toggle-row[data-layer-id='satellites']
-  .data-icon::before {
-  content: '◎';
-}
-:root[data-ui-theme='cyber']
   .data-toggle-row[data-layer-id='flights']
   .data-icon::before {
   content: '△';

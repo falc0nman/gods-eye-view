@@ -15,7 +15,6 @@ const PUBLIC_SCENE_RECIPES = [
     ui: { hidePanels: true, hudMode: 'minimal', safeFrame: '16:9' },
     layers: {
       flights: true,
-      satellites: false,
       traffic: false,
     },
     post: {
@@ -84,7 +83,6 @@ const PUBLIC_SCENE_RECIPES = [
     ui: { hidePanels: true, hudMode: 'full', safeFrame: '16:9' },
     layers: {
       flights: false,
-      satellites: true,
       traffic: false,
     },
     post: {
@@ -161,7 +159,6 @@ const PUBLIC_SCENE_RECIPES = [
     ui: { hidePanels: true, hudMode: 'full', safeFrame: '16:9' },
     layers: {
       flights: false,
-      satellites: false,
       traffic: false,
     },
     post: {
@@ -228,7 +225,6 @@ const PUBLIC_SCENE_RECIPES = [
     ui: { hidePanels: true, hudMode: 'minimal', safeFrame: '9:16' },
     layers: {
       flights: true,
-      satellites: true,
       traffic: true,
     },
     post: {
@@ -305,7 +301,6 @@ const PUBLIC_SCENE_RECIPES = [
     ui: { hidePanels: true, hudMode: 'full', safeFrame: '16:9' },
     layers: {
       flights: true,
-      satellites: true,
       traffic: true,
     },
     post: {

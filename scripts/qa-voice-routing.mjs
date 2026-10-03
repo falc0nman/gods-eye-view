@@ -94,9 +94,7 @@ const PHRASES = [
   { phrase: 'Show me the whole earth', expect: 'zoom_to_globe' },
   { phrase: 'Frame the aircraft near us from overhead', expect: 'frame_overhead' },
 
-  // — the satellites trap: data layer, never basemap —
-  { phrase: 'Show me the satellites', expect: { oneOf: ['set_layer_visibility', 'frame_overhead'] } },
-  { phrase: 'Turn off the satellites', expect: 'set_layer_visibility', args: { layerId: 'satellites' } },
+  // — basemap switching needs an explicit stack name —
   { phrase: 'Switch to Bing aerial', expect: 'set_map_stack' },
   { phrase: 'Switch the basemap to OSM', expect: 'set_map_stack' },
 
@@ -142,7 +140,6 @@ const PHRASES = [
   { phrase: 'Set the radio volume to thirty percent', expect: 'control_radio', args: { action: 'volume', volumePct: 30 } },
   { phrase: 'Pause the radio', expect: 'control_radio', args: { action: 'pause' } },
   { phrase: 'Stop the radio', expect: 'control_radio', args: { action: 'stop' } },
-  { phrase: 'When does the ISS pass over next?', expect: 'next_iss_pass' },
 
   // — annotations —
   { phrase: 'Annotate the Texas State Capitol and its grounds', expect: 'annotate_map' },

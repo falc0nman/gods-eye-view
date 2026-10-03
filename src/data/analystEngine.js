@@ -52,11 +52,6 @@ export const ANALYST_LAYERS = {
     text: ['name', 'mmsi', 'shipType', 'destination', 'navStatus'],
     flags: [],
   },
-  satellites: {
-    numeric: ['altitudeM', 'speedMps'],
-    text: ['name', 'noradId', 'satelliteClass', 'group'],
-    flags: [],
-  },
 };
 
 const EARTH_R_KM = 6371;

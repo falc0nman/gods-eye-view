@@ -27,7 +27,7 @@ function location(t) {
       GLOBE_VIEW: { heightM: 20000000 },
       flyToGlobeView(_viewer, callbacks) { hooks = callbacks; return {}; },
       interruptCameraMotion() {},
-      militaryAwarenessLayer: {}, satellitesLayer: {}, rocketLaunchesLayer: {},
+      militaryAwarenessLayer: {}, rocketLaunchesLayer: {},
       trafficLayer: {
         beginWorldJump() { calls.push('begin'); },
         endWorldJump() { calls.push('end'); },

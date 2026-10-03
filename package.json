@@ -2,7 +2,7 @@
   "name": "gods-eye-view",
   "private": true,
   "version": "0.1.1",
-  "description": "A real-time intelligence console for planet Earth — photorealistic 3D globe, live aircraft/ships/satellites/CCTV, and hands-free voice control. Runs in a browser.",
+  "description": "A real-time intelligence console for planet Earth — photorealistic 3D globe, live aircraft/ships/CCTV, and hands-free voice control. Runs in a browser.",
   "type": "module",
   "license": "MIT",
   "author": "Bilawal Sidhu",
@@ -26,7 +26,6 @@
     "photorealistic-3d-tiles",
     "adsb",
     "ais",
-    "satellites",
     "voice-control",
     "openai-realtime",
     "visualization"
@@ -94,10 +93,6 @@
       "node": "./server/providers/places.js"
     },
     "./sources/places": "./src/data/placeProviderPayloads.js",
-    "./server/providers/space": {
-      "node": "./server/providers/space.js"
-    },
-    "./sources/space": "./src/data/spaceProviderRequests.js",
     "./server/providers/terrain": {
       "node": "./server/providers/terrain.js"
     },
@@ -150,7 +145,6 @@
     "./aircraft": "./src/layers/aircraft/index.js",
     "./layers/vessels": "./src/layers/vessels/index.js",
     "./layers/recent-imagery": "./src/layers/recentImagery/index.js",
-    "./layers/satellites": "./src/layers/satellites/index.js",
     "./layers/installations": "./src/layers/installations/index.js",
     "./layers/awareness": "./src/layers/awareness/index.js",
     "./layers/traffic": "./src/layers/traffic/index.js",
@@ -211,7 +205,6 @@
     "./layers/cctv/source": "./src/layers/cctv/source.js",
     "./layers/installations/source": "./src/layers/installations/source.js",
     "./layers/radio/source": "./src/layers/radio/source.js",
-    "./layers/satellites/source": "./src/layers/satellites/source.js",
     "./layers/traffic/source": "./src/layers/traffic/source.js",
     "./sources/http-body": "./src/sources/httpBody.js",
     "./sources/overpass": "./src/sources/overpass.js",

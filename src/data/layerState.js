@@ -197,28 +197,6 @@ function enumOption(
   });
 }
 
-function integerOption(key, token, defaultValue) {
-  return Object.freeze({
-    key,
-    token,
-    defaultValue,
-    normalize: (value) => {
-      if (typeof value === 'number' && Number.isInteger(value) && value > 0)
-        return value;
-      const candidate = typeof value === 'string' ? value.trim() : '';
-      const parsed = Number(candidate);
-      if (!candidate || !Number.isInteger(parsed) || parsed <= 0) return null;
-      return parsed;
-    },
-    encode: (value) => String(Math.trunc(value)),
-    decode: (value) => {
-      const candidate = Number(value);
-      if (!Number.isInteger(candidate) || candidate <= 0) return null;
-      return candidate;
-    },
-  });
-}
-
 /**
  * A share-link-only option: the whole-state codec carries it, but the stored
  * local blob always holds its default.
@@ -379,13 +357,6 @@ const OPTION_GROUPS = Object.freeze({
     trackingIdOption('selectedFlightsTrackingId', 't', null),
     trackingIdOption('selectedMilitaryTrackingId', 'u', null),
   ]),
-  satellites: Object.freeze([
-    enumOption('catalog', 'c', 'core', ['core', 'dense'], {
-      core: 'c',
-      dense: 'd',
-    }),
-    integerOption('selectedSatTrackingId', 't', null),
-  ]),
   cctv: Object.freeze([
     enumOption('coverageMode', 'c', 'on', ['off', 'on', 'viewshed'], {
       off: '0',
@@ -436,7 +407,6 @@ const OPTION_GROUPS = Object.freeze({
 const TRACKING_OPTION_KEY_BY_LAYER = Object.freeze({
   flights: 'selectedFlightsTrackingId',
   military: 'selectedMilitaryTrackingId',
-  satellites: 'selectedSatTrackingId',
 });
 
 export const SHARE_TRACKING_RESTORE_POLICIES = Object.freeze({
@@ -451,12 +421,6 @@ export const SHARE_TRACKING_RESTORE_POLICIES = Object.freeze({
     optionKey: 'selectedMilitaryTrackingId',
     expiryWindowMs: 45_000,
     label: 'military flight',
-  }),
-  satellites: Object.freeze({
-    optionOwner: 'satellites',
-    optionKey: 'selectedSatTrackingId',
-    expiryWindowMs: 300_000,
-    label: 'satellite',
   }),
 });
 
@@ -604,12 +568,6 @@ export const LAYER_STATE_REGISTRY = Object.freeze([
     token: '1',
     disposition: 'enabled+options',
     optionOwner: 'recent-imagery',
-  }),
-  Object.freeze({
-    id: 'satellites',
-    token: 's',
-    disposition: 'enabled+options',
-    optionOwner: 'satellites',
   }),
   Object.freeze({
     id: 'team-chasers',
@@ -866,20 +824,16 @@ export function normalizeLayerState(candidate) {
   if (!enabled.has('flights')) options.flights.selectedFlightsTrackingId = null;
   if (!enabled.has('military'))
     options.flights.selectedMilitaryTrackingId = null;
-  if (!enabled.has('satellites'))
-    options.satellites.selectedSatTrackingId = null;
   // The codec has no cross-family recency field, so multiple tracking IDs are
   // ambiguous rather than an ordered handoff. Fail closed instead of letting
   // asynchronous feed arrival decide which tracker and camera owner wins.
   const trackingSelectionCount = [
     options.flights.selectedFlightsTrackingId,
     options.flights.selectedMilitaryTrackingId,
-    options.satellites.selectedSatTrackingId,
   ].filter((value) => value !== null).length;
   if (trackingSelectionCount > 1) {
     options.flights.selectedFlightsTrackingId = null;
     options.flights.selectedMilitaryTrackingId = null;
-    options.satellites.selectedSatTrackingId = null;
   }
   return {
     version: LAYER_STATE_VERSION,

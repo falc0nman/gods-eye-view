@@ -85,7 +85,8 @@ import { isCalibratedAllocationRuntime } from '../../scripts/run-unit-tests.mjs'
  * the 160-winner submarine-cable cohort (864 candidates total). GW-57
  * removed the cables layer, then the 96-entry earthquake cohort from every
  * Phase 5 row and the 18-entry FIRMS cohort from every Phase 3+ row (with
- * the isolated FIRMS row); the remaining budgets are unchanged and still pass
+ * the isolated FIRMS row), then the protected ISS entry from every Phase 5
+ * row; the remaining budgets are unchanged and still pass
  * on Node 24.14, so the measured figures above are pre-removal history.
  *
  * The Phase-6 row activates the production detection lane at Dense/100 over a
@@ -153,9 +154,9 @@ const WORKLOADS = [
     name: 'with final Phase 5 host sources live (pre-cable-migration surface)',
     profile: 'phase5-military',
     entries: vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
-      + 2,
+      + 1,
     candidates: vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
-      + 2,
+      + 1,
     maxBytesPerFrame: 132_000,
     maxBytesPerCandidatePerFrame: 225,
     saturated: true,
@@ -170,10 +171,10 @@ const WORKLOADS = [
     name: 'with every shared-host source and bounded Radio text live',
     profile: 'all-live-radio',
     entries: vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
-      + 2
+      + 1
       + RADIO_OVERLAY_COHORT_LIMIT + 1,
     candidates: vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
-      + 2
+      + 1
       + RADIO_OVERLAY_COHORT_LIMIT + 1,
     maxBytesPerFrame: 182_000,
     maxBytesPerCandidatePerFrame: 225,

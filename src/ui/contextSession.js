@@ -24,7 +24,7 @@ export async function _waitForContextLayerSettlement() {
 export function _captureContextSessionSnapshot({ excludeLayerIds = [] } = {}) {
   if (!this._dataManager || this._contextSessionSnapshot) return;
   const params = {};
-  for (const layerId of ['military-awareness', 'satellites']) {
+  for (const layerId of ['military-awareness']) {
     const value = this._dataManager.getLayerParams(layerId);
     if (value) params[layerId] = value;
   }

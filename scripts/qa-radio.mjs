@@ -167,27 +167,6 @@ async function main() {
     page.on('request', (request) => {
       const url = new URL(request.url());
 
-    // These scenarios exercise Context lifecycle and keyboard ownership, not
-    // live orbit accuracy. Reuse the tracking suite's fixed element sets so
-    // CelesTrak outages cannot invalidate an otherwise clean UI run.
-    if (url.origin === APP_ORIGIN
-      && ['/api/celestrak/active', '/api/celestrak/starlink'].includes(url.pathname)) {
-      const dense = url.pathname.endsWith('/starlink');
-      request.respond({
-        status: 200,
-        contentType: 'text/plain',
-        body: (dense ? [
-          'STARLINK-1007',
-          '1 44713U 19074A   24001.50000000  .00016717  00000-0  10270-3 0  9004',
-          '2 44713  53.0000 247.4627 0006703 130.5360 325.0288 15.06000000 12345',
-        ] : [
-          'ISS (ZARYA)',
-          '1 25544U 98067A   24001.50000000  .00016717  00000-0  10270-3 0  9004',
-          '2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.49814310 12345',
-        ]).join('\n') + '\n',
-      });
-      return;
-    }
       if (url.origin === APP_ORIGIN && url.pathname === '/api/radio/stations') {
         const response = {
           status: 200,

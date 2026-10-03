@@ -171,7 +171,6 @@ const LAYER_ALIASES = new Map([
   ['chasers', 'team-chasers'],
   ['team chasers', 'team-chasers'],
   ['my team', 'team-chasers'],
-  ['satellites', 'satellites'],
   ['traffic', 'traffic'],
   ['street traffic', 'traffic'],
   ['cctv', 'cctv'],
@@ -201,9 +200,9 @@ const CITY_ALIASES = new Map([
 ]);
 
 // Basemap stack vocabulary. Switching requires an explicit stack name
-// ("Bing aerial", "road map", "OSM", "Google 3D") — any "satellite(s)"
-// phrasing ALWAYS means the satellites DATA LAYER, never a basemap; the
-// session instructions carry the decision table.
+// ("Bing aerial", "road map", "OSM", "Google 3D") — a bare "satellite(s)"
+// never switches the basemap; the session instructions carry the decision
+// table.
 //
 // Road phrasings resolve to OSM, the one shipped road basemap. Every alias
 // must name a live `MAP_STACKS` id: an alias for a retired stack would resolve
@@ -238,7 +237,6 @@ const TRACKABLE_FAMILIES = [
   { layerId: 'flights', kind: 'aircraft' },
   { layerId: 'military', kind: 'aircraft' },
   { layerId: 'ais-live-vessels', kind: 'vessel' },
-  { layerId: 'satellites', kind: 'satellite' },
 ];
 
 const FRAME_TARGETS = new Map([
@@ -247,7 +245,6 @@ const FRAME_TARGETS = new Map([
   ['aircraft', 'flights'],
   ['military', 'military'],
   ['military flights', 'military'],
-  ['satellites', 'satellites'],
   ['vessels', 'ais-live-vessels'],
   ['ships', 'ais-live-vessels'],
 ]);
@@ -375,9 +372,6 @@ export function createGevActionRunner({
             enabled,
             changeOptions,
           );
-        }
-        if (layerId === 'satellites') {
-          await styleManager?._waitForContextLayerSettlement?.();
         }
       } catch (error) {
         changeError = error;
@@ -729,14 +723,6 @@ export function createGevActionRunner({
           longitude: Number(result.longitude.toFixed(2)),
         },
       };
-    }
-
-    if (name === 'next_satellite_pass') {
-      return nextSatellitePass(viewer, dataManager, args);
-    }
-
-    if (name === 'next_iss_pass') {
-      return nextIssPass(viewer, dataManager, args);
     }
 
     if (name === 'analyst_query') {
@@ -1804,8 +1790,8 @@ export function cctvVoiceFocusOutcome(
  * Aircraft follow the flight layers' label convention — callsign →
  * registration → icao24 — so the narrated name matches the readout and the
  * detection card instead of speaking a raw hex at a contact the UI is calling
- * `N123AB`. Vessels and satellites carry no `registration`, so that link
- * simply falls through to their own name/mmsi/noradId links.
+ * `N123AB`. Vessels carry no `registration`, so that link simply falls
+ * through to their own name/mmsi links.
  * @param {object} found - Layer descriptor from `findByQuery`.
  * @param {string} query - The spoken query, used as the last resort.
  * @returns {string} A non-empty display name.
@@ -1818,7 +1804,6 @@ export function formatTrackedEntityLabel(found, query = '') {
     text(found?.name) ||
     text(found?.icao24) ||
     text(found?.mmsi) ||
-    text(found?.noradId) ||
     String(query)
   );
 }
@@ -1872,8 +1857,6 @@ async function trackEntity(viewer, dataManager, styleManager, args = {}) {
             buildingHeight: 0,
             duration: 2.0,
           });
-        } else if (family.kind === 'satellite') {
-          trackedOk = !!module.trackById?.(found.noradId, { origin: 'voice' });
         } else {
           trackedOk = !!module.trackById?.(found.icao24, { origin: 'voice' });
         }
@@ -1885,8 +1868,8 @@ async function trackEntity(viewer, dataManager, styleManager, args = {}) {
           kind: family.kind,
           // Aircraft follow the flight layers' label convention (callsign →
           // registration → icao24) so the spoken name matches what the UI shows;
-          // `registration` is absent on vessels/satellites and simply falls
-          // through to their own name/id links.
+          // `registration` is absent on vessels and simply falls through to
+          // their own name/id links.
           label: formatTrackedEntityLabel(found, query),
           latitude: found.latitude ?? null,
           longitude: found.longitude ?? null,
@@ -1946,7 +1929,6 @@ function stopAllTracking(viewer, dataManager) {
   for (const [layerId, key] of [
     ['flights', 'selectedFlightsTrackingId'],
     ['military', 'selectedMilitaryTrackingId'],
-    ['satellites', 'selectedSatTrackingId'],
   ]) {
     try {
       if (
@@ -1978,7 +1960,7 @@ function stopAllTracking(viewer, dataManager) {
 
 /**
  * Frames entities near the current view target with a cinematic pull-back:
- * oblique high pitch for aircraft/ships, shallow wide pitch for satellites.
+ * oblique high pitch for aircraft and ships.
  * When entries are found and detection is OFF, auto-enables panoptic
  * detection so the framed entities are labeled, and reports
  * detectionEnabled so the voice agent can mention labels are on.
@@ -2003,12 +1985,7 @@ async function frameOverhead(viewer, dataManager, styleManager, args = {}) {
     };
   }
   const module = dataManager.layers.get(layerId)?.module;
-  const isSatellites = layerId === 'satellites';
-  const defaultRadiusKm = isSatellites
-    ? 3000
-    : layerId === 'ais-live-vessels'
-      ? 120
-      : 150;
+  const defaultRadiusKm = layerId === 'ais-live-vessels' ? 120 : 150;
   const radiusKm = clampNumber(args.radiusKm, 10, 20000, defaultRadiusKm);
   const center = getViewTargetCartesian(viewer) || viewer.camera.positionWC;
 
@@ -2041,7 +2018,7 @@ async function frameOverhead(viewer, dataManager, styleManager, args = {}) {
     entries.map((entry) => entry.position),
   );
   sphere.radius = Math.max(sphere.radius * 1.25, 8000);
-  const pitch = Cesium.Math.toRadians(isSatellites ? -35 : -62);
+  const pitch = Cesium.Math.toRadians(-62);
   return runManagedVoiceNavigation(
     styleManager,
     'frame',
@@ -2302,132 +2279,6 @@ function adjustCameraZoom(viewer, args) {
     beforeHeightM: Math.round(beforeHeightM),
     afterHeightM: Math.round(afterHeightM),
     error: moved ? null : 'Cesium camera position did not change',
-  };
-}
-
-const COMPASS_16 = [
-  'N',
-  'NNE',
-  'NE',
-  'ENE',
-  'E',
-  'ESE',
-  'SE',
-  'SSE',
-  'S',
-  'SSW',
-  'SW',
-  'WSW',
-  'W',
-  'WNW',
-  'NW',
-  'NNW',
-];
-
-function compassDir(azDeg) {
-  return COMPASS_16[Math.round((((azDeg % 360) + 360) % 360) / 22.5) % 16];
-}
-
-function nextIssPass(viewer, dataManager, args) {
-  let latDeg = Number.isFinite(args.latitude) ? args.latitude : null;
-  let lonDeg = Number.isFinite(args.longitude) ? args.longitude : null;
-  if (latDeg == null || lonDeg == null) {
-    const carto = viewer?.camera?.positionCartographic;
-    if (!carto) throw new Error('Camera position unavailable');
-    latDeg = Cesium.Math.toDegrees(carto.latitude);
-    lonDeg = Cesium.Math.toDegrees(carto.longitude);
-  }
-  const minElevDeg = Number.isFinite(args.minElevationDeg)
-    ? args.minElevationDeg
-    : 10;
-  const result = dataManager?.layers
-    ?.get('satellites')
-    ?.module?.getNextIssPass?.({ latDeg, lonDeg, minElevDeg }) ?? {
-    status: 'no-tle',
-  };
-  if (result.status === 'no-tle') {
-    return {
-      ok: false,
-      action: 'next_iss_pass',
-      error:
-        'ISS orbital elements not loaded yet — enable the satellites layer once, then ask again.',
-    };
-  }
-  if (result.status === 'none') {
-    return {
-      ok: false,
-      action: 'next_iss_pass',
-      error: `No ISS pass above ${minElevDeg}° in the next 24 hours for this location.`,
-    };
-  }
-  const { pass } = result;
-  return {
-    ok: true,
-    action: 'next_iss_pass',
-    observer: { latitude: latDeg, longitude: lonDeg },
-    riseIso: new Date(pass.riseMs).toISOString(),
-    minutesFromNow: Math.round((pass.riseMs - Date.now()) / 60000),
-    durationMin: Math.max(1, Math.round((pass.setMs - pass.riseMs) / 60000)),
-    peakElevationDeg: Math.round(pass.maxElevDeg),
-    riseDirection: compassDir(pass.riseAzDeg),
-    visible: typeof pass.visible === 'boolean' ? pass.visible : null,
-    visibilityNote:
-      'Geometric illumination estimate only; weather, brightness and orbital-element age affect actual visibility.',
-    setIso: new Date(pass.setMs).toISOString(),
-    peakIso: new Date(pass.maxElevMs).toISOString(),
-  };
-}
-
-function nextSatellitePass(viewer, dataManager, args) {
-  const layer = dataManager?.layers?.get('satellites')?.module;
-  const identity = layer?.resolveSatelliteForPass?.(args.target) || {
-    status: 'not-found',
-  };
-  if (identity.status !== 'ok')
-    return {
-      ok: false,
-      action: 'next_satellite_pass',
-      ...identity,
-      error:
-        identity.status === 'ambiguous'
-          ? 'Several loaded satellites match. Choose a NORAD ID from candidates.'
-          : 'No loaded satellite matches. Enable satellites and use an exact name or NORAD ID.',
-    };
-  // Reuse the legacy location fallback and result formatting, substituting only
-  // this explicitly resolved catalog identity and the optional visibility filter.
-  const adapter = {
-    layers: new Map([
-      [
-        'satellites',
-        {
-          module: {
-            getNextIssPass: (options) =>
-              layer.getNextSatellitePass(identity.noradId, {
-                ...options,
-                requireVisible: args.visibleOnly === true,
-              }),
-          },
-        },
-      ],
-    ]),
-  };
-  const result = nextIssPass(viewer, adapter, args);
-  if (result.error) {
-    result.error = result.error.replace(
-      /ISS/g,
-      identity.name || String(identity.noradId),
-    );
-    if (args.visibleOnly === true)
-      result.error +=
-        ' Search required estimated illumination under a dark sky.';
-  }
-  return {
-    ...result,
-    action: 'next_satellite_pass',
-    noradId: identity.noradId,
-    name: identity.name,
-    visibleOnly: args.visibleOnly === true,
-    horizonHours: 24,
   };
 }
 
@@ -3867,18 +3718,6 @@ function analystProviders(
         stats: module?.getStats?.() || {},
       });
     },
-    getRecordCoverage(layerKey, rows) {
-      if (layerKey !== 'satellites') return null;
-      const module = dataManager.layers.get(layerKey)?.module;
-      const loaded = module?.getStats?.().count;
-      return {
-        basis: 'bounded-loaded-records',
-        recordsExamined: rows.length,
-        loadedCount: Number.isFinite(loaded) ? loaded : null,
-        sourceTruncated: Number.isFinite(loaded) ? loaded > rows.length : null,
-        note: 'Counts and ranks apply only to these examined loaded records, not all satellites or infrastructure; distance is ground great-circle distance.',
-      };
-    },
     resolveRegionRing,
     /**
      * The active Contacts subject, when there is one — the centre the operator
@@ -3971,9 +3810,6 @@ async function runAnalystQuery(
       'distanceKm',
       'confidence',
       'place',
-      'noradId',
-      'satelliteClass',
-      'group',
       'river',
       'output',
       'capacity',

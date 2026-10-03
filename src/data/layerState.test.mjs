@@ -41,8 +41,6 @@ function paramsForLayer(id) {
   if (id === 'flights' || id === 'military') {
     return { models3d: false, models3dMode: 'proximity', irBoost: true };
   }
-  if (id === 'satellites')
-    return { catalog: 'core', showPoints: false, showOrbits: false };
   if (id === 'cctv') {
     return {
       coverageMode: 'on',
@@ -199,8 +197,8 @@ function encode(state) {
 
 test('production registry is exact, canonical, and rejects incomplete contracts', async () => {
   assert.equal(validateLayerStateRegistry(), true);
-  assert.equal(REGISTERED_LAYER_IDS.length, 19);
-  assert.equal(new Set(REGISTERED_LAYER_IDS).size, 19);
+  assert.equal(REGISTERED_LAYER_IDS.length, 18);
+  assert.equal(new Set(REGISTERED_LAYER_IDS).size, 18);
   assert.equal(REGISTERED_LAYER_IDS.includes('transit'), false);
   assert.deepEqual(REGISTERED_LAYER_IDS, [...REGISTERED_LAYER_IDS].sort());
   assert.deepEqual(LEGACY_LAYER_STATE_TOKENS, {
@@ -454,13 +452,11 @@ test('v2 codec distinguishes absent from empty and keeps canonical deterministic
       radio: { volume: 0.37, filter: 'news' },
       cctv: { autoHop: true, coverageMode: 'viewshed', showProjection: false },
       flights: { models3dMode: 'all', models3d: true },
-      satellites: { catalog: 'dense' },
     },
   });
   const second = normalizeLayerState({
     enabledLayerIds: ['weather-cyclones', 'cctv', 'traffic'],
     options: {
-      satellites: { catalog: 'dense' },
       flights: { models3d: true, models3dMode: 'all' },
       cctv: { showProjection: false, coverageMode: 'viewshed', autoHop: true },
       radio: { filter: 'news', volume: 0.37 },
@@ -591,6 +587,19 @@ test('removed layers keep their tokens reserved and old links skip them', () => 
     decodeLayerStateParams(new URLSearchParams('v=2&l=c.x')).retiredLayerIds,
     ['rocket-launches'],
   );
+  // ...and satellites (s), the first retired layer that owned options: its
+  // option assignments are skipped with it, and the rest of the link restores.
+  assert.equal(LAYER_STATE_TOKEN_RESERVATIONS.satellites, 's');
+  const retiredWithOptions = decodeLayerStateParams(
+    new URLSearchParams('v=2&l=f.s&lo=s.c.d_s.t.25544_f.t.abc123'),
+  );
+  assert.deepEqual(retiredWithOptions.enabledLayerIds, ['flights']);
+  assert.deepEqual(retiredWithOptions.retiredLayerIds, ['satellites']);
+  assert.equal(Object.hasOwn(retiredWithOptions.options, 'satellites'), false);
+  assert.equal(
+    retiredWithOptions.options.flights.selectedFlightsTrackingId,
+    'abc123',
+  );
   // A token that was never reserved is still malformed.
   assert.equal(decodeLayerStateParams(new URLSearchParams('v=2&l=c.Q')), null);
   assert.equal(decodeLayerStateParams(new URLSearchParams('v=2&l=h.h')), null);
@@ -627,7 +636,6 @@ test('unknown and forbidden option fields are ignored while missing options use 
         autoHopSec: 99,
       },
       flights: { models3d: true, irBoost: true },
-      satellites: { catalog: 'dense', showPoints: false, showOrbits: false },
       radio: {
         filter: 'genre:ambient',
         volume: 0.66,
@@ -675,16 +683,11 @@ test('mirrored option owners decode into the owner owner-options bucket', () => 
 
 test('ambiguous cross-family tracking IDs fail closed instead of racing feed arrival', () => {
   const decoded = decodeLayerStateParams(
-    new URLSearchParams('v=2&l=f.m.s&lo=f.t.flightA_f.u.militaryB_s.t.25544'),
+    new URLSearchParams('v=2&l=f.m&lo=f.t.flightA_f.u.militaryB'),
   );
-  assert.deepEqual(decoded.enabledLayerIds, [
-    'flights',
-    'military',
-    'satellites',
-  ]);
+  assert.deepEqual(decoded.enabledLayerIds, ['flights', 'military']);
   assert.equal(decoded.options.flights.selectedFlightsTrackingId, null);
   assert.equal(decoded.options.flights.selectedMilitaryTrackingId, null);
-  assert.equal(decoded.options.satellites.selectedSatTrackingId, null);
 
   const canonical = encodeLayerStateParams(new URLSearchParams('v=2'), decoded);
   assert.equal(canonical.has('lo'), false);
@@ -692,7 +695,7 @@ test('ambiguous cross-family tracking IDs fail closed instead of racing feed arr
 
 test('compact URL omits absent-meaning option state and still resolves to it', () => {
   const state = createDefaultLayerState();
-  state.enabledLayerIds = ['flights', 'satellites'];
+  state.enabledLayerIds = ['flights'];
   // Spelled out rather than reused from createDefaultLayerState() on purpose:
   // this is the ledger of what an OMITTED token means, so changing any of these
   // fails HERE and forces the change to be acknowledged.
@@ -709,12 +712,6 @@ test('compact URL omits absent-meaning option state and still resolves to it', (
     selectedFlightsTrackingId: null,
     selectedMilitaryTrackingId: null,
   };
-  state.options.satellites = {
-    catalog: 'core',
-    showPoints: true,
-    showOrbits: true,
-    selectedSatTrackingId: null,
-  };
   state.options.wind.overlay = 'speed'; // Frozen v2 omitted-token meaning; new boots use trails.
   const params = encodeLayerStateParams(new URLSearchParams('v=2'), state);
   assert.equal(params.has('lo'), false);
@@ -723,7 +720,6 @@ test('compact URL omits absent-meaning option state and still resolves to it', (
   assert.equal(roundTrip.options.flights.models3dMode, 'proximity');
   assert.deepEqual(roundTrip.options.flights.selectedFlightsTrackingId, null);
   assert.deepEqual(roundTrip.options.flights.selectedMilitaryTrackingId, null);
-  assert.deepEqual(roundTrip.options.satellites.selectedSatTrackingId, null);
 });
 
 test('a fresh boot starts 3D aircraft ON in proximity — codec, both layers, and the rail agree', async () => {
@@ -1028,14 +1024,14 @@ test('a direct Context selection promotes its owned tracker layer before persist
   coordinator.destroy();
 });
 
-test('explicit Flight to Satellite replacement keeps the new Satellite ID durable', async () => {
+test('explicit Flight to Military replacement keeps the new Military ID durable', async () => {
   const manager = productionManager();
   const coordinator = new LayerStateCoordinator(manager, shareSink(), {
     storage: memoryStorage(),
   });
   await coordinator.start();
   await manager.setEnabled('flights', true, { origin: 'user' });
-  await manager.setEnabled('satellites', true, { origin: 'user' });
+  await manager.setEnabled('military', true, { origin: 'user' });
   manager.setLayerParams(
     'flights',
     { selectedFlightsTrackingId: 'abc123' },
@@ -1054,14 +1050,14 @@ test('explicit Flight to Satellite replacement keeps the new Satellite ID durabl
     { origin: 'user' },
   );
   manager.setLayerParams(
-    'satellites',
-    { selectedSatTrackingId: 25544 },
+    'military',
+    { selectedMilitaryTrackingId: 'mil451' },
     { origin: 'programmatic' },
   );
   assert.equal(
     manager.adoptLayerParams(
-      'satellites',
-      { selectedSatTrackingId: 25544 },
+      'military',
+      { selectedMilitaryTrackingId: 'mil451' },
       { origin: 'user' },
     ),
     true,
@@ -1069,10 +1065,9 @@ test('explicit Flight to Satellite replacement keeps the new Satellite ID durabl
 
   const durable = coordinator.getDurableState();
   assert.equal(durable.options.flights.selectedFlightsTrackingId, null);
-  assert.equal(durable.options.flights.selectedMilitaryTrackingId, null);
-  assert.equal(durable.options.satellites.selectedSatTrackingId, 25544);
+  assert.equal(durable.options.flights.selectedMilitaryTrackingId, 'mil451');
   assert.equal(
-    new URLSearchParams(encode(durable)).get('lo')?.includes('s.t.25544'),
+    new URLSearchParams(encode(durable)).get('lo')?.includes('f.u.mil451'),
     true,
   );
   coordinator.destroy();
@@ -1148,7 +1143,6 @@ test('stored state is deterministic, rejects other versions, and stays within a 
   const state = createDefaultLayerState();
   state.enabledLayerIds = [...REGISTERED_LAYER_IDS].reverse();
   state.options.flights = { models3d: true, models3dMode: 'all' };
-  state.options.satellites = { catalog: 'dense' };
   state.options.cctv = {
     coverageMode: 'viewshed',
     showProjection: false,
@@ -1869,23 +1863,23 @@ test('feed failure is not misreported as target absence and malformed time never
   const storage = memoryStorage();
   const statuses = [];
   const manager = productionManager({
-    satellites: {
+    flights: {
       resolveTrackingRestoreTarget: () => ({
         status: 'source-unavailable',
-        reason: 'partial catalog',
+        reason: 'partial feed',
       }),
       setParams: (next) =>
-        Object.hasOwn(next, 'selectedSatTrackingId') &&
-        next.selectedSatTrackingId
+        Object.hasOwn(next, 'selectedFlightsTrackingId') &&
+        next.selectedFlightsTrackingId
           ? 'defer'
           : true,
     },
   });
   const state = createDefaultLayerState();
-  state.enabledLayerIds = ['satellites'];
-  state.options.satellites = {
-    ...state.options.satellites,
-    selectedSatTrackingId: 25544,
+  state.enabledLayerIds = ['flights'];
+  state.options.flights = {
+    ...state.options.flights,
+    selectedFlightsTrackingId: 'abc123',
   };
   const timers = manualTimers();
   const coordinator = new LayerStateCoordinator(manager, shareSink(), {
@@ -1897,7 +1891,7 @@ test('feed failure is not misreported as target absence and malformed time never
   });
   await coordinator.start({ shareLayerState: state, shareCreatedAtMs: null });
   const pending = await coordinator.restoreShareTrackingSelection();
-  // A partial catalog is a "not here YET" too — hold it, do not announce.
+  // A partial feed is a "not here YET" too — hold it, do not announce.
   assert.equal(pending.classification, 'pending');
   assert.equal(statuses.length, 1);
   assert.equal(statuses[0].classification, 'pending');
@@ -1985,12 +1979,6 @@ test('share tracking policies pin each owner, key, label, and acquisition deadli
       optionKey: 'selectedMilitaryTrackingId',
       expiryWindowMs: 45_000,
       label: 'military flight',
-    },
-    satellites: {
-      optionOwner: 'satellites',
-      optionKey: 'selectedSatTrackingId',
-      expiryWindowMs: 300_000,
-      label: 'satellite',
     },
   });
 });

@@ -64,23 +64,6 @@
     "modules": ["src/data/placeProviderPayloads.js"],
     "external": []
   },
-  "space-providers": {
-    "runtime": "node",
-    "exports": ["./server/providers/space"],
-    "modules": [
-      "server/providers/space.js",
-      "server/providers/space/celestrak.js",
-      "server/providers/common/http.js",
-      "src/data/spaceProviderRequests.js",
-      "src/sources/httpBody.js"
-    ],
-    "external": []
-  },
-  "space-requests": {
-    "exports": ["./sources/space"],
-    "modules": ["src/data/spaceProviderRequests.js"],
-    "external": []
-  },
   "terrain-provider": {
     "runtime": "node",
     "exports": ["./server/providers/terrain"],
@@ -769,31 +752,6 @@
     ],
     "external": ["cesium"]
   },
-  "satellites-layer": {
-    "exports": ["./layers/satellites"],
-    "modules": [
-      "src/data/issPass.js",
-      "src/data/satelliteClass.js",
-      "src/data/satellitePass.js",
-      "src/layers/satellites/catalog.js",
-      "src/layers/satellites/controls.js",
-      "src/layers/satellites/index.js",
-      "src/layers/satellites/ingestion.js",
-      "src/layers/satellites/interaction.js",
-      "src/layers/satellites/labels.js",
-      "src/layers/satellites/lifecycle.js",
-      "src/layers/satellites/orbits.js",
-      "src/layers/satellites/records.js",
-      "src/layers/satellites/policy.js",
-      "src/layers/satellites/rendering.js",
-      "src/layers/satellites/source.js",
-      "src/layers/satellites/state.js",
-      "src/layers/satellites/testing.js",
-      "src/layers/satellites/tracking.js",
-      "src/data/inputOwnership.js"
-    ],
-    "external": ["cesium", "satellite.js"]
-  },
   "installations-layer": {
     "exports": ["./layers/installations"],
     "modules": [
@@ -1092,7 +1050,6 @@
       "src/app/layers/militaryInstallations.js",
       "src/app/layers/overlayHost.js",
       "src/app/layers/radio.js",
-      "src/app/layers/satellites.js",
       "src/app/layers/traffic.js",
       "src/app/operations.js",
       "src/app/scene.js",
@@ -1163,7 +1120,6 @@
       "src/data/groundSnap.js",
       "src/data/iconOrientation.js",
       "src/data/installationFeedback.js",
-      "src/data/issPass.js",
       "src/data/labelArbiter.js",
       "src/data/layerState.js",
       "src/data/layerStateTokenReservations.json",
@@ -1195,9 +1151,6 @@
       "src/data/bundledJson.js",
       "src/data/retryableLoad.js",
       "src/data/routePlausible.js",
-      "src/data/satelliteClass.js",
-      "src/data/satellitePass.js",
-      "src/data/satellites.js",
       "src/data/scenePick.js",
       "src/data/spriteOrder.js",
       "src/data/surfaceServices.js",
@@ -1321,21 +1274,6 @@
       "src/layers/radio/tuning.js",
       "src/layers/radio/tuningNoise.js",
       "src/layers/radio/volume.js",
-      "src/layers/satellites/catalog.js",
-      "src/layers/satellites/controls.js",
-      "src/layers/satellites/index.js",
-      "src/layers/satellites/ingestion.js",
-      "src/layers/satellites/interaction.js",
-      "src/layers/satellites/labels.js",
-      "src/layers/satellites/lifecycle.js",
-      "src/layers/satellites/orbits.js",
-      "src/layers/satellites/records.js",
-      "src/layers/satellites/policy.js",
-      "src/layers/satellites/rendering.js",
-      "src/layers/satellites/source.js",
-      "src/layers/satellites/state.js",
-      "src/layers/satellites/testing.js",
-      "src/layers/satellites/tracking.js",
       "src/layers/traffic/animation.js",
       "src/layers/traffic/controls.js",
       "src/layers/traffic/flow.js",
@@ -1656,7 +1594,6 @@
       "egm96-universal",
       "mgrs",
       "pbf",
-      "satellite.js",
       "@jtarrio/webrtlsdr"
     ]
   },
@@ -1693,7 +1630,6 @@
       "src/app/layers/militaryInstallations.js",
       "src/app/layers/overlayHost.js",
       "src/app/layers/radio.js",
-      "src/app/layers/satellites.js",
       "src/app/layers/traffic.js",
       "src/sources/sourceSlot.js",
       "src/cctvFocusRequest.js",
@@ -1722,8 +1658,6 @@
       "src/data/geoid.js",
       "src/data/iconOrientation.js",
       "src/data/installationFeedback.js",
-      "src/data/issPass.js",
-      "src/data/satellitePass.js",
       "src/data/labelArbiter.js",
       "src/data/layerState.js",
       "src/data/layerStateTokenReservations.json",
@@ -1746,7 +1680,6 @@
       "src/data/bundledJson.js",
       "src/data/retryableLoad.js",
       "src/data/routePlausible.js",
-      "src/data/satelliteClass.js",
       "src/data/scenePick.js",
       "src/data/spriteOrder.js",
       "src/data/tomtomTiles.js",
@@ -1862,21 +1795,6 @@
       "src/layers/radio/tuning.js",
       "src/layers/radio/tuningNoise.js",
       "src/layers/radio/volume.js",
-      "src/layers/satellites/catalog.js",
-      "src/layers/satellites/controls.js",
-      "src/layers/satellites/index.js",
-      "src/layers/satellites/ingestion.js",
-      "src/layers/satellites/interaction.js",
-      "src/layers/satellites/labels.js",
-      "src/layers/satellites/lifecycle.js",
-      "src/layers/satellites/orbits.js",
-      "src/layers/satellites/records.js",
-      "src/layers/satellites/policy.js",
-      "src/layers/satellites/rendering.js",
-      "src/layers/satellites/source.js",
-      "src/layers/satellites/state.js",
-      "src/layers/satellites/testing.js",
-      "src/layers/satellites/tracking.js",
       "src/layers/traffic/animation.js",
       "src/layers/traffic/controls.js",
       "src/layers/traffic/flow.js",
@@ -2031,7 +1949,6 @@
       "hls.js",
       "cesium",
       "egm96-universal",
-      "satellite.js",
       "@mapbox/vector-tile",
       "pbf",
       "mgrs",
@@ -2093,7 +2010,6 @@
     "external": [
       "cesium",
       "egm96-universal",
-      "satellite.js",
       "@mapbox/vector-tile",
       "pbf",
       "mgrs"
@@ -2290,11 +2206,6 @@
   "radio-source": {
     "exports": ["./layers/radio/source"],
     "modules": ["src/layers/radio/policy.js", "src/layers/radio/source.js"],
-    "external": []
-  },
-  "satellites-source": {
-    "exports": ["./layers/satellites/source"],
-    "modules": ["src/layers/satellites/source.js"],
     "external": []
   },
   "traffic-source-factory": {

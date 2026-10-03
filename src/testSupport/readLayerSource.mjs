@@ -11,7 +11,6 @@ export function readLayerSource(file) {
       'militaryFlights.js',
       'aisLiveVessels.js',
       'firmsHeatmap.js',
-      'satellites.js',
       'rocketLaunches.js',
       'militaryInstallations.js',
       'militaryAwareness.js',
@@ -29,21 +28,19 @@ export function readLayerSource(file) {
         ? '../layers/military'
         : basename(path) === 'firmsHeatmap.js'
           ? '../layers/firms'
-          : basename(path) === 'satellites.js'
-            ? '../layers/satellites'
-            : basename(path) === 'rocketLaunches.js'
-              ? '../layers/launches'
-              : basename(path) === 'militaryInstallations.js'
-                ? '../layers/installations'
-                : basename(path) === 'militaryAwareness.js'
-                  ? '../layers/awareness'
-                  : basename(path) === 'traffic.js'
-                    ? '../layers/traffic'
-                    : basename(path) === 'bikeshare.js'
-                      ? '../layers/bikeshare'
-                      : basename(path) === 'cctv.js'
-                        ? '../layers/cctv'
-                        : '../layers/vessels',
+          : basename(path) === 'rocketLaunches.js'
+            ? '../layers/launches'
+            : basename(path) === 'militaryInstallations.js'
+              ? '../layers/installations'
+              : basename(path) === 'militaryAwareness.js'
+                ? '../layers/awareness'
+                : basename(path) === 'traffic.js'
+                  ? '../layers/traffic'
+                  : basename(path) === 'bikeshare.js'
+                    ? '../layers/bikeshare'
+                    : basename(path) === 'cctv.js'
+                      ? '../layers/cctv'
+                      : '../layers/vessels',
   );
   return readdirSync(directory)
     .filter((name) => name.endsWith('.js'))

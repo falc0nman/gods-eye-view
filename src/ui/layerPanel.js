@@ -19,14 +19,7 @@ const FEED_STATE_LABELS = Object.freeze({
 const PANEL_GROUPS = [
   {
     label: 'Movement',
-    ids: [
-      'satellites',
-      'flights',
-      'military',
-      'local-adsb',
-      'ais-live-vessels',
-      'traffic',
-    ],
+    ids: ['flights', 'military', 'local-adsb', 'ais-live-vessels', 'traffic'],
   },
   {
     label: 'Cameras',

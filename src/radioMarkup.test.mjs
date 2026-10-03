@@ -24,17 +24,17 @@ const css = readStylesheet(new URL('../style.css', import.meta.url));
 
 function realtimeTools() { return GEV_REALTIME_TOOLS; }
 
-test('Realtime schema exposes the authoritative 28-tool inventory', () => {
+test('Realtime schema exposes the authoritative 26-tool inventory', () => {
   const tools = realtimeTools();
-  assert.equal(tools.length, 28);
+  assert.equal(tools.length, 26);
   const names = tools.map((tool) => tool.name);
-  assert.equal(new Set(names).size, 28, 'tool names are unique');
+  assert.equal(new Set(names).size, 26, 'tool names are unique');
   assert.equal(names.includes('set_context_mode'), false, 'GW-58 removed Contacts');
   assert.equal(names.includes('control_cockpit'), false, 'GW-58 removed Cockpit');
   assert.ok(names.includes('select_nearest_aircraft'));
   assert.ok(names.includes('control_radio'));
-  assert.ok(names.includes('next_satellite_pass'));
-  assert.ok(names.includes('next_iss_pass'));
+  assert.equal(names.includes('next_iss_pass'), false, 'GW-57 removed satellites');
+  assert.equal(names.includes('next_satellite_pass'), false, 'GW-57 removed satellites');
   // Every tool closes its parameter object: an open schema lets the model
   // invent arguments the runner silently drops.
   for (const tool of tools) {
@@ -152,6 +152,10 @@ test('no unchanged Realtime tool definition drifts silently', () => {
     'show_data_layers_menu',
     // GW-57 removes telegeography-submarine-cables from its layer enum.
     'get_entity_context',
+    // GW-57 removes satellites from their targets and wording.
+    'track_entity',
+    'stop_tracking',
+    'frame_overhead',
   ]);
   const unchanged = realtimeTools()
     .filter((tool) => !TOUCHED.has(tool.name))
@@ -162,13 +166,13 @@ test('no unchanged Realtime tool definition drifts silently', () => {
   const hudLayout = unchanged.find((tool) => tool.name === 'set_hud').parameters.properties.layout;
   assert.deepEqual(hudLayout.enum, ['tactical', 'operator', 'minimal', 'cyber']);
   hudLayout.enum = hudLayout.enum.filter((layout) => layout !== 'cyber');
-  assert.equal(unchanged.length, 16);
+  assert.equal(unchanged.length, 13);
   const digest = createHash('sha256')
     .update(JSON.stringify(unchanged))
     .digest('hex')
     .slice(0, 16);
   // Analyst additions and ISS wording correction are explicitly excluded above; all other tool definitions retain their pin.
-  assert.equal(digest, '1a094c509b54d5cd', 'an unchanged Realtime tool definition drifted');
+  assert.equal(digest, 'a85f1a4f4a710368', 'an unchanged Realtime tool definition drifted');
 });
 
 test('Radio volume shares the Sharpen slider visual language', () => {

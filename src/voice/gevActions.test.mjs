@@ -52,10 +52,9 @@ test('track_entity narration names aircraft callsign → registration → icao24
   // otherwise the voice says "ae1fa4" at a plane the UI is labelling N123AB.
   assert.equal(formatTrackedEntityLabel({ ...found, callsign: null }, 'q'), 'N123AB');
   assert.equal(formatTrackedEntityLabel({ ...found, callsign: '  ', registration: ' ' }, 'q'), 'ae1fa4');
-  // Vessels and satellites carry no registration and keep their own links.
+  // Vessels carry no registration and keep their own links.
   assert.equal(formatTrackedEntityLabel({ name: 'EVER GIVEN', mmsi: 353136000 }, 'q'), 'EVER GIVEN');
-  assert.equal(formatTrackedEntityLabel({ noradId: 25544 }, 'q'), '25544');
-  assert.equal(formatTrackedEntityLabel(null, 'the ISS'), 'the ISS');
+  assert.equal(formatTrackedEntityLabel(null, 'the tanker'), 'the tanker');
 });
 
 test('track_entity runner narrates a callsign-less aircraft by its registration', async () => {
@@ -405,22 +404,22 @@ test('nearest-aircraft voice action rejects a missing destination without changi
 test('successful voice tracking stamps and releases the old owner before layer takeover', async () => {
   globalThis.window = globalThis.window || { clearTimeout, setTimeout, requestIdleCallback: null };
   const { order, viewer, styleManager } = createVoiceNavigationHarness();
-  const satellites = {
-    findByQuery: () => ({ noradId: '25544', name: 'ISS' }),
+  const flights = {
+    findByQuery: () => ({ icao24: 'abc123', callsign: 'ALLOC01' }),
     trackById(id) {
       order.push(`track:${id}`);
       return true;
     },
   };
   const dataManager = {
-    layers: new Map([['satellites', { module: satellites }]]),
-    isEnabled: (id) => id === 'satellites',
+    layers: new Map([['flights', { module: flights }]]),
+    isEnabled: (id) => id === 'flights',
     getAll: () => [],
   };
   const runner = createGevActionRunner({ viewer, styleManager, dataManager });
-  const result = await runner('track_entity', { query: 'ISS', layerId: 'satellites' });
+  const result = await runner('track_entity', { query: 'ALLOC01', layerId: 'flights' });
   assert.equal(result.ok, true);
-  assert.deepEqual(order, ['stamp:satellite', 'release', 'cancel', 'track:25544']);
+  assert.deepEqual(order, ['stamp:aircraft', 'release', 'cancel', 'track:abc123']);
 });
 
 test('voice Stop Tracking clears all durable tracker IDs even without active trackers', async () => {
@@ -430,7 +429,6 @@ test('voice Stop Tracking clears all durable tracker IDs even without active tra
     layers: new Map([
       ['flights', { module: dormant }],
       ['military', { module: dormant }],
-      ['satellites', { module: dormant }],
     ]),
     setLayerParams(layerId, params, options) { cleared.push({ layerId, params, options }); return true; },
     getAll: () => [],
@@ -451,7 +449,6 @@ test('voice Stop Tracking clears all durable tracker IDs even without active tra
   assert.deepEqual(cleared, [
     { layerId: 'flights', params: { selectedFlightsTrackingId: null }, options: { origin: 'voice' } },
     { layerId: 'military', params: { selectedMilitaryTrackingId: null }, options: { origin: 'voice' } },
-    { layerId: 'satellites', params: { selectedSatTrackingId: null }, options: { origin: 'voice' } },
   ]);
 });
 
@@ -465,7 +462,6 @@ test('voice Stop Tracking reports exact layers whose active or durable clear fai
     layers: new Map([
       ['flights', { module: active }],
       ['military', { module: dormant }],
-      ['satellites', { module: dormant }],
     ]),
     setLayerParams(layerId) { return layerId !== 'military'; },
     getAll: () => [],
@@ -789,8 +785,8 @@ test('generic voice visibility preserves a manager resource-cancellation envelop
     camera: { moveEnd: { addEventListener() {} } },
   };
   const dataManager = {
-    layers: new Map([['satellites', { module: {} }]]),
-    getAll: () => [{ id: 'satellites', name: 'Satellites' }],
+    layers: new Map([['traffic', { module: {} }]]),
+    getAll: () => [{ id: 'traffic', name: 'Traffic' }],
     getLayerLifecycleState: () => ({ enabled: false, lifecycleState: 'disabled', uncertain: false }),
     _setEnabledWithIntent: () => ({ intentEpoch: 7, promise: Promise.resolve(false) }),
     _waitForVisibilityIntent: async () => ({
@@ -810,11 +806,11 @@ test('generic voice visibility preserves a manager resource-cancellation envelop
     styleManager: { _waitForContextLayerSettlement: async () => {} },
     dataManager,
   });
-  const result = await runner('set_layer_visibility', { layerId: 'satellites', enabled: true });
+  const result = await runner('set_layer_visibility', { layerId: 'traffic', enabled: true });
   assert.deepEqual(result, {
     ok: false,
     action: 'set_layer_visibility',
-    layerId: 'satellites',
+    layerId: 'traffic',
     cancelled: true,
     phase: 'update',
     cancellationReason: 'resource-abort',
@@ -836,8 +832,8 @@ test('generic voice visibility preserves caller-abort phase before the stale-tur
   };
   const controller = new AbortController();
   const dataManager = {
-    layers: new Map([['satellites', { module: {} }]]),
-    getAll: () => [{ id: 'satellites', name: 'Satellites' }],
+    layers: new Map([['traffic', { module: {} }]]),
+    getAll: () => [{ id: 'traffic', name: 'Traffic' }],
     getLayerLifecycleState: () => ({ enabled: false, lifecycleState: 'disabled', uncertain: false }),
     _setEnabledWithIntent: () => ({ intentEpoch: 11, promise: Promise.resolve(false) }),
     _waitForVisibilityIntent: async () => ({
@@ -856,7 +852,7 @@ test('generic voice visibility preserves caller-abort phase before the stale-tur
   });
   controller.abort();
 
-  const result = await runner('set_layer_visibility', { layerId: 'satellites', enabled: true }, {
+  const result = await runner('set_layer_visibility', { layerId: 'traffic', enabled: true }, {
     signal: controller.signal,
     isCurrent: () => false,
   });
@@ -865,59 +861,6 @@ test('generic voice visibility preserves caller-abort phase before the stale-tur
   assert.equal(result.phase, 'enable');
   assert.equal(result.cancellationReason, 'caller-abort');
   assert.equal(result.error, undefined);
-});
-
-test('generic voice visibility preserves an exact commit when a newer turn arrives during Context settlement', async () => {
-  globalThis.window = globalThis.window || { clearTimeout, setTimeout, requestIdleCallback: null };
-  const viewer = {
-    clock: { onTick: { addEventListener: () => () => {} } },
-    scene: { canvas: { addEventListener() {}, removeEventListener() {} } },
-    camera: { moveEnd: { addEventListener() {} } },
-  };
-  const controller = new AbortController();
-  let releaseSettlement;
-  let settlementStarted;
-  const settlementEntered = new Promise((resolve) => { settlementStarted = resolve; });
-  const settlementPending = new Promise((resolve) => { releaseSettlement = resolve; });
-  const dataManager = {
-    layers: new Map([['satellites', { module: {} }]]),
-    getAll: () => [{ id: 'satellites', name: 'Satellites' }],
-    getLayerLifecycleState: () => ({ enabled: true, lifecycleState: 'enabled', uncertain: false }),
-    _setEnabledWithIntent: () => ({ intentEpoch: 13, promise: Promise.resolve(true) }),
-    _waitForVisibilityIntent: async () => ({
-      intentEpoch: 13,
-      enabled: true,
-      origin: 'voice',
-      phase: 'update',
-      succeeded: true,
-      cancellationReason: null,
-    }),
-  };
-  const runner = createGevActionRunner({
-    viewer,
-    styleManager: {
-      async _waitForContextLayerSettlement() {
-        settlementStarted();
-        await settlementPending;
-      },
-    },
-    dataManager,
-  });
-
-  const work = runner('set_layer_visibility', { layerId: 'satellites', enabled: true }, {
-    signal: controller.signal,
-    isCurrent: () => !controller.signal.aborted,
-  });
-  await settlementEntered;
-  controller.abort();
-  releaseSettlement();
-
-  const result = await work;
-  assert.equal(result.ok, true);
-  assert.equal(result.cancelled, undefined);
-  assert.equal(result.enabled, true);
-  assert.equal(result.lifecycleState, 'enabled');
-  assert.equal(result.lifecycleUncertain, false);
 });
 
 test('late voice abort cannot revoke a committed manager event and leaves the intent lane reusable', async () => {
@@ -930,8 +873,8 @@ test('late voice abort cannot revoke a committed manager event and leaves the in
   const dataManager = new DataLayerManager(viewer);
   const lifecycleCalls = [];
   dataManager.register({
-    id: 'satellites',
-    name: 'Satellites',
+    id: 'traffic',
+    name: 'Traffic',
     source: 'test',
     updateInterval: -1,
     async init() { lifecycleCalls.push('init'); },
@@ -955,7 +898,7 @@ test('late voice abort cannot revoke a committed manager event and leaves the in
     dataManager,
   });
   const controller = new AbortController();
-  const work = runner('set_layer_visibility', { layerId: 'satellites', enabled: true }, {
+  const work = runner('set_layer_visibility', { layerId: 'traffic', enabled: true }, {
     signal: controller.signal,
     isCurrent: () => !controller.signal.aborted,
   });
@@ -965,12 +908,12 @@ test('late voice abort cannot revoke a committed manager event and leaves the in
   releaseSettlement();
   const result = await work;
   assert.equal(result.ok, true);
-  assert.equal(dataManager.isEnabled('satellites'), true);
+  assert.equal(dataManager.isEnabled('traffic'), true);
   assert.equal(events.filter((event) => event.type === 'visibility' && event.enabled === true).length, 1);
   assert.equal(events.some((event) => event.type === 'visibility-cancelled'), false);
 
-  assert.equal(await dataManager.setEnabled('satellites', false, { origin: 'programmatic' }), true);
-  assert.equal(dataManager.isEnabled('satellites'), false);
+  assert.equal(await dataManager.setEnabled('traffic', false, { origin: 'programmatic' }), true);
+  assert.equal(dataManager.isEnabled('traffic'), false);
   assert.deepEqual(lifecycleCalls, ['init', 'enable', 'update', 'disable']);
 });
 
@@ -2463,24 +2406,6 @@ test('Local ADS-B common names toggle only the receiver layer through the normal
   }
 });
 
-test('ISS voice lookup uses the registered satellite instance', async () => {
-  const calls = [];
-  const viewer = {
-    clock: { onTick: { addEventListener: () => () => {} } },
-    scene: { canvas: { addEventListener() {}, removeEventListener() {} } },
-    camera: { moveEnd: { addEventListener() {} } },
-  };
-  const runner = createGevActionRunner({ viewer, styleManager: {}, dataManager: {
-    layers: new Map([['satellites', { module: { getNextIssPass(query) {
-      calls.push(query);
-      return { status: 'none' };
-    } } }]]),
-  } });
-  const result = await runner('next_iss_pass', { latitude: 30, longitude: -97, minElevationDeg: 15 });
-  assert.deepEqual(calls, [{ latDeg: 30, lonDeg: -97, minElevDeg: 15 }]);
-  assert.match(result.error, /No ISS pass above 15/);
-});
-
 test('analyst_query and get_current_view_state carry stale feed provenance', async () => {
   globalThis.window = globalThis.window || { clearTimeout, setTimeout, requestIdleCallback: null };
   const now = Date.now();
@@ -2545,26 +2470,3 @@ test('analyst_query and get_current_view_state carry stale feed provenance', asy
 });
 
 
-test('general satellite pass resolves once, refuses ambiguity, and preserves ISS call semantics', async () => {
-  const calls = [];
-  const pass = { riseMs: Date.now() + 60000, setMs: Date.now() + 360000, maxElevMs: Date.now() + 180000, maxElevDeg: 30, riseAzDeg: 90, visible: false };
-  const layer = {
-    resolveSatelliteForPass(target) { return target === 'starlink' ? { status: 'ambiguous', candidates: [{ noradId: 1 }, { noradId: 2 }] } : { status: 'ok', noradId: 25544, name: 'ISS' }; },
-    getNextSatellitePass(id, options) { calls.push({ id, ...options }); return { status: 'ok', pass }; },
-    getNextIssPass(options) { calls.push(options); return { status: 'ok', pass }; },
-  };
-  const viewer = { clock: { onTick: { addEventListener: () => () => {} } }, scene: { canvas: { addEventListener() {}, removeEventListener() {} } }, camera: { moveEnd: { addEventListener() {} } } };
-  const runner = createGevActionRunner({ viewer, styleManager: {}, dataManager: { layers: new Map([['satellites', { module: layer }]]) } });
-  const ambiguous = await runner('next_satellite_pass', { target: 'starlink' });
-  assert.equal(ambiguous.status, 'ambiguous');
-  assert.equal(calls.length, 0);
-  const args = { latitude: 30, longitude: -97, minElevationDeg: 15 };
-  const general = await runner('next_satellite_pass', { target: '25544', visibleOnly: true, ...args });
-  assert.equal(general.action, 'next_satellite_pass');
-  assert.deepEqual(calls[0], { id: 25544, latDeg: 30, lonDeg: -97, minElevDeg: 15, requireVisible: true });
-  const iss = await runner('next_iss_pass', args);
-  assert.deepEqual(calls[1], { latDeg: 30, lonDeg: -97, minElevDeg: 15 });
-  for (const key of ['observer', 'riseIso', 'minutesFromNow', 'durationMin', 'peakElevationDeg', 'riseDirection']) assert.deepEqual(iss[key], general[key]);
-  assert.equal(iss.visible, false);
-  assert.equal(iss.action, 'next_iss_pass');
-});

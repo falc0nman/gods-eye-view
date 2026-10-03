@@ -23,11 +23,6 @@ import {
   createFrameSlot,
 } from '../data/cctvCards.js';
 import {
-  ISS_OVERLAY_SOURCE_ID,
-  ISS_OVERLAY_SOURCE_OPTIONS,
-  createIssOverlayEntry,
-} from '../data/satellites.js';
-import {
   CCTV_PROJECTION_OVERLAY_SOURCE_ID,
   CCTV_PROJECTION_OVERLAY_SOURCE_OPTIONS,
   createCctvProjectionOverlayEntry,
@@ -469,41 +464,17 @@ function buildPhase4CctvWorkload(count) {
   return workload;
 }
 
-function buildPhase5SatellitesWorkload(count) {
+function buildPhase5CctvProjectionWorkload(count) {
   const phase4Count =
     vesselOverlayCohortLimit(VIEWPORT_WIDTH, VIEWPORT_HEIGHT) +
     1 +
     CCTV_AMBIENT_CARD_MAX +
     1;
   const expectedCount = phase4Count + 1;
-  if (count !== expectedCount)
-    throw new Error(`phase5-satellites requires ${expectedCount} entries`);
-  const workload = buildPhase4CctvWorkload(phase4Count);
-  const position = new Cesium.Cartesian3(-0.42, 0.54, 0);
-  workload.positions.push(position);
-  workload.drifts.push({ baseX: -0.42, baseY: 0.54, phase: 1.3, rate: 0.62 });
-  const entry = createIssOverlayEntry(() => position);
-  entry.horizonCull = false;
-  workload.registrations.push({
-    sourceId: ISS_OVERLAY_SOURCE_ID,
-    entries: [entry],
-    options: ISS_OVERLAY_SOURCE_OPTIONS,
-  });
-  return workload;
-}
-
-function buildPhase5CctvProjectionWorkload(count) {
-  const satelliteCount =
-    vesselOverlayCohortLimit(VIEWPORT_WIDTH, VIEWPORT_HEIGHT) +
-    1 +
-    CCTV_AMBIENT_CARD_MAX +
-    1 +
-    1;
-  const expectedCount = satelliteCount + 1;
   if (count !== expectedCount) {
     throw new Error(`phase5-cctv-projection requires ${expectedCount} entries`);
   }
-  const workload = buildPhase5SatellitesWorkload(satelliteCount);
+  const workload = buildPhase4CctvWorkload(phase4Count);
   const position = new Cesium.Cartesian3(0.48, 0.44, 0);
   workload.positions.push(position);
   workload.drifts.push({ baseX: 0.48, baseY: 0.44, phase: 1.8, rate: 0.47 });
@@ -555,7 +526,7 @@ function buildAllLiveRadioWorkload(count) {
     1 +
     CCTV_AMBIENT_CARD_MAX +
     1 +
-    2;
+    1;
   const expectedCount = phase5Count + RADIO_OVERLAY_COHORT_LIMIT + 1;
   if (count !== expectedCount)
     throw new Error(`all-live-radio requires ${expectedCount} entries`);
@@ -693,17 +664,15 @@ function main() {
           ? buildPhase3TrackedWorkload(ENTRY_COUNT)
           : PROFILE === 'phase4-cctv'
             ? buildPhase4CctvWorkload(ENTRY_COUNT)
-            : PROFILE === 'phase5-satellites'
-              ? buildPhase5SatellitesWorkload(ENTRY_COUNT)
-              : PROFILE === 'phase5-cctv-projection'
-                ? buildPhase5CctvProjectionWorkload(ENTRY_COUNT)
-                : PROFILE === 'phase5-civil'
-                  ? buildPhase5CivilWorkload(ENTRY_COUNT)
-                  : PROFILE === 'phase5-military'
-                    ? buildPhase5MilitaryWorkload(ENTRY_COUNT)
-                    : PROFILE === 'all-live-radio'
-                      ? buildAllLiveRadioWorkload(ENTRY_COUNT)
-                      : buildWorkload(ENTRY_COUNT);
+            : PROFILE === 'phase5-cctv-projection'
+              ? buildPhase5CctvProjectionWorkload(ENTRY_COUNT)
+              : PROFILE === 'phase5-civil'
+                ? buildPhase5CivilWorkload(ENTRY_COUNT)
+                : PROFILE === 'phase5-military'
+                  ? buildPhase5MilitaryWorkload(ENTRY_COUNT)
+                  : PROFILE === 'all-live-radio'
+                    ? buildAllLiveRadioWorkload(ENTRY_COUNT)
+                    : buildWorkload(ENTRY_COUNT);
   const { entries, positions, drifts } = workload;
   const solveIntervalMs = Number(process.env.GEV_ALLOC_SOLVE_MS) || 125;
   const detectionActive = !!workload.detectionLayer;

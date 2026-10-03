@@ -6,7 +6,7 @@ import * as Cesium from 'cesium';
  * Legal requirement (see DATA_SOURCES.md, findings H10/H11 in
  * docs/pre-ship-audit-2026-07-01.md): every third-party data layer this app can
  * display carries its own license and required attribution — ODbL (OSM
- * adsb.lol, Overpass roads), CelesTrak, City of Austin, Fintraffic (CC BY 4.0),
+ * adsb.lol, Overpass roads), City of Austin, Fintraffic (CC BY 4.0),
  * The MIT code license does NOT cover this data.
  *
  * These credits are registered ONCE at init as STATIC credits with
@@ -124,20 +124,7 @@ export const DATA_CREDITS = [
       'Live vessels (AIS): ' +
       '<a href="https://aisstream.io" target="_blank" rel="noopener">AISStream.io</a>',
   },
-  {
-    key: 'celestrak',
-    html:
-      'Satellites (TLEs): CelesTrak ' +
-      '(<a href="https://celestrak.org" target="_blank" rel="noopener">celestrak.org</a>), ' +
-      'Dr. T.S. Kelso',
-  },
-  {
-    key: 'launch-library-2',
-    html:
-      'Space mission launch, payload &amp; recovery metadata: ' +
-      '<a href="https://ll.thespacedevs.com/docs/" target="_blank" rel="noopener">Launch Library 2 — The Space Devs</a> ' +
-      '(API documentation and rate limits)',
-  },
+
   {
     key: 'nws-alerts',
     html: 'Storm warnings: National Weather Service (api.weather.gov), U.S. public domain',
