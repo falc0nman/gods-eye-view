@@ -865,7 +865,7 @@ test('genuine chrome changes still invalidate: add, remove, and own-attribute fl
   // Chrome appearing later, nested: an added subtree CONTAINING inventory chrome.
   const wrapper = env.document.createElement('div');
   const awareness = env.document.createElement('div');
-  awareness.id = 'military-awareness-panel';
+  awareness.id = 'cesium-credits';
   wrapper.appendChild(awareness);
   renders = env.viewer.scene.requestRenderCount;
   observer.callback([{
@@ -894,9 +894,9 @@ test('chrome observers scope: body is childList discovery; occluder attributes a
 
   // Chrome discovered LATE goes through the refresh-time observe site too.
   const late = env.document.createElement('div');
-  late.id = 'military-awareness-panel';
+  late.id = 'cesium-credits';
   late._rect = { left: 10, top: 10, width: 100, height: 80 };
-  Object.assign(late.style, shippedStacking('#military-awareness-panel'));
+  Object.assign(late.style, shippedStacking('#cesium-credits'));
   env.document.body.appendChild(late);
   env.mutationObservers[0].callback([{
     type: 'childList', target: env.document.body, addedNodes: [late], removedNodes: [],

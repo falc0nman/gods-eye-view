@@ -6,11 +6,6 @@ import {
   shellMethod,
 } from './testSupport/readShellSource.mjs';
 import { StyleManager } from './ui/applicationShell.js';
-import {
-  _claimContextVisualAuthority,
-  setContextMode,
-} from './ui/contextActions.js';
-import { _initGlobalContextPanel } from './ui/contextBindings.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -732,129 +727,6 @@ test('every explicit visual UI gesture claims restore authority before it mutate
   );
 });
 
-// Contacts OWNS detection while it is active (forced Dense @ 75%). That makes
-// an explicit Context transition a visual-lane gesture exactly like the HUD or
-// detection controls: without a claim, the share restore that lands 1.5 s into
-// startup re-applies the link's `dm`/`dd` straight over the forced preset and
-// Contacts silently loses its own overlay. The sweep above enumerates routes
-// explicitly, so a missing Context route was simply invisible to it.
-test('explicit Context transitions claim the visual restore lane before transitioning', () => {
-  // The named helper IS the claim; its body is pinned to the real lane call
-  // immediately below, so routes may use either spelling.
-  const assertContextClaimsBefore = (block, mutation, label) => {
-    const claimIndex = Math.min(
-      ...['_claimContextVisualAuthority()', "claimRestoreLane?.('visual')"]
-        .map((marker) => block.indexOf(marker))
-        .filter((index) => index >= 0),
-    );
-    const mutationIndex = block.indexOf(mutation);
-    assert.ok(
-      Number.isFinite(claimIndex),
-      `${label} must claim the visual restore lane`,
-    );
-    assert.ok(mutationIndex >= 0, `${label} mutation marker is missing`);
-    assert.ok(
-      claimIndex < mutationIndex,
-      `${label} must claim before mutation`,
-    );
-  };
-
-  const helper = _claimContextVisualAuthority.toString();
-  assert.ok(
-    helper.includes('this.actions.claimVisualAuthority()'),
-    'the Context authority helper must claim the visual lane',
-  );
-
-  assert.match(
-    uiSource,
-    /claimVisualAuthority: \(\) =>\s*this\.shareLinkManager\?\.claimRestoreLane\?\.\('visual'\)/,
-  );
-  const contextPanel = _initGlobalContextPanel.toString();
-  for (const [start, end, label] of [
-    [
-      "this.listen(this._globalContextFlightsBtn, 'click'",
-      "this.listen(this._globalContextMissionsBtn, 'click'",
-      'Contacts tab',
-    ],
-    [
-      "this.listen(this._globalContextMissionsBtn, 'click'",
-      'CONTEXT_PANEL_END',
-      'Space Missions tab',
-    ],
-  ]) {
-    const startIndex = contextPanel.indexOf(start);
-    const endIndex =
-      end === 'CONTEXT_PANEL_END'
-        ? contextPanel.length
-        : contextPanel.indexOf(end, startIndex + start.length);
-    assert.ok(
-      startIndex >= 0 && endIndex > startIndex,
-      `${label} route is missing`,
-    );
-    assertContextClaimsBefore(
-      contextPanel.slice(startIndex, endIndex),
-      'this._selectContextMode(',
-      label,
-    );
-  }
-
-  // The voice/tool facade validates the mode first, then transitions.
-  const facade = setContextMode.toString();
-  assertContextClaimsBefore(
-    facade,
-    'this._selectContextMode(',
-    'setContextMode facade',
-  );
-  // Authority is taken per validated branch, never ahead of validation. The
-  // OFF branch is validated by its own guard; the named-mode branch must claim
-  // only AFTER the unknown-mode rejection, so a rejected request takes nothing.
-  const offGuardIndex = facade.indexOf("if (!mode || mode === 'off')");
-  const rejectIndex = facade.indexOf('Unknown context mode');
-  assert.ok(offGuardIndex >= 0, 'setContextMode must keep its OFF guard');
-  assert.ok(
-    rejectIndex > offGuardIndex,
-    'setContextMode must still reject unknown modes',
-  );
-
-  const offBranchClaim = facade.indexOf(
-    '_claimContextVisualAuthority()',
-    offGuardIndex,
-  );
-  assert.ok(
-    offBranchClaim > offGuardIndex && offBranchClaim < rejectIndex,
-    'the OFF transition must claim inside its own validated branch',
-  );
-  const namedBranchClaim = facade.indexOf(
-    '_claimContextVisualAuthority()',
-    rejectIndex,
-  );
-  assert.ok(
-    namedBranchClaim > rejectIndex,
-    'a named Context mode must claim only after the unknown-mode rejection',
-  );
-  assert.ok(
-    namedBranchClaim < facade.indexOf('this._selectContextMode(', rejectIndex),
-    'the named-mode claim must precede its transition',
-  );
-});
-
-// Claiming the lane must NOT masquerade as the operator hand-editing
-// detection: `_detectionUserOverridden` is what suppresses the military-style
-// auto-enable for the rest of the session. Contacts entry is not that.
-test('Context lane claims never set the session detection-override flag', () => {
-  const contextPanel = _initGlobalContextPanel.toString();
-  const facade = setContextMode.toString();
-  for (const [block, label] of [
-    [contextPanel, 'Context panel'],
-    [facade, 'setContextMode facade'],
-  ]) {
-    assert.ok(
-      !block.includes('_detectionUserOverridden = true'),
-      `${label} must not flag the operator as having overridden detection`,
-    );
-  }
-});
-
 test('every explicit visual control facade claims restore authority before mutation', () => {
   const facadeRoutes = [
     [
@@ -1118,9 +990,9 @@ test('destroy cancels only a still-owned share flight and ignores delayed comple
 
 test('visual input listeners are revoked before asynchronous UI teardown', () => {
   const disposal = uiSource.slice(uiSource.indexOf('  async dispose() {'));
-  const firstAwait = disposal.indexOf('await ');
-  assert.ok(firstAwait > 0);
-  const synchronous = disposal.slice(0, firstAwait);
+  const end = disposal.indexOf('\n  }\n');
+  const firstAwait = disposal.slice(0, end).indexOf('await ');
+  const synchronous = disposal.slice(0, firstAwait > 0 ? firstAwait : end);
   assert.match(synchronous, /this\._displayBindings\.destroy\(\)/);
   assert.match(synchronous, /this\._visualSettings\.stop\(\)/);
   assert.match(synchronous, /this\._mapSourceControls\?\.destroy\(\)/);

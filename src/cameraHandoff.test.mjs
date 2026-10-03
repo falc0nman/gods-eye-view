@@ -198,8 +198,8 @@ test('newer navigation, reset, Cockpit, and teardown share one generation', () =
   ordered(dispose, [
     'this._disposed = true;',
     'this._layerBindings.stop();',
+    'this._contextControls.stop();',
     'this._navigation.destroy();',
-    'await this._contextControls.restoreForDisposal();',
   ], 'dispose invalidation');
   assert.match(shellMethod('destroy').toString(), /this\._stampNavigation\(\)/);
 });
@@ -209,8 +209,9 @@ test('teardown synchronously closes immediate camera entry points', () => {
   ordered(dispose, [
     'this._disposed = true;',
     'this._layerBindings.stop();',
-    'await this._contextControls.restoreForDisposal();',
+    'this._contextControls.disconnect();',
   ], 'synchronous teardown barrier');
+  assert.doesNotMatch(dispose, /\bawait\b/, 'teardown has no asynchronous gap');
   ordered(LayerBindings.prototype.stop.toString(), [
     'this._disposed = true;',
     'this._removeCctvRequestFocusListener?.();',

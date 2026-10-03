@@ -23,7 +23,6 @@ import {
   isContextRecordActive,
 } from '../data/contextStore.js';
 import { CCTV_FOCUS_RESULT } from '../layers/cctv/index.js';
-import { contextModeWord } from '../contextModePolicy.js';
 import { createAnalystEngine } from '../data/analystEngine.js';
 import { layerFeedState } from '../data/feedState.js';
 import {
@@ -91,64 +90,6 @@ const PANEL_IDS = new Set([
   'scene-panel',
   'pp-toggles',
 ]);
-/**
- * Every model-readable field that carries a context-mode id, and what an
- * absent value means for each.
- *
- * `mode` always names a mode, so nothing is 'off'. `entering` and `priorMode`
- * are absent when there is no such mode at all — calling those 'off' would
- * assert a state that does not exist.
- */
-const CONTEXT_MODE_RESULT_FIELDS = Object.freeze([
-  { field: 'mode', emptyAs: 'off' },
-  { field: 'entering', emptyAs: null },
-  { field: 'priorMode', emptyAs: null },
-]);
-
-/** Nested results that are themselves context-mode payloads the model reads. */
-const NESTED_CONTEXT_RESULT_FIELDS = Object.freeze([
-  'context',
-  'contextRollback',
-]);
-
-/**
- * Report a context-mode payload in the tools' own vocabulary.
- *
- * `set_context_mode` accepts 'contacts' while the mode's internal id is
- * 'flights'. Reporting the internal id back made the model read
- * `mode:'flights'` as "Contacts is off" and refuse to answer from the Contacts
- * window counts sitting in the very same payload (owner field session
- * 2026-08-21). Secondary fields and nested transition/rollback results are
- * translated too — one leaked internal id is enough to recreate the confusion,
- * and a rollback result is exactly what the model reads when something went
- * wrong. Each internal id is kept alongside as `<field>Internal` for anything
- * reasoning about layers.
- * @param {object|null|undefined} state Any payload carrying context-mode fields.
- * @returns {object|null|undefined} The same payload, modes translated.
- */
-function withContextModeVocabulary(state) {
-  if (!state || typeof state !== 'object') return state;
-  let out = state;
-  const mutable = () => {
-    if (out === state) out = { ...state };
-    return out;
-  };
-  for (const { field, emptyAs } of CONTEXT_MODE_RESULT_FIELDS) {
-    if (!(field in state)) continue;
-    const internal = state[field] ?? null;
-    const target = mutable();
-    target[field] = contextModeWord(internal, { emptyAs });
-    target[`${field}Internal`] = internal;
-  }
-  for (const field of NESTED_CONTEXT_RESULT_FIELDS) {
-    const nested = state[field];
-    if (!nested || typeof nested !== 'object') continue;
-    const translated = withContextModeVocabulary(nested);
-    if (translated !== nested) mutable()[field] = translated;
-  }
-  return out;
-}
-
 const LAYER_ALIASES = new Map([
   ['flights', 'flights'],
   ['planes', 'flights'],
@@ -2552,12 +2493,6 @@ function getCurrentViewState(
       heightM: cartographic.height,
     },
     style: styleManager.activeStyle || 'normal',
-    context:
-      typeof styleManager.getContextModeState === 'function'
-        ? {
-            ...withContextModeVocabulary(styleManager.getContextModeState()),
-          }
-        : null,
     cockpit:
       typeof styleManager.getCockpitState === 'function'
         ? styleManager.getCockpitState()

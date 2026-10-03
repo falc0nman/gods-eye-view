@@ -128,18 +128,6 @@ export function readShellElements(document = globalThis.document) {
     _radioVolumeValue: document.getElementById('radio-volume-value'),
     _radioPlaybackState: document.getElementById('radio-playback-state'),
     _radioStationHomepage: document.getElementById('radio-station-homepage'),
-    _globalContextFlightsBtn: document.getElementById(
-      'global-context-flights-btn',
-    ),
-    _globalContextMissionsBtn: document.getElementById(
-      'global-context-missions-btn',
-    ),
-    _contextModeStandby: document.getElementById('context-mode-standby'),
-    _contextFlightsView: document.getElementById('context-flights-view'),
-    _contextMissionsView: document.getElementById('context-missions-view'),
-    _installationsSearchBtn: document.getElementById(
-      'installations-search-btn',
-    ),
     _leftPanelStack: document.getElementById('left-panel-stack'),
     _cctvEnableBtn: document.getElementById('cctv-enable-btn'),
     _cctvNearestBtn: document.getElementById('cctv-nearest-btn'),

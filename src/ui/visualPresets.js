@@ -28,11 +28,8 @@ export const STYLES = {
  * default having moved 5 → 3 → 1 as the owner locked final tuning after field trials (2026-08-24). What the quote asked for is the
  * baseline of the day, not the two numbers it happened to name.
  *
- * ONE object, shared by the first-load baseline below, by every military style,
- * AND by the Contacts context mode (which OWNS detection while active and
- * restores the prior state on exit — see contactsDetectionPolicy.js). Cockpit
- * deliberately does NOT touch detection: entering it with SPARSE selected leaves
- * SPARSE. Declared ahead of GLOBAL_POST_DEFAULTS because that baseline now reads
+ * ONE object, shared by the first-load baseline below and by every military
+ * style. Declared ahead of GLOBAL_POST_DEFAULTS because that baseline now reads
  * from it.
  */
 export const MILITARY_DETECTION_PRESET = Object.freeze({

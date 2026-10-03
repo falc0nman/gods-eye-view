@@ -221,7 +221,6 @@ export class LayerBindings {
       });
     }
     this._updateGlobalLoadingFeedback(performance.now());
-    this._syncContextModeButtons();
     this._cctvControls.connect();
     this._radioControls.connect();
     this._connectDirectionsCamera();

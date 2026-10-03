@@ -1,51 +1,15 @@
-import { _initGlobalContextPanel } from './contextBindings.js';
-import { _syncContextModeButtons } from './contextPresentation.js';
-import {
-  _trackContextLayerReaction,
-  _waitForContextLayerSettlement,
-  _captureContextSessionSnapshot,
-  _restoreContextSession,
-  _restoreContextSessionAfterLayerSettles,
-} from './contextSession.js';
-import {
-  _selectContextMode,
-  _deactivateContextForLayerChange,
-  _clearLayersOutsideContextMode,
-} from './contextTransactions.js';
-import { _handleContextLayerChange } from './contextLayerChanges.js';
-import {
-  _runUserFacingContextAction,
-  _claimContextVisualAuthority,
-  getContextModeState,
-  setContextMode,
-  clearSelectedLayers,
-} from './contextActions.js';
-import { connectContextManager } from './contextSubscriptions.js';
-
-/** Own Context transactions and controls through explicit layer and presentation ports. */
+/**
+ * The Context panel's remaining controls: Clear All and the user-facing action
+ * runner that Radio shares. The Context modes (Contacts, Space Missions) were
+ * removed by GW-58; the panel itself stays because it houses Radio.
+ */
 export class ContextControls {
-  constructor({ elements, installations, actions }) {
-    Object.assign(this, elements);
-    this.installations = installations;
+  constructor({ actions }) {
     this.actions = actions;
-    this.listeners = new AbortController();
     this.destroyed = false;
     this._dataManager = null;
-    this._contextMode = null;
-    this._contextModeChanging = false;
-    this._contextModeGeneration = 0;
-    this._contextModeEntering = null;
-    this._contextModeEntryIntent = null;
-    this._contextModeReplacementIntent = null;
-    this._contextModeDeferredEntryIntent = null;
-    this._contextSessionSnapshot = null;
-    this._contextRestoreState = null;
-    this._contextLayerReactionPromises = new Set();
     this._preservePanelStateDuringLayerClear = false;
-    this._userFacingContextNotificationTokens = new Set();
     this._clearSelectedLayersPromise = null;
-    this._clearSelectedLayersManagerPromise = null;
-    this._initGlobalContextPanel();
   }
   showToast(...args) {
     if (!this.destroyed) this.actions.showToast(...args);
@@ -53,86 +17,86 @@ export class ContextControls {
   setClearBusy(...args) {
     if (!this.destroyed) this.actions.setClearBusy(...args);
   }
-  get cockpitView() {
-    return this.actions.getCockpit();
-  }
-  listen(target, type, callback, options = {}) {
-    target?.addEventListener(type, callback, {
-      ...options,
-      signal: this.listeners.signal,
-    });
-  }
   connect(manager) {
-    return connectContextManager.call(this, manager);
+    if (this.destroyed) return;
+    this._dataManager = manager || null;
   }
   disconnect() {
-    for (const field of [
-      '_contextManagerUnsubscribe',
-      '_dataManagerBeforeDestroyUnsubscribe',
-      '_dataManagerVisibilityGuardUnsubscribe',
-      '_dataManagerVisibilityRequestUnsubscribe',
-    ]) {
-      this[field]?.();
-      this[field] = null;
-    }
+    this._dataManager = null;
   }
   stop() {
-    if (this.destroyed) return;
     this.destroyed = true;
-    this._contextModeGeneration++;
-    this.listeners.abort();
   }
-  async restoreForDisposal() {
-    this._contextModeChanging = true;
-    this._contextMode = null;
-    await this._restoreContextSession();
+
+  /**
+   * Run a user-requested layer operation and toast once if it fails. A false
+   * result counts as a failure unless `falseIsFailure` is off.
+   */
+  async _runUserFacingContextAction(
+    operation,
+    message = 'Context could not restore every layer; try again',
+    { falseIsFailure = true } = {},
+  ) {
+    if (this.destroyed) return false;
+    const notificationToken = Symbol('user-facing-context-action');
+    try {
+      const result = await operation(notificationToken);
+      if (result === false && falseIsFailure) throw new Error(message);
+      return result;
+    } catch (error) {
+      if (!this.destroyed) {
+        console.warn('[Context] user-facing action failed', error);
+        try {
+          this.showToast(message);
+        } catch {
+          // A broken error surface must not recreate the unhandled rejection.
+        }
+      }
+      return false;
+    }
   }
-  _initGlobalContextPanel(...args) {
-    return _initGlobalContextPanel.call(this, ...args);
-  }
-  _syncContextModeButtons(...args) {
-    return _syncContextModeButtons.call(this, ...args);
-  }
-  _trackContextLayerReaction(...args) {
-    return _trackContextLayerReaction.call(this, ...args);
-  }
-  _waitForContextLayerSettlement(...args) {
-    return _waitForContextLayerSettlement.call(this, ...args);
-  }
-  _captureContextSessionSnapshot(...args) {
-    return _captureContextSessionSnapshot.call(this, ...args);
-  }
-  _restoreContextSession(...args) {
-    return _restoreContextSession.call(this, ...args);
-  }
-  _restoreContextSessionAfterLayerSettles(...args) {
-    return _restoreContextSessionAfterLayerSettles.call(this, ...args);
-  }
-  _selectContextMode(...args) {
-    return _selectContextMode.call(this, ...args);
-  }
-  _deactivateContextForLayerChange(...args) {
-    return _deactivateContextForLayerChange.call(this, ...args);
-  }
-  _clearLayersOutsideContextMode(...args) {
-    return _clearLayersOutsideContextMode.call(this, ...args);
-  }
-  _handleContextLayerChange(...args) {
-    return _handleContextLayerChange.call(this, ...args);
-  }
-  _runUserFacingContextAction(...args) {
-    return _runUserFacingContextAction.call(this, ...args);
-  }
-  _claimContextVisualAuthority(...args) {
-    return _claimContextVisualAuthority.call(this, ...args);
-  }
-  getContextModeState(...args) {
-    return getContextModeState.call(this, ...args);
-  }
-  setContextMode(...args) {
-    return setContextMode.call(this, ...args);
-  }
-  clearSelectedLayers(...args) {
-    return clearSelectedLayers.call(this, ...args);
+
+  clearSelectedLayers() {
+    const empty = {
+      targetIds: [],
+      items: [],
+      clearedIds: [],
+      notClearedIds: [],
+    };
+    if (this.destroyed) return Promise.resolve({ ...empty, cancelled: true });
+    if (this._clearSelectedLayersPromise)
+      return this._clearSelectedLayersPromise;
+    if (!this._dataManager?.clearSelectedLayers) return Promise.resolve(empty);
+    const notificationToken = Symbol('clear-selected-layers');
+    this._preservePanelStateDuringLayerClear = true;
+    this.setClearBusy(true);
+    const operation = this._dataManager
+      .clearSelectedLayers({ origin: 'user', notificationToken })
+      .then((result) => {
+        if (result.targetIds.length === 0) {
+          this.showToast('No selected data layers');
+        } else if (result.notClearedIds.length > 0) {
+          this.showToast(
+            `${result.notClearedIds.length} data layer${result.notClearedIds.length === 1 ? '' : 's'} could not be cleared`,
+          );
+        } else {
+          this.showToast(
+            `Cleared ${result.clearedIds.length} data layer${result.clearedIds.length === 1 ? '' : 's'}`,
+          );
+        }
+        return result;
+      })
+      .catch((error) => {
+        console.warn('[Data] clear selected layers failed', error);
+        this.showToast('Selected data layers could not be cleared');
+        return { ...empty, error };
+      })
+      .finally(() => {
+        this.setClearBusy(false);
+        this._preservePanelStateDuringLayerClear = false;
+        this._clearSelectedLayersPromise = null;
+      });
+    this._clearSelectedLayersPromise = operation;
+    return operation;
   }
 }

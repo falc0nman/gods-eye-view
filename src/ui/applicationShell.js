@@ -233,8 +233,6 @@ export class StyleManager extends ShellFacade {
       readDataManager: () => this._dataManager,
       readShareLinks: () => this.shareLinkManager,
       readCelestialRing: () => this.celestialRing,
-      readContextMode: () => this._contextMode,
-      readContextChanging: () => this._contextModeChanging,
       readDisplayPortalActive: () => this._cockpitDisplayPortalActive,
     });
 
@@ -261,8 +259,6 @@ export class StyleManager extends ShellFacade {
           this._updateTrafficSyncChip(...args),
         _updateGlobalLoadingFeedback: (...args) =>
           this._updateGlobalLoadingFeedback(...args),
-        _syncContextModeButtons: (...args) =>
-          this._syncContextModeButtons(...args),
         _stampNavigation: (...args) => this._stampNavigation(...args),
         _runExplicitCctvFocus: (...args) => this._runExplicitCctvFocus(...args),
         _runExplicitWorldFocus: (...args) =>
@@ -727,26 +723,8 @@ export class StyleManager extends ShellFacade {
   }
 
   _initGlobalContextPanel() {
-    const { radioLayer, militaryInstallationsLayer } = this.services;
     this._contextControls = new ContextControls({
-      elements: {
-        _globalContextPanel: document.getElementById('global-context-panel'),
-        _globalContextFlightsBtn: this._globalContextFlightsBtn,
-        _globalContextMissionsBtn: this._globalContextMissionsBtn,
-        _contextModeStandby: this._contextModeStandby,
-        _contextFlightsView: this._contextFlightsView,
-        _contextMissionsView: this._contextMissionsView,
-        _installationsSearchBtn: this._installationsSearchBtn,
-      },
-      installations: militaryInstallationsLayer,
       actions: {
-        getCockpit: () => this.cockpitView,
-        refreshRadio: () => this._renderRadioState(radioLayer.getUIState()),
-        claimVisualAuthority: () =>
-          this.shareLinkManager?.claimRestoreLane?.('visual'),
-        syncDetection: () => this._syncContactsDetection(),
-        scheduleLayout: () => this._scheduleRightPanelLayout(),
-        setPanelCollapsed: (...args) => this.setPanelCollapsed(...args),
         showToast: (message) => {
           if (!this._disposed) this._showToast(message);
         },
@@ -1479,16 +1457,8 @@ export class StyleManager extends ShellFacade {
     this.shareLinkManager?.destroy();
     this._layerBindings.stop();
 
-    // Invalidate any in-flight Context transaction the same way a newer request
-    // would. Without this, a reinstatement already past its awaits could
-    // re-enable a mode's entry layer and republish `_contextMode` while the
-    // rest of teardown is tearing those very layers down.
     this._contextControls.stop();
     this._navigation.destroy();
-    // Close camera-entry seams synchronously. Context restoration may await
-    // layer work, so leaving these listeners attached until afterward lets a
-    // focus event release tracking or start a flight during teardown.
-    await this._contextControls.restoreForDisposal();
     // IR boost teardown BEFORE detaching the data manager: restore fog and
     // un-boost both aircraft layers so a surviving viewer or replacement
     // manager doesn't inherit sensor state (review P2, 2026-08-16).

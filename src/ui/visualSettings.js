@@ -5,7 +5,6 @@ import {
   STYLES,
   GLOBAL_POST_DEFAULTS,
   STYLE_PRESET_DEFAULTS,
-  MILITARY_DETECTION_PRESET,
 } from './effects.js';
 import { createStyleParameters } from './visualInput.js';
 import * as Cesium from 'cesium';
@@ -27,11 +26,6 @@ import {
   captureCockpitVisionBaseline,
   normalizeCockpitVisionMode,
 } from '../cockpitVisionPolicy.js';
-import {
-  applyContactsDetection,
-  shareCacheNeedsHeal,
-  shareableDetectionState,
-} from '../contactsDetectionPolicy.js';
 import {
   applyCyberSonarSettings,
   isCyberSonarEnabled,
@@ -171,8 +165,6 @@ export class VisualSettings {
     readDataManager,
     readShareLinks,
     readCelestialRing,
-    readContextMode,
-    readContextChanging,
     readDisplayPortalActive,
   }) {
     Object.assign(this, elements, operations, {
@@ -184,8 +176,6 @@ export class VisualSettings {
       readDataManager,
       readShareLinks,
       readCelestialRing,
-      readContextMode,
-      readContextChanging,
       readDisplayPortalActive,
     });
     this._lifetime = new UiLifetime();
@@ -200,7 +190,6 @@ export class VisualSettings {
     this._detectionUserOverridden = false;
     this._cockpitVisionMode = 'optical';
     this._cockpitVisionRestore = null;
-    this._contactsDetectionRestore = null;
     this._detectionAllocationBtns = [
       document.getElementById('detection-allocation-elastic'),
       document.getElementById('detection-allocation-weighted'),
@@ -231,12 +220,6 @@ export class VisualSettings {
   get celestialRing() {
     return this.readCelestialRing();
   }
-  get _contextMode() {
-    return this.readContextMode();
-  }
-  get _contextModeChanging() {
-    return this.readContextChanging();
-  }
   get _cockpitDisplayPortalActive() {
     return this.readDisplayPortalActive();
   }
@@ -266,53 +249,6 @@ export class VisualSettings {
 
   _syncStagesEnabledFromIntensity() {
     this._visualEffects.syncStagesEnabledFromIntensity();
-  }
-
-  _syncContactsDetection() {
-    if (this._contextModeChanging) return;
-    const result = applyContactsDetection({
-      active: this._contextMode === 'flights',
-      restore: this._contactsDetectionRestore,
-      // A map style picked DURING the session owns detection on the way out —
-      // its auto-enable preset is younger than the entry snapshot.
-      styleOwnsDetection:
-        !this._detectionUserOverridden &&
-        Boolean(STYLE_PRESET_DEFAULTS[this.activeStyle]?.detection),
-      // The snapshot must cover everything activation mutates — the preset
-      // writes DENSITY as well as mode, so a mode-only snapshot returned
-      // OFF @ 25% as OFF @ 75% and the next manual enable came back Dense.
-      getState: () => {
-        const state = this.getDetectionState();
-        return { mode: state.detectionMode, densityPct: state.densityPct };
-      },
-      // Owner playtest: the force-on lands on the tactical look the military
-      // styles apply — the SAME preset object — not on whatever profile the
-      // operator last happened to leave detection at.
-      applyPreset: () => this._applyDetectionPreset(MILITARY_DETECTION_PRESET),
-      // The preset applier IS the state replayer: same density-then-mode order,
-      // same slider writes, so a restore round-trips exactly.
-      restoreState: (state) => this._applyDetectionPreset(state),
-    });
-    const hadOwnership = Boolean(this._contactsDetectionRestore);
-    this._contactsDetectionRestore = result.restore;
-    // Serialization reads that ownership: while Contacts holds it the link
-    // carries the SAVED snapshot, and once released it carries live state. The
-    // share cache therefore goes stale on any ownership transition, whether or
-    // not the detection engine itself moved — and it does not always move.
-    // Exiting while a military style owns detection returns changed:false (the
-    // style's preset already matches), and returning early there left a copied
-    // link claiming the operator's pre-Contacts values while the map showed
-    // Dense @ 75%.
-    if (
-      !shareCacheNeedsHeal({
-        changed: result.changed,
-        hadOwnership,
-        hasOwnership: Boolean(result.restore),
-      })
-    )
-      return;
-    if (result.changed) this._syncDetectionUiFromEngine();
-    this._syncShareState();
   }
 
   _setCockpitVision(mode, active, { revealParameters = false } = {}) {
@@ -834,11 +770,10 @@ export class VisualSettings {
 
   _shareableDetectionState() {
     const { getDetectionMode } = this.services;
-    return shareableDetectionState({
-      owned: this._contactsDetectionRestore,
-      liveMode: getDetectionMode(),
-      liveDensityPct: parseInt(this._detectionDensitySlider?.value || '50', 10),
-    });
+    return {
+      mode: getDetectionMode(),
+      densityPct: parseInt(this._detectionDensitySlider?.value || '50', 10),
+    };
   }
 
   _readShareState() {

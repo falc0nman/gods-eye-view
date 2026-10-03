@@ -690,11 +690,11 @@ test('a newer voice action makes an older deferred navigation authority inert', 
   assert.equal(staleReleased, false);
 });
 
-test('Data Layers voice inventory hides the Context coordinator while current-view truth retains it', async () => {
+test('Data Layers voice inventory hides panel-hidden layers while current-view truth retains them', async () => {
   globalThis.window = globalThis.window || { clearTimeout, setTimeout, requestIdleCallback: null };
   const layers = [
     { id: 'flights', name: 'Live Flights', enabled: false, showInTogglePanel: true, stats: { count: 0 } },
-    { id: 'military-awareness', name: 'Global Context', enabled: true, showInTogglePanel: false, stats: { count: 1 } },
+    { id: 'directions', name: 'Directions', enabled: true, showInTogglePanel: false, stats: { count: 1 } },
   ];
   const dataManager = {
     layers: new Map(),
@@ -704,7 +704,6 @@ test('Data Layers voice inventory hides the Context coordinator while current-vi
     activeStyle: 'normal',
     setPanelCollapsed() {},
     getControlState: () => null,
-    getContextModeState: () => ({ mode: 'flights', active: true }),
     getCockpitState: () => ({ active: false, entryAllowed: true }),
   };
   const viewer = {
@@ -719,11 +718,8 @@ test('Data Layers voice inventory hides the Context coordinator while current-vi
   const menu = await runner('show_data_layers_menu');
   assert.deepEqual(menu.layers.map(({ id }) => id), ['flights']);
   const current = await runner('get_current_view_state');
-  assert.deepEqual(current.layers.map(({ id }) => id), ['flights', 'military-awareness']);
-  // The Contacts mode's internal id is 'flights'; the tools accept 'contacts'.
-  // State output reports the accepted word so the model cannot read its own
-  // active context as "off", with the internal id kept for layer reasoning.
-  assert.deepEqual(current.context, { mode: 'contacts', modeInternal: 'flights', active: true });
+  assert.deepEqual(current.layers.map(({ id }) => id), ['flights', 'directions']);
+  assert.equal(Object.hasOwn(current, 'context'), false, 'GW-58 removed the Context modes');
   assert.deepEqual(current.cockpit, { active: false, entryAllowed: true });
 });
 
@@ -1857,52 +1853,6 @@ test('voice Radio Pause while disabled is a truthful playback-only no-op', async
   assert.equal(pauseCalls, 0);
   assert.equal(lifecycleCalls, 0);
 });
-
-// ---------------------------------------------------------------------------
-// Cockpit choreography must not take the Context visual lane.
-//
-// `control_cockpit` establishes Contacts as its own PRECONDITION by calling the
-// public setContextMode facade internally. That facade claims the visual
-// restore lane so a genuine operator Context request supersedes a delayed
-// shared style/detection restore — correct for the operator, wrong here: a
-// cockpit transition is inert by rule, and claiming would cancel a pending
-// shared restore the operator never overrode. These pins must be able to TELL
-// THE TWO APART, which a claim-count-only assertion cannot.
-// ---------------------------------------------------------------------------
-
-function contextClaimProbe({ entrySucceeds = true, cockpitSucceeds = true } = {}) {
-  const calls = [];
-  let contextMode = null;
-  const styleManager = {
-    getContextModeState: () => ({ mode: contextMode, active: contextMode !== null, changing: false }),
-    setPanelCollapsed() {},
-    setContextMode: async (mode, options = {}) => {
-      calls.push({ mode, claimVisualAuthority: options.claimVisualAuthority });
-      if (!entrySucceeds) return { ok: false, error: 'Contacts refused' };
-      contextMode = mode;
-      return { ok: true, mode, active: mode !== null };
-    },
-    controlCockpit: async () => (cockpitSucceeds
-      ? { ok: true, action: 'control_cockpit', state: { active: true } }
-      : { ok: false, action: 'control_cockpit', error: 'entry failed', state: { active: false } }),
-    getCockpitState: () => ({ active: false }),
-    getAircraftTrackingTarget: () => null,
-  };
-  const viewer = {
-    clock: { onTick: { addEventListener: () => () => {} } },
-    scene: { canvas: { addEventListener() {}, removeEventListener() {} } },
-    camera: { moveEnd: { addEventListener() {} } },
-  };
-  const runner = createGevActionRunner({
-    viewer,
-    styleManager,
-    dataManager: { layers: new Map(), isEnabled: () => false, getAll: () => [] },
-  });
-  return { runner, calls };
-}
-
-
-
 
 /**
  * Viewer stub for the moveEnd prewarm: enough scene graph for

@@ -12,10 +12,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DataLayerManager, layerFeedState } from './manager.js';
-import {
-  contextSnapshotLayerIds,
-  shouldCaptureContextSession,
-} from '../contextModePolicy.js';
 
 /** Build a mock layer whose init/update resolve on the next microtask, so a
  *  second toggle can land while the first is awaiting. */
@@ -1564,35 +1560,6 @@ test('waitForLayerSettled defers reconciliation until the captured queue complet
   await mgr.destroyAll();
 });
 
-test('programmatic Context enables neither create nor replace a restoration snapshot', async () => {
-  const mgr = new DataLayerManager({});
-  const missions = makeSlowLayer('rocket-launches', { updateInterval: 0 });
-  mgr.register(missions.module);
-
-  let snapshot = {
-    enabledLayerIds: new Set(['flights', 'traffic']),
-    marker: 'existing-session',
-  };
-  const existingSnapshot = snapshot;
-  mgr.subscribe((change) => {
-    if (!shouldCaptureContextSession(change)) return;
-    snapshot = {
-      enabledLayerIds: contextSnapshotLayerIds(mgr.getEnabledLayerIds()),
-      marker: 'captured-by-user',
-    };
-  });
-
-  await mgr.setEnabled('rocket-launches', true, { origin: 'programmatic' });
-  assert.equal(snapshot, existingSnapshot, 'programmatic enable preserves an existing session snapshot');
-
-  await mgr.setEnabled('rocket-launches', false, { origin: 'programmatic' });
-  snapshot = null;
-  await mgr.setEnabled('rocket-launches', true, { origin: 'programmatic' });
-  assert.equal(snapshot, null, 'programmatic enable does not create a new session snapshot');
-
-  await mgr.destroyAll();
-});
-
 test('visibility guards refuse incompatible enables before lifecycle work', async () => {
   const mgr = new DataLayerManager({});
   const layer = makeSlowLayer('flights', { updateInterval: 0 });
@@ -1921,33 +1888,6 @@ test('pre-transition subscribers capture the exact enabled set before user chang
     { enabled: true, ids: ['satellites'] },
     { enabled: false, ids: ['military-awareness', 'satellites'] },
   ]);
-  await mgr.destroyAll();
-});
-
-test('absolute Context entry intent is excluded from its own pre-entry restore snapshot', async () => {
-  const mgr = new DataLayerManager({});
-  const missions = makeSlowLayer('rocket-launches', { updateInterval: 0 });
-  const satellites = makeSlowLayer('satellites', { updateInterval: 0 });
-  mgr.register(missions.module);
-  mgr.register(satellites.module);
-  let snapshot = null;
-  mgr.subscribe((change) => {
-    if (shouldCaptureContextSession(change)) {
-      snapshot = contextSnapshotLayerIds(
-        mgr.getEnabledLayerIds(),
-        null,
-        [change.layerId],
-      );
-    }
-  });
-
-  await mgr.setEnabled('rocket-launches', true, { origin: 'user' });
-  assert.deepEqual([...snapshot], []);
-  await mgr.setEnabled('rocket-launches', false, { origin: 'user' });
-  await mgr.restoreEnabledLayerIds(snapshot, { origin: 'context-restore' });
-
-  assert.equal(mgr.isEnabled('rocket-launches'), false);
-  assert.equal(mgr.isEnabled('satellites'), false);
   await mgr.destroyAll();
 });
 

@@ -40,9 +40,8 @@ export const FIRST_RUN_SESSION_KEY = 'gev:first-run-mission-session:v1';
  *                         Choosing STORM CHASE *is* choosing those layers.
  *   TOUCHED, SESSION      the camera. Never persisted by anything.
  *   NOT TOUCHED           detection mode + density. The reasonable-defaults
- *                         landing owns the DENSE/75 start, and Contacts owns
- *                         detection through contactsDetectionPolicy while it is
- *                         active. A mission has no opinion.
+ *                         landing owns the DENSE/75 start. A mission has no
+ *                         opinion.
  *   NOT TOUCHED           `_detectionUserOverridden`. Setting it would mean "the
  *                         operator hand-edited detection" and would silently
  *                         kill the CRT/NVG/FLIR auto-preset contract for the

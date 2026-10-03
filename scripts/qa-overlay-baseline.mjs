@@ -564,15 +564,6 @@ async function prepareDetection(page, densityPct) {
 }
 
 async function prepareTrackedFlight(page, cockpit) {
-  if (cockpit) {
-    const contacts = await page.evaluate(() => window.__godsEyeView.styleManager.setContextMode(
-      'contacts',
-      { origin: 'user' },
-    ));
-    if (!contacts?.ok) {
-      return `Contacts activation failed (${contacts?.error || 'unknown error'})`;
-    }
-  }
   const tracked = await page.evaluate(() => {
     const entry = window.__godsEyeView.dataManager.layers.get('flights');
     const layer = entry?.module;

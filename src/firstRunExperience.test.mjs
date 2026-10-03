@@ -440,8 +440,8 @@ test('no mission writes a preference the visitor did not choose by picking it', 
   // they run at the same origin a click on those rows uses.
   assert.match(code, /setEnabled\(layerId, true, \{ origin: 'user' \}\)/);
 
-  // Detection is owned by the reasonable-defaults landing and, while Contacts is
-  // active, by contactsDetectionPolicy. A mission has no opinion on any of it.
+  // Detection is owned by the reasonable-defaults landing. A mission has no
+  // opinion on any of it.
   for (const forbidden of [
     '_detectionUserOverridden',
     '_setDetectionMode',

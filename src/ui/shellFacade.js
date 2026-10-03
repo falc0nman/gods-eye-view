@@ -422,14 +422,6 @@ export class ShellFacade {
     this._visualSettings._cockpitVisionRestore = value;
   }
 
-  get _contactsDetectionRestore() {
-    return this._visualSettings._contactsDetectionRestore;
-  }
-
-  set _contactsDetectionRestore(value) {
-    this._visualSettings._contactsDetectionRestore = value;
-  }
-
   get _detectionAllocationBtns() {
     return this._visualSettings._detectionAllocationBtns;
   }
@@ -626,26 +618,6 @@ export class ShellFacade {
     return this._visualSettings._syncStagesEnabledFromIntensity(...arguments);
   }
 
-  /**
-   * Contacts-scoped detection (owner playtest 2026-08-18: "when you click on
-   * Contacts, detections should just turn on, and they should stay on in
-   * Cockpit or in third-person tracking inside Contacts").
-   *
-   * The scope is the CONTACTS SESSION, not Cockpit. Cockpit enter/exit and
-   * third-person tracking are moves WITHIN that session and deliberately do not
-   * touch detection — an earlier build hooked this to cockpit enter/exit, which
-   * is exactly what turned detections off when the owner left the cockpit.
-   *
-   * Called from `_syncContextModeButtons`, the single funnel every
-   * `_contextMode` mutation routes through, and gated on the transaction having
-   * SETTLED (`!_contextModeChanging`) so a failed activation can never strand
-   * detection on.
-   * @returns {void}
-   */
-  _syncContactsDetection() {
-    return this._visualSettings._syncContactsDetection(...arguments);
-  }
-
   /** IR hot-target boost (owner playtest 2026-08-16): under the luminance-
    *  mapped NVG/FLIR looks the 3D fleets flip to flat white so contacts read
    *  HOT instead of vanishing mid-gray; restored when the look exits. The
@@ -817,19 +789,7 @@ export class ShellFacade {
     return this._visualSettings._applyGlobalPostDefaults(...arguments);
   }
 
-  /**
-   * Detection as a DURABLE preference, for serialization into a share link.
-   *
-   * While Contacts is active it OWNS detection and forces Dense @ 75%. That is
-   * a session-scoped override, not something the operator chose: it is undone
-   * verbatim on deactivation. Serializing the forced values shipped a link that
-   * pinned Dense @ 75% on the recipient — as a durable preference, with no
-   * Contacts mode present to explain or undo it — even though the author's own
-   * setting was (say) OFF @ 50%. Publish what deactivation would restore.
-   *
-   * `_contactsDetectionRestore` is exactly that snapshot and is null whenever
-   * Contacts does not own detection, so the live values are used normally.
-   */
+  /** Detection as a durable preference, for serialization into a share link. */
   _shareableDetectionState() {
     return this._visualSettings._shareableDetectionState(...arguments);
   }
@@ -941,28 +901,12 @@ export class ShellFacade {
     );
   }
 
-  get _contextMode() {
-    return this._contextControls?._contextMode ?? null;
-  }
-
-  get _contextModeChanging() {
-    return this._contextControls?._contextModeChanging ?? false;
-  }
-
   get _preservePanelStateDuringLayerClear() {
     return this._contextControls?._preservePanelStateDuringLayerClear ?? false;
   }
 
   _runUserFacingContextAction(...args) {
     return this._contextControls?._runUserFacingContextAction(...args);
-  }
-
-  _waitForContextLayerSettlement(...args) {
-    return this._contextControls?._waitForContextLayerSettlement(...args);
-  }
-
-  _syncContextModeButtons(...args) {
-    return this._contextControls?._syncContextModeButtons(...args);
   }
 
   _setCockpitDisclosure(...args) {
@@ -1170,32 +1114,6 @@ export class ShellFacade {
 
   setOrbit(...args) {
     return this._locationNavigation.setOrbit(...args);
-  }
-
-  /**
-   * Reads global context mode state for voice/state-sync consumers.
-   * @returns {{mode: 'flights'|'space-missions'|null, active: boolean, changing: boolean, entering: 'flights'|'space-missions'|null, snapshotCaptured: boolean}}
-   */
-  getContextModeState(...args) {
-    return this._contextControls?.getContextModeState(...args);
-  }
-
-  /**
-   * Sets global context mode (Contacts / Space Missions / off) for voice.
-   * @param {'contacts'|'space-missions'|'off'|null} mode - Requested context target.
-   * @param {object} [options]
-   * @param {string|Symbol|null} [options.notificationToken]
-   * @param {AbortSignal|null} [options.signal]
-   * @param {Function|null} [options.isCurrent]
-   * @param {boolean} [options.claimVisualAuthority] Whether this request is a
-   *   genuine operator/voice Context intent that should take the visual restore
-   *   lane. Cockpit choreography calls this facade INTERNALLY for its own
-   *   enter/rollback steps; those transitions are not a Context request by the
-   *   operator and must stay inert, so they pass `false`.
-   * @returns {Promise<{ok:boolean, mode:'flights'|'space-missions'|null, active:boolean, action:string, error?:string}>}
-   */
-  setContextMode(...args) {
-    return this._contextControls?.setContextMode(...args);
   }
 
   /**
