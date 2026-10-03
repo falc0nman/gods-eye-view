@@ -21,20 +21,17 @@ export const NAVIGATION_AUTHORITY_EVENT = 'gev:navigation-authority-taken';
  * @param {string} reason Diagnostic label for the taking path.
  * @param {object} [options] Authority options.
  * @param {EventTarget} [options.eventTarget=globalThis.window] Dispatch target.
- * @param {boolean} [options.cancelPendingSelection=true] Whether this is newer
- * direct intent that may supersede a passive selected-entity restore.
  * @returns {boolean} Whether the announcement was dispatched.
  */
 export function announceNavigationAuthority(
   reason,
-  { eventTarget = globalThis.window, cancelPendingSelection = true } = {},
+  { eventTarget = globalThis.window } = {},
 ) {
   if (typeof eventTarget?.dispatchEvent !== 'function') return false;
   eventTarget.dispatchEvent(
     new CustomEvent(NAVIGATION_AUTHORITY_EVENT, {
       detail: {
         reason: String(reason || 'layer-focus'),
-        cancelPendingSelection: Boolean(cancelPendingSelection),
       },
     }),
   );
@@ -64,14 +61,14 @@ export function registerNavigationAuthorityListener(eventTarget, listener) {
 }
 
 /**
- * Let a physical globe gesture supersede the delayed shared camera and Follow.
- * Ordinary layer visibility/options remain authoritative, but camera intent
- * from the recipient always wins over a passive selected-subject restore.
+ * Let a physical globe gesture supersede the delayed shared camera. Ordinary
+ * layer visibility/options remain authoritative, but camera intent from the
+ * recipient always wins over the passive shared view.
  * @param {Function} stamp Navigation stamp callback.
  * @returns {*} The callback result, when present.
  */
 export function stampInitialShareGesture(stamp) {
-  return stamp?.({ cancelPendingSelection: true });
+  return stamp?.();
 }
 
 /**

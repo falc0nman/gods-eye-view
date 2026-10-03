@@ -16,7 +16,6 @@ import fs from 'node:fs';
 import test from 'node:test';
 
 import { SceneDirector } from './director.js';
-import { SCENE_TRACKING_PARAM_KEYS } from './scenePolicy.js';
 import { SCENE_RECIPES } from './recipes.js';
 
 test('scene clock seek resolves the exact shot phase and camera in both directions', async () => {

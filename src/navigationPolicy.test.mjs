@@ -13,29 +13,26 @@ import {
   stampInitialShareGesture,
 } from './navigationPolicy.js';
 
-test('layer authority announcements distinguish passive autofocus from direct intent', () => {
+test('layer authority announcements carry their reason', () => {
   const events = [];
   const eventTarget = new EventTarget();
   eventTarget.addEventListener(NAVIGATION_AUTHORITY_EVENT, (event) => events.push(event.detail));
-  announceNavigationAuthority('context-vessel-autofocus', {
-    eventTarget,
-    cancelPendingSelection: false,
-  });
   announceNavigationAuthority('context-vessel-focus', { eventTarget });
+  announceNavigationAuthority('', { eventTarget });
   assert.deepEqual(events, [
-    { reason: 'context-vessel-autofocus', cancelPendingSelection: false },
-    { reason: 'context-vessel-focus', cancelPendingSelection: true },
+    { reason: 'context-vessel-focus' },
+    { reason: 'layer-focus' },
   ]);
 });
 
-test('an initial globe gesture cancels the passive shared Follow selection', () => {
+test('an initial globe gesture stamps navigation', () => {
   const calls = [];
   const result = stampInitialShareGesture((options) => {
     calls.push(options);
     return 7;
   });
   assert.equal(result, 7);
-  assert.deepEqual(calls, [{ cancelPendingSelection: true }]);
+  assert.deepEqual(calls, [undefined]);
   assert.equal(stampInitialShareGesture(null), undefined);
 });
 

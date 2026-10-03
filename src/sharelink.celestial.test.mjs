@@ -287,21 +287,13 @@ test('incoming state suppresses premature hash replacement until restoration', (
   assert.equal(window.location.hash, '#v=2&lat=10&lon=20&l=e&style=nvg');
 });
 
-test('a shared view reserves its own camera without cancelling its saved Follow', () => {
-  assert.match(
-    uiSource,
-    /_beginDeferredNavigation\(\s*'shared view',\s*\{\s*cancelPendingSelection: false,?\s*\},?\s*\)/,
-  );
+test('a shared view reserves its own camera through deferred navigation', () => {
+  assert.match(uiSource, /_beginDeferredNavigation\(\s*'shared view',?\s*\)/);
   const deferred = sourceBlock(
-    "  _beginDeferredNavigation(noun = 'location', { cancelPendingSelection = true } = {}) {",
+    "  _beginDeferredNavigation(noun = 'location') {",
     '  /** Final authority check and release immediately before a delayed flight. */',
   );
-  // The shared view's own `cancelPendingSelection` must reach the stamp; other
-  // stamp options may ride alongside it.
-  assert.match(
-    deferred,
-    /_stampNavigation\(\{\s*cancelPendingSelection[^)]*\}\)/,
-  );
+  assert.match(deferred, /_stampNavigation\(\{\s*clearSearchedLocation: false,?\s*\}\)/);
 });
 
 test('copy timestamp parsing is strict and rejects malformed or future values', () => {

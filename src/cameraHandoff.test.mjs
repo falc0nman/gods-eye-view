@@ -113,10 +113,10 @@ test('deferred search releases only after its final authority check', () => {
   assert.doesNotMatch(search.slice(0, search.indexOf('await this.search')), /_releaseFollowCamera/);
 });
 
-test('a direct globe gesture retires delayed camera and selection restore only', () => {
+test('a direct globe gesture retires the delayed shared camera only', () => {
   assert.match(
     ui,
-    /this\._initialShareGestureHandler = \(\) => \{[\s\S]*?!this\._resolveInitialShareRestore[\s\S]*?stampInitialShareGesture\(\(options\) =>\s*this\.navigation\._stampNavigation\(options\),?\s*\);/,
+    /this\._initialShareGestureHandler = \(\) => \{[\s\S]*?!this\._resolveInitialShareRestore[\s\S]*?stampInitialShareGesture\(\(\) =>\s*this\.navigation\._stampNavigation\(\),?\s*\);/,
   );
   assert.match(
     ui,
@@ -132,10 +132,9 @@ test('a direct globe gesture retires delayed camera and selection restore only',
   );
   const stamp = body(
     ui,
-    /_stampNavigation\(\{ cancelPendingSelection = true[^)]*\} = \{\}\) \{([\s\S]*?)\n  \}/,
+    /_stampNavigation\(\{ clearSearchedLocation = true \} = \{\}\) \{([\s\S]*?)\n  \}/,
     'navigation stamp',
   );
-  assert.match(stamp, /if \(cancelPendingSelection\) this\.cancelShareSelection\(\);/);
   assert.doesNotMatch(stamp, /cancelPendingRestores\(\)/);
 });
 
@@ -195,7 +194,7 @@ test('teardown synchronously closes immediate camera entry points', () => {
 });
 
 test('teardown refuses deferred location work before geocoding begins', () => {
-  const deferred = body(ui, /_beginDeferredNavigation\(noun = 'location', \{ cancelPendingSelection = true \} = \{\}\) \{([\s\S]*?)\n  \}/, 'deferred navigation');
+  const deferred = body(ui, /_beginDeferredNavigation\(noun = 'location'\) \{([\s\S]*?)\n  \}/, 'deferred navigation');
   assert.match(deferred, /disposed: this\._disposed/);
   const search = fs.readFileSync(path.join(ROOT, 'src', 'ui', 'locationSearch.js'), 'utf8');
   ordered(search, [

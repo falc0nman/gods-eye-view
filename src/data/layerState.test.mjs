@@ -13,7 +13,6 @@ import {
   LAYER_STATE_TOKEN_RESERVATIONS,
   LayerStateCoordinator,
   REGISTERED_LAYER_IDS,
-  SHARE_TRACKING_RESTORE_POLICIES,
   createDefaultLayerState,
   decodeLayerStateParams,
   encodeLayerStateParams,
@@ -80,41 +79,19 @@ function fakeLayer(id, hooks = {}) {
     async disable() {
       return hooks.disable ? hooks.disable() : true;
     },
-    ...(hooks.resolveTrackingRestoreTarget
-      ? {
-          async resolveTrackingRestoreTarget(targetId, options) {
-            return hooks.resolveTrackingRestoreTarget(targetId, options);
-          },
-        }
-      : {}),
     ...(params
       ? {
           setParams(next = {}, options = {}) {
             if (hooks.setParams) {
               const result = hooks.setParams(next, options);
               if (result === false) return false;
-              // 'defer' models the production tracking latch: the layer ACCEPTS the
-              // request and holds it pending, but getParams() keeps reporting the
-              // previous (still-untracked) value until the subject really arrives.
-              if (result === 'defer') return true;
             }
             params = { ...params, ...next };
             return true;
           },
-          /** Test seam: a deferred subject finally arrives on a later poll. */
-          _arrive(next) {
-            params = { ...params, ...next };
-          },
           getParams() {
             return { ...params };
           },
-          ...(hooks.cancelPendingTrackingRestore
-            ? {
-                cancelPendingTrackingRestore(options) {
-                  hooks.cancelPendingTrackingRestore(options);
-                },
-              }
-            : {}),
         }
       : {}),
   };
@@ -1174,13 +1151,8 @@ test('startup gesture preserves slow layer and display options', async () => {
   await radioStarted.promise;
 
   let cameraGeneration = 0;
-  stampInitialShareGesture(({ cancelPendingSelection }) => {
+  stampInitialShareGesture(() => {
     cameraGeneration += 1;
-    if (cancelPendingSelection) {
-      coordinator.cancelPendingShareTracking('startup-gesture', {
-        clearSelection: true,
-      });
-    }
   });
   radioInit.resolve();
   const results = await restore;

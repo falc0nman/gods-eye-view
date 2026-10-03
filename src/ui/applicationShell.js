@@ -110,7 +110,6 @@ export class StyleManager extends ShellFacade {
       interruptCameraMotion: services.interruptCameraMotion,
       isCockpitActive: () => !!this.cockpitView?.active,
       clearLocation: () => this.clearSearchedLocation(),
-      cancelShareSelection: () => this._shareRestoration.cancelSelection(),
       getDataManager: () => this._dataManager,
       stopOrbit: () => this._stopOrbit(),
       cancelOrientation: () => this._cameraOrientationControls?.cancel(),
@@ -120,10 +119,6 @@ export class StyleManager extends ShellFacade {
       viewer,
       navigation: this._navigation,
       syncShareState: () => this._syncShareState(),
-      showStatus: (message, options) =>
-        this._showGlobalStatusNotice(message, options),
-      feedback: this._feedback,
-      updateFeedback: () => this._updateGlobalLoadingFeedback(),
     });
 
     this._visualSettings = new VisualSettings({
@@ -462,10 +457,7 @@ export class StyleManager extends ShellFacade {
   // Compatibility reads for existing controls, scene snapshots and Cockpit.
 
   /** Advance camera authority and settle any older search UI immediately. */
-  _stampNavigation({
-    cancelPendingSelection = true,
-    clearSearchedLocation = true,
-  } = {}) {
+  _stampNavigation({ clearSearchedLocation = true } = {}) {
     return this._navigation._stampNavigation(...arguments);
   }
 
@@ -478,10 +470,7 @@ export class StyleManager extends ShellFacade {
   }
 
   /** Accept a delayed lookup without releasing its current camera owner. */
-  _beginDeferredNavigation(
-    noun = 'location',
-    { cancelPendingSelection = true } = {},
-  ) {
+  _beginDeferredNavigation(noun = 'location') {
     return this._navigation._beginDeferredNavigation(...arguments);
   }
 

@@ -1,30 +1,11 @@
 import { LayerStateCoordinator } from '../data/layerState.js';
 import { stampInitialShareGesture } from '../navigationPolicy.js';
-import { canPresentDeferredStatusNotice } from '../loadingFeedback.js';
-import { UiLifetime } from './uiLifetime.js';
 
-/** Own initial share restoration, durable layer state and restoration notices. */
+/** Own initial share restoration and durable layer state. */
 export class ShareRestoration {
-  constructor({
-    viewer,
-    navigation,
-    syncShareState,
-    showStatus,
-    feedback,
-    updateFeedback,
-  }) {
-    Object.assign(this, {
-      viewer,
-      navigation,
-      syncShareState,
-      showStatus,
-      feedback,
-      updateFeedback,
-    });
-    this._lifetime = new UiLifetime();
+  constructor({ viewer, navigation, syncShareState }) {
+    Object.assign(this, { viewer, navigation, syncShareState });
     this._disposed = false;
-    this._shareTrackingAcquiringKey = null;
-    this._shareTrackingNoticeGeneration = 0;
     this._initialShareState = null;
     this._initialShareNavigationGeneration = null;
     this._initialShareRestoreTimeout = null;
@@ -46,11 +27,9 @@ export class ShareRestoration {
     if (savedState) {
       this._hasShareState = true;
       // Reserve camera authority now; the delayed mesh-friendly flight may
-      // run only if no newer user, voice, or tracking navigation has won.
+      // run only if no newer user or voice navigation has won.
       this._initialShareNavigationGeneration =
-        this.navigation._beginDeferredNavigation('shared view', {
-          cancelPendingSelection: false,
-        });
+        this.navigation._beginDeferredNavigation('shared view');
       this._initialShareRestoreTimeout = setTimeout(() => {
         this._initialShareRestoreTimeout = null;
         if (this._disposed) return;
@@ -66,23 +45,11 @@ export class ShareRestoration {
             });
             const layers = await (this._layerStateRestorePromise ||
               Promise.resolve([]));
-            const tracking =
-              share.camera === 'applied'
-                ? await this._layerStateCoordinator?.restoreShareTrackingSelection?.()
-                : {
-                    status: 'superseded',
-                    cleared:
-                      this._layerStateCoordinator?.cancelPendingShareTracking?.(
-                        'shared-camera-superseded',
-                        { clearSelection: true },
-                      ) === true,
-                  };
             this.shareLinkManager.completeInitialRestore();
             this._settleInitialShareRestore({
               status: 'settled',
               share,
               layers,
-              tracking,
             });
           } catch (error) {
             this.shareLinkManager.completeInitialRestore();
@@ -100,7 +67,7 @@ export class ShareRestoration {
     }
     // A recipient can orbit before or during the delayed share flight. That
     // gesture keeps ordinary layer state but revokes the passive base camera
-    // and selected-subject Follow so delayed work cannot seize navigation.
+    // so delayed work cannot seize navigation.
     this._initialShareGestureHandler = () => {
       if (
         this._disposed ||
@@ -108,9 +75,7 @@ export class ShareRestoration {
         !this._resolveInitialShareRestore
       )
         return;
-      stampInitialShareGesture((options) =>
-        this.navigation._stampNavigation(options),
-      );
+      stampInitialShareGesture(() => this.navigation._stampNavigation());
     };
     this.viewer?.canvas?.addEventListener(
       'pointerdown',
@@ -136,131 +101,20 @@ export class ShareRestoration {
       this._layerStateCoordinator = new LayerStateCoordinator(
         this._dataManager,
         this.shareLinkManager,
-        {
-          onTrackingRestoreStatus: (result) =>
-            this._handleShareTrackingRestoreStatus(result),
-        },
       );
       this._layerStateRestorePromise = this._layerStateCoordinator.start({
         shareLayerState: this._initialShareState?.layerState || null,
-        shareCreatedAtMs: this._initialShareState?.sharedAtMs ?? null,
         // Any valid camera/style share isolates recipient-local preferences,
         // including legacy and malformed-v2 layer payloads.
         allowLocalState: !this._initialShareState,
       });
-      if (this._initialShareSelectionSuperseded) {
-        this._layerStateCoordinator.cancelPendingShareTracking(
-          'superseded-before-layer-coordinator-start',
-          { clearSelection: true },
-        );
-      }
     }
-  }
-  cancelSelection() {
-    if (
-      this._hasShareState &&
-      this._resolveInitialShareRestore &&
-      !this._layerStateCoordinator
-    )
-      this._initialShareSelectionSuperseded = true;
-    return (
-      this._layerStateCoordinator?.cancelPendingShareTracking?.(
-        'superseded-by-explicit-navigation',
-        { clearSelection: true },
-      ) === true
-    );
   }
   get initialRestorePromise() {
     return (
       this._initialShareRestorePromise ||
       Promise.resolve({ status: 'not-requested' })
     );
-  }
-  _handleShareTrackingRestoreStatus(result) {
-    if (!result || this._disposed) return;
-    const trackingKey = `${result.layerId || ''}:${result.targetId ?? ''}`;
-    if (result.classification === 'pending') {
-      this._shareTrackingNoticeGeneration += 1;
-      this._shareTrackingAcquiringKey = trackingKey;
-      this.showStatus('ACQUIRING', {
-        state: 'acquiring',
-        detail: `SHARED ${String(result.label || 'SUBJECT').toUpperCase()}`,
-        persistent: true,
-      });
-      return;
-    }
-    const ownsAcquiringNotice = this._shareTrackingAcquiringKey === trackingKey;
-    if (ownsAcquiringNotice) {
-      this._shareTrackingNoticeGeneration += 1;
-      this._shareTrackingAcquiringKey = null;
-      if (this.feedback._globalStatusNotice?.state === 'acquiring') {
-        this.feedback._globalStatusNotice = null;
-        this.updateFeedback();
-      }
-    }
-    if (
-      result.classification === 'followed' ||
-      result.classification === 'cancelled'
-    )
-      return;
-    // A stale terminal result must never replace a newer target's acquisition.
-    if (this._shareTrackingAcquiringKey) return;
-    const noticeGeneration = ownsAcquiringNotice
-      ? this._shareTrackingNoticeGeneration
-      : ++this._shareTrackingNoticeGeneration;
-    const subject = result.label || 'entity';
-    const message =
-      result.classification === 'expired'
-        ? `Shared ${subject} follow expired`
-        : result.classification === 'source-unavailable'
-          ? `Shared ${subject} could not be restored — feed unavailable`
-          : `Shared ${subject} is unavailable`;
-    const showAfterStartupCover = () => {
-      this._lifetime.frame(() => {
-        if (
-          !canPresentDeferredStatusNotice(
-            noticeGeneration,
-            this._shareTrackingNoticeGeneration,
-            this._disposed,
-          )
-        )
-          return;
-        const startupCover = document.getElementById('loading-screen');
-        if (
-          !startupCover ||
-          getComputedStyle(startupCover).visibility === 'hidden'
-        ) {
-          this.showStatus(message);
-          return;
-        }
-        let fallbackTimer = null;
-        let removeStartupListener = () => {};
-        const showOnce = () => {
-          removeStartupListener();
-          if (fallbackTimer) this._lifetime.cancelTimeout(fallbackTimer);
-          if (
-            canPresentDeferredStatusNotice(
-              noticeGeneration,
-              this._shareTrackingNoticeGeneration,
-              this._disposed,
-            )
-          )
-            this.showStatus(message);
-        };
-        removeStartupListener = this._lifetime.listen(
-          startupCover,
-          'transitionend',
-          showOnce,
-          { once: true },
-        );
-        fallbackTimer = this._lifetime.timeout(showOnce, 1000);
-      });
-    };
-    if (this._resolveInitialShareRestore) {
-      void this.initialRestorePromise.then(showAfterStartupCover);
-      return;
-    }
-    showAfterStartupCover();
   }
   _settleInitialShareRestore(result) {
     if (!this._resolveInitialShareRestore) return;
@@ -274,8 +128,6 @@ export class ShareRestoration {
   destroy() {
     if (this._disposed) return;
     this._disposed = true;
-    this._shareTrackingNoticeGeneration += 1;
-    this._shareTrackingAcquiringKey = null;
     this._layerStateCoordinator?.destroy();
     this._layerStateCoordinator = null;
     this._layerStateRestorePromise = null;
@@ -295,6 +147,5 @@ export class ShareRestoration {
       this._initialShareGestureHandler,
     );
     this._initialShareGestureHandler = null;
-    this._lifetime.destroy();
   }
 }

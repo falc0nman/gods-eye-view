@@ -1,5 +1,4 @@
-import { ShareRestoration } from './ui/shareRestoration.js';
-import { readShellSource, shellMethod } from './testSupport/readShellSource.mjs';
+import { readShellSource } from './testSupport/readShellSource.mjs';
 import { expandApplicationHtml } from '../build/application-html.js';
 import { readStylesheet } from './testSupport/readStylesheet.mjs';
 import test from 'node:test';
@@ -8,7 +7,6 @@ import { readFileSync } from 'node:fs';
 
 import {
   aggregateLayerLoading,
-  canPresentDeferredStatusNotice,
   createGlobalStatusNotice,
   createLoadingFeedbackState,
   createTrafficSyncFeedbackState,
@@ -47,33 +45,6 @@ test('acquiring notices persist without a dwell until explicitly cleared', () =>
     label: 'ACQUIRING',
     detail: 'SHARED FLIGHT',
   });
-});
-
-test('deferred terminal notices lose ownership to newer acquisition epochs and disposal', () => {
-  assert.equal(canPresentDeferredStatusNotice(4, 4, false), true);
-  assert.equal(canPresentDeferredStatusNotice(4, 5, false), false,
-    'a newer ACQUIRING epoch blocks the older deferred failure');
-  assert.equal(canPresentDeferredStatusNotice(5, 5, true), false,
-    'disposal blocks even the current deferred notice');
-});
-
-test('share-follow failures use the universal top-center status instead of the bottom toast', () => {
-  const ui = readShellSource();
-  const handler = shellMethod('_handleShareTrackingRestoreStatus').toString();
-  assert.match(handler, /this\.showStatus\(message\)/);
-  assert.match(handler, /this\.initialRestorePromise\.then\(showAfterStartupCover\)/);
-  assert.match(handler, /this\._lifetime\.frame\(\(\) => \{/);
-  assert.match(handler, /this\._lifetime\.listen\(\s*startupCover,\s*'transitionend',\s*showOnce,\s*\{ once: true \},?\s*\)/);
-  assert.match(handler, /fallbackTimer = this\._lifetime\.timeout\(showOnce, 1000\)/);
-  assert.doesNotMatch(handler, /this\._showToast\(message\)/);
-  assert.doesNotMatch(handler, /pushCockpitSignal/);
-  assert.match(handler, /result\.classification === 'pending'/);
-  assert.match(handler, /state: 'acquiring'/);
-  assert.match(handler, /persistent: true/);
-  assert.match(handler, /this\._shareTrackingNoticeGeneration \+= 1/);
-  assert.match(handler, /canPresentDeferredStatusNotice\(/);
-  assert.match(handler, /if \(this\._shareTrackingAcquiringKey\) return/);
-  assert.match(handler, /result\.classification === 'followed'\s*\|\|\s*result\.classification === 'cancelled'/);
 });
 
 test('universal notice masks active loading only for its own fixed dwell', () => {
@@ -170,7 +141,6 @@ test('universal notice lifecycle clears on dispose and uses the one top-center l
 
   assert.match(dispose, /this\._feedback\._globalStatusNotice = null;/);
   assert.match(dispose, /this\._shareRestoration\.destroy\(\)/);
-  assert.match(ShareRestoration.prototype.destroy.toString(), /this\._shareTrackingNoticeGeneration \+= 1;/);
   assert.match(html, /<div id="global-loading-status" role="status" aria-live="polite" aria-atomic="true" hidden>/);
 });
 

@@ -19,24 +19,7 @@
 // keys and still reconcile in full.
 
 /**
- * Layer params that re-establish a tracked contact — and with it a SECOND
- * writer on the camera.
- *
- * A capture taken while following a contact would snapshot that layer's whole
- * param set, tracking id included, and replaying it would hand the camera back
- * to a follow loop while the shot flight also writes the frame. So playback
- * NEVER re-establishes tracking: any key listed here stays in the stored
- * capture and is dropped on the way to the layer.
- *
- * Empty since GW-57 removed the flight layers, the last ones that published a
- * tracking id. Older captures naming them are skipped as unregistered layers.
- *
- * @constant {ReadonlyArray<string>}
- */
-export const SCENE_TRACKING_PARAM_KEYS = Object.freeze([]);
-
-/**
- * Selection params that look like the ones above and are deliberately KEPT.
+ * Selection-shaped layer params that playback deliberately KEEPS.
  *
  * `selectedCameraId` (cctv) activates a camera and raises its monitor plane.
  * It never writes viewer.trackedEntity or moves the camera — only the separate
@@ -46,9 +29,10 @@ export const SCENE_TRACKING_PARAM_KEYS = Object.freeze([]);
  *
  * The list exists so the decision is RECORDED rather than implied by absence:
  * scenePolicy.test.mjs sweeps every layer's getParams() for the selection
- * naming family and requires each match to appear on this list or the one
- * above. A future param named `trackedVesselMmsi` therefore cannot slip
- * through merely by not matching the older `selected…TrackingId` spelling.
+ * naming family and requires each match to appear on this list. A future
+ * param that re-establishes a tracked contact (and with it a second writer on
+ * the camera) therefore fails that test until playback is taught to strip it;
+ * the flight layers' stripping went with them in GW-57.
  * @constant {ReadonlyArray<string>}
  */
 export const SCENE_KEPT_SELECTION_PARAM_KEYS = Object.freeze([
@@ -57,41 +41,19 @@ export const SCENE_KEPT_SELECTION_PARAM_KEYS = Object.freeze([
 
 /**
  * Names belonging to the selection/tracking family, whatever their spelling.
- * Deliberately wider than the three params that exist today — the sweep's job
- * is to force a decision about a NEW name, not to recognise the current ones.
+ * Deliberately wider than the params that exist today — the sweep's job is to
+ * force a decision about a NEW name, not to recognise the current ones.
  * @constant {RegExp}
  */
 export const SCENE_SELECTION_PARAM_PATTERN =
   /^(?:selected|tracked)[A-Z0-9]|TrackingId$|(?:Mmsi|Norad|Icao|Callsign)$/;
 
 /**
- * Drop every camera-tracking key from one shot's layer params.
- *
- * @param {Object|undefined} params Params as stored on the shot.
- * @returns {Object|undefined} Params safe to push at the layer, or undefined
- *   when nothing survives (a params bag that was tracking and nothing else).
- */
-export function stripSceneTrackingParams(params) {
-  if (!params || typeof params !== 'object') return undefined;
-  if (!SCENE_TRACKING_PARAM_KEYS.some((key) => Object.hasOwn(params, key)))
-    return params;
-
-  const kept = {};
-  for (const [key, value] of Object.entries(params)) {
-    if (SCENE_TRACKING_PARAM_KEYS.includes(key)) continue;
-    kept[key] = value;
-  }
-  return Object.keys(kept).length ? kept : undefined;
-}
-
-/**
  * Build the ordered layer reconcile plan for one shot.
  *
  * Only layers the shot explicitly declares are touched. Declared layers that
  * are no longer registered (an imported or long-stored project referencing a
- * retired layer) are skipped rather than pushed at the data manager. Camera
- * tracking params are stripped here, on the way out — see
- * SCENE_TRACKING_PARAM_KEYS.
+ * retired layer) are skipped rather than pushed at the data manager.
  *
  * @param {Object.<string, { enabled: boolean, params?: Object }>} targetStates
  *   The shot's normalized layer map.
@@ -114,8 +76,8 @@ export function sceneLayerPlan(targetStates, registeredIds) {
       id,
       enabled: !!(target && target.enabled),
       params:
-        target && target.params
-          ? stripSceneTrackingParams(target.params)
+        target?.params && typeof target.params === 'object'
+          ? target.params
           : undefined,
     });
   }

@@ -6,9 +6,7 @@ import test from 'node:test';
 import {
   SCENE_KEPT_SELECTION_PARAM_KEYS,
   SCENE_SELECTION_PARAM_PATTERN,
-  SCENE_TRACKING_PARAM_KEYS,
   sceneLayerPlan,
-  stripSceneTrackingParams,
 } from './scenePolicy.js';
 import { SCENE_RECIPES } from './recipes.js';
 
@@ -118,20 +116,13 @@ test('every shipped recipe declares only registered layer ids', () => {
   }
 });
 
-test('stripping leaves a tracking-free params object untouched', () => {
-  const params = { catalog: 'dense', showOrbits: true };
-  assert.equal(stripSceneTrackingParams(params), params);
-  assert.equal(stripSceneTrackingParams(undefined), undefined);
-  assert.equal(stripSceneTrackingParams(null), undefined);
-});
-
 test('every selection-shaped layer param is classified, whatever its spelling', () => {
   // Forward-compat. The earlier sweep only recognised `selected…TrackingId`,
   // so a param named `trackedVesselMmsi` would have slipped past and a capture
   // taken while following that contact would recreate the two-camera-writer
-  // bug. The family pattern is deliberately wider than today's three names:
-  // any match must be explicitly stripped or explicitly kept.
-  const classified = new Set([...SCENE_TRACKING_PARAM_KEYS, ...SCENE_KEPT_SELECTION_PARAM_KEYS]);
+  // bug. The family pattern is deliberately wider than today's names: any
+  // match must be explicitly kept, or playback must learn to strip it.
+  const classified = new Set(SCENE_KEPT_SELECTION_PARAM_KEYS);
   const swept = sweepLayerParamKeys();
   assert.ok(swept.size >= 2, `expected the known layer param surfaces, saw ${swept.size}`);
 
@@ -142,7 +133,7 @@ test('every selection-shaped layer param is classified, whatever its spelling', 
       seen.add(key);
       assert.ok(
         classified.has(key),
-        `${file} publishes selection param "${key}" — strip it (SCENE_TRACKING_PARAM_KEYS) `
+        `${file} publishes selection param "${key}" — strip it in sceneLayerPlan `
         + 'or record why it is safe (SCENE_KEPT_SELECTION_PARAM_KEYS)',
       );
     }

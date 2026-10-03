@@ -76,18 +76,14 @@ export class LayerBindings {
     );
     this._navigationOwnerChangedRemover =
       this.viewer.trackedEntityChanged.addEventListener((entity) => {
-        if (entity && !this._disposed)
-          this._stampNavigation({ cancelPendingSelection: false });
+        if (entity && !this._disposed) this._stampNavigation();
       });
     // Vessel/installation focus flies without ever assigning a tracked entity,
     // so it cannot reach the listener above. It announces instead.
     this._removeNavigationAuthorityListener =
-      registerNavigationAuthorityListener(window, (event) => {
+      registerNavigationAuthorityListener(window, () => {
         if (this._disposed) return;
-        this._stampNavigation({
-          cancelPendingSelection:
-            event?.detail?.cancelPendingSelection !== false,
-        });
+        this._stampNavigation();
       });
   }
   _connectDirectionsCamera() {

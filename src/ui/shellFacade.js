@@ -806,12 +806,6 @@ export class ShellFacade {
     return this._layerBindings.attachDataManager(...args);
   }
 
-  _handleShareTrackingRestoreStatus(result) {
-    return this._shareRestoration._handleShareTrackingRestoreStatus(
-      ...arguments,
-    );
-  }
-
   get _preservePanelStateDuringLayerClear() {
     return this._contextControls?._preservePanelStateDuringLayerClear ?? false;
   }

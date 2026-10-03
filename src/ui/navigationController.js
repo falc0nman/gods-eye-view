@@ -15,7 +15,6 @@ export class NavigationController {
     interruptCameraMotion,
     isCockpitActive,
     clearLocation,
-    cancelShareSelection,
     getDataManager,
     stopOrbit,
     showToast,
@@ -27,7 +26,6 @@ export class NavigationController {
       interruptCameraMotion,
       isCockpitActive,
       clearLocation,
-      cancelShareSelection,
       getDataManager,
       stopOrbit,
       showToast,
@@ -40,10 +38,7 @@ export class NavigationController {
     this._activeLocationSearchGeneration = null;
     this._disposed = false;
   }
-  _stampNavigation({
-    cancelPendingSelection = true,
-    clearSearchedLocation = true,
-  } = {}) {
+  _stampNavigation({ clearSearchedLocation = true } = {}) {
     cancelCameraArrival(this.viewer);
     this.cancelOrientation();
     this._navigationGeneration += 1;
@@ -53,7 +48,6 @@ export class NavigationController {
     // reassert seam instead: a geocode that never resolves moves no camera, and
     // a lookup that fails must not blank a readout that is still true.
     if (clearSearchedLocation) this.clearLocation();
-    if (cancelPendingSelection) this.cancelShareSelection();
     if (this._activeLocationSearchGeneration !== null) {
       this._settleLocationSearchUi(this._activeLocationSearchGeneration);
     }
@@ -100,11 +94,7 @@ export class NavigationController {
       cockpitActive: this.isCockpitActive(),
       noun,
       showToast: (text) => this.showToast(text),
-      stamp: () =>
-        this._stampNavigation({
-          cancelPendingSelection: false,
-          clearSearchedLocation: false,
-        }),
+      stamp: () => this._stampNavigation({ clearSearchedLocation: false }),
       release: () => {
         this.interruptCameraMotion('camera-orientation');
         this.stopOrbit();
@@ -114,10 +104,7 @@ export class NavigationController {
     });
   }
 
-  _beginDeferredNavigation(
-    noun = 'location',
-    { cancelPendingSelection = true } = {},
-  ) {
+  _beginDeferredNavigation(noun = 'location') {
     return beginDeferredNavigation({
       disposed: this._disposed,
       cockpitActive: this.isCockpitActive(),
@@ -125,11 +112,7 @@ export class NavigationController {
       showToast: (text) => this.showToast(text),
       // The searched-location readout survives the STAMP; only a flight that
       // actually starts invalidates it (see the release hook below).
-      stamp: () =>
-        this._stampNavigation({
-          cancelPendingSelection,
-          clearSearchedLocation: false,
-        }),
+      stamp: () => this._stampNavigation({ clearSearchedLocation: false }),
     });
   }
 

@@ -130,7 +130,7 @@ function handoffFixture(t) {
     tracking: Object.fromEntries(['flightsLayer', 'militaryFlightsLayer',
       'aisLiveVesselsLayer', 'militaryAwarenessLayer',
       'rocketLaunchesLayer'].map((key) => [key, {}])),
-    cancelOrientation() {}, clearLocation() {}, cancelShareSelection() {},
+    cancelOrientation() {}, clearLocation() {},
     getDataManager() {}, interruptCameraMotion() {}, stopOrbit() {},
     isCockpitActive: () => false, showToast() {},
   });
@@ -150,7 +150,7 @@ for (const handoff of ['Director', 'tracking', 'follow', 'keyboard', 'UI',
     } else if (handoff === 'tracking') {
       viewer.trackedEntityChanged.raiseEvent({ id: 'contact' });
     } else if (handoff === 'follow' || handoff === 'UI') {
-      navigation._stampNavigation({ cancelPendingSelection: false });
+      navigation._stampNavigation();
     } else if (handoff === 'keyboard') {
       viewer.scene.canvas.ownerDocument.dispatchEvent(new Event('keydown'));
     } else if (handoff === 'app-stop') navigation.stop();

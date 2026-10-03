@@ -142,19 +142,6 @@ export function presentGlobalStatusNotice(notice, nowMs = 0) {
   };
 }
 
-/** Whether deferred notice work still owns the current presentation epoch. */
-export function canPresentDeferredStatusNotice(
-  expectedGeneration,
-  currentGeneration,
-  disposed = false,
-) {
-  return (
-    !disposed &&
-    Number.isSafeInteger(expectedGeneration) &&
-    expectedGeneration === currentGeneration
-  );
-}
-
 /**
  * Present the shared status surface without allowing a persistent notice to
  * hide a terminal manager failure. Failure dwell starts when the manager

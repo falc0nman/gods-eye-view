@@ -20,7 +20,6 @@ function navigation() {
     interruptCameraMotion() {},
     isCockpitActive: () => false,
     clearLocation() {},
-    cancelShareSelection: () => false,
     getDataManager: () => null,
     stopOrbit() {},
     showToast() {},
