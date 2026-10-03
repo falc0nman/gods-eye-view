@@ -28,10 +28,7 @@ CODE ONLY.
 The datasets bundled under src/data/local_data/, and all data fetched from
 third-party providers at runtime, are owned by their respective sources and
 are NOT licensed under MIT. They are included/visualized for convenience and
-remain subject to their own licenses and terms. Notably:
-
-  - Datacenters and Dams (OpenStreetMap / Open Infrastructure Map extracts):
-    Open Database License (ODbL) 1.0 — attribution + share-alike on the data.
+remain subject to their own licenses and terms.
 
 Live sources (Google Maps, OpenSky, adsb.lol, AISStream, CelesTrak,
 OSM Overpass, City of Austin) are fetched at runtime under each

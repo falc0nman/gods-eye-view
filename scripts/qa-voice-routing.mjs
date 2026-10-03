@@ -106,8 +106,8 @@ const PHRASES = [
   { phrase: 'Turn on the storm warnings layer', expect: 'set_layer_visibility' },
   { phrase: 'Turn on street traffic', expect: 'set_layer_visibility', args: { layerId: 'traffic' } },
   { phrase: 'Open the data layers menu', expect: 'show_data_layers_menu' },
-  { phrase: 'Show me the datacenter layers', expect: 'show_data_layers_menu' },
-  { phrase: 'Turn on the datacenters layer', expect: 'set_layer_visibility' },
+  { phrase: 'Show me the radar layers', expect: 'show_data_layers_menu' },
+  { phrase: 'Turn on the radar layer', expect: 'set_layer_visibility' },
 
   // — visual styles & post-fx —
   { phrase: 'Give me night vision', expect: 'set_visual_style' },

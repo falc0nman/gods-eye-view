@@ -613,32 +613,17 @@ test('the voice TOOL SCHEMA matches the pinned release — the mission mapping i
   // Re-derived again for the storm-chase layer ids and their mapping, and
   // for each GW-57 removal taking its layers out of enums, mappings and
   // analyst fields.
-  assert.equal(block.length, 27137, 'serialized tool schema length drifted');
+  assert.equal(block.length, 26812, 'serialized tool schema length drifted');
   assert.equal(
     crypto.createHash('sha256').update(block).digest('hex'),
-    'cabd29674cc51c52ed060c0807c04e84cee696828f6a0b59f494eb7810d4cc2a',
+    'd1f655321f0e6d6ab374d0bb9789309dd53ba47f3824e629af0e3bc247b670d9',
     'the first-run missions must ride EXISTING tools: no schema edit, no cache bust',
   );
   const instructions = fs.readFileSync(new URL('../server/providers/openai/instructions.js', import.meta.url), 'utf8');
 
-  // ...and the mapping that makes them reachable by voice is one instruction
-  // string, whose rollback is deleting that string. Anchored to a LIVE array
-  // entry — a quote at the start of its own line — so commenting the paragraph
-  // out reads as the removal it is, not as a passing substring match.
-  assert.match(
-    instructions,
-    /\n\s+'NAMED VIEWS are shorthand/,
-    'the mission mapping must be an active instruction entry, not commented out',
-  );
-  const mapping = instructions.slice(instructions.indexOf('NAMED VIEWS are shorthand'));
-  const paragraph = mapping.slice(0, mapping.indexOf("',\n"));
-  for (const layerId of [
-    'local-datacenters', 'local-dams',
-  ]) {
-    assert.ok(paragraph.includes(layerId), `mapping must name the existing ${layerId} enum value`);
-  }
-  assert.ok(paragraph.includes('zoom_to_globe'));
-  assert.ok(paragraph.includes('set_layer_visibility'));
+  // GW-57 removed the last named view (infrastructure) with its layers, so
+  // the instruction-only mapping is gone rather than left naming dead ids.
+  assert.doesNotMatch(instructions, /NAMED VIEWS are shorthand/);
 });
 
 test('every layer a mission drives is already in the shipped set_layer_visibility enum', () => {

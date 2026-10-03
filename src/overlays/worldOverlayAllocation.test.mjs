@@ -2,7 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { LOCAL_OVERLAY_COHORT_LIMIT } from '../data/localGeojson.js';
 import { vesselOverlayCohortLimit } from '../data/vesselLabels.js';
 import { CCTV_AMBIENT_CARD_MAX } from '../data/cctvLod.js';
 import { AMBIENT_CARD_COLLISION_CAPACITY } from './worldOverlay.js';
@@ -123,31 +122,19 @@ const WORKLOADS = [
     saturated: true,
   },
   {
-    name: 'with both local infrastructure sources live',
-    profile: 'local-infrastructure',
-    entries: LOCAL_OVERLAY_COHORT_LIMIT * 2,
-    candidates: LOCAL_OVERLAY_COHORT_LIMIT * 2,
-    maxBytesPerFrame: 49_000,
-    saturated: true,
-  },
-  {
-    name: 'with infrastructure and vessels live',
+    name: 'with vessels live',
     profile: 'phase3-vessels',
-    entries: LOCAL_OVERLAY_COHORT_LIMIT * 2
-      + vesselOverlayCohortLimit(1600, 900) + 1,
-    candidates: LOCAL_OVERLAY_COHORT_LIMIT * 2
-      + vesselOverlayCohortLimit(1600, 900) + 1,
+    entries: vesselOverlayCohortLimit(1600, 900) + 1,
+    candidates: vesselOverlayCohortLimit(1600, 900) + 1,
     maxBytesPerFrame: 87_500,
     saturated: true,
     ambientCardCapacity: AMBIENT_CARD_COLLISION_CAPACITY,
   },
   {
-    name: 'with infrastructure, ambient vessels, and tracked readout live',
+    name: 'with ambient vessels and tracked readout live',
     profile: 'phase3-tracked',
-    entries: LOCAL_OVERLAY_COHORT_LIMIT * 2
-      + vesselOverlayCohortLimit(1600, 900) + 1,
-    candidates: LOCAL_OVERLAY_COHORT_LIMIT * 2
-      + vesselOverlayCohortLimit(1600, 900) + 1,
+    entries: vesselOverlayCohortLimit(1600, 900) + 1,
+    candidates: vesselOverlayCohortLimit(1600, 900) + 1,
     maxBytesPerFrame: 86_700,
     saturated: true,
     ambientCardCapacity: AMBIENT_CARD_COLLISION_CAPACITY,
@@ -155,10 +142,8 @@ const WORKLOADS = [
   {
     name: 'with all Phase 3 sources and CCTV thumbnails live',
     profile: 'phase4-cctv',
-    entries: LOCAL_OVERLAY_COHORT_LIMIT * 2
-      + vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1,
-    candidates: LOCAL_OVERLAY_COHORT_LIMIT * 2
-      + vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1,
+    entries: vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1,
+    candidates: vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1,
     maxBytesPerFrame: 102_400,
     maxBytesPerCandidatePerFrame: 210,
     saturated: true,
@@ -175,11 +160,9 @@ const WORKLOADS = [
   {
     name: 'with final Phase 5 host sources live (pre-cable-migration surface)',
     profile: 'phase5-military',
-    entries: LOCAL_OVERLAY_COHORT_LIMIT * 2
-      + vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
+    entries: vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
       + 2,
-    candidates: LOCAL_OVERLAY_COHORT_LIMIT * 2
-      + vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
+    candidates: vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
       + 2,
     maxBytesPerFrame: 132_000,
     maxBytesPerCandidatePerFrame: 225,
@@ -189,12 +172,10 @@ const WORKLOADS = [
   {
     name: 'with final Phase 5 sources and bounded rocket-mission markers live',
     profile: 'phase5-rockets',
-    entries: LOCAL_OVERLAY_COHORT_LIMIT * 2
-      + vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
+    entries: vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
       + 2
       + ROCKET_MISSION_AMBIENT_OVERLAY_COHORT_LIMIT,
-    candidates: LOCAL_OVERLAY_COHORT_LIMIT * 2
-      + vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
+    candidates: vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
       + 2
       + ROCKET_MISSION_AMBIENT_OVERLAY_COHORT_LIMIT,
     // 142,000 deliberately carries ~6% headroom (vs the ~3.3% the previous
@@ -211,12 +192,10 @@ const WORKLOADS = [
     // bounds until the row is re-measured without it.
     name: 'with every shared-host source and bounded Radio text live',
     profile: 'all-live-radio',
-    entries: LOCAL_OVERLAY_COHORT_LIMIT * 2
-      + vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
+    entries: vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
       + 2
       + ROCKET_MISSION_AMBIENT_OVERLAY_COHORT_LIMIT + RADIO_OVERLAY_COHORT_LIMIT + 1,
-    candidates: LOCAL_OVERLAY_COHORT_LIMIT * 2
-      + vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
+    candidates: vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
       + 2
       + ROCKET_MISSION_AMBIENT_OVERLAY_COHORT_LIMIT + RADIO_OVERLAY_COHORT_LIMIT + 1,
     maxBytesPerFrame: 182_000,

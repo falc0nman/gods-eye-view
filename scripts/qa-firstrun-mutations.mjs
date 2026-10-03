@@ -434,12 +434,6 @@ const MUTATIONS = [
     from: "            'military',\n            'satellites',",
     to: "            'military',\n            'infrastructure-mode',\n            'satellites',",
   },
-  {
-    defect: 'the instruction mapping is dropped, so voice cannot reach the modes',
-    file: 'voiceInstructions',
-    from: "    'NAMED VIEWS are shorthand",
-    to: "    // 'NAMED VIEWS are shorthand",
-  },
 ];
 
 const originals = new Map();

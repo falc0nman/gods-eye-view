@@ -2,7 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as C from 'cesium';
 import { showOsmCredit, hideOsmCredit } from './dataCredits.js';
-import { createInfrastructureLayers } from './infrastructure.js';
 import { createWorldAnnotationRenderer } from '../annotations/worldAnnotationRenderer.js';
 import * as annotations from '../annotations/worldAnnotationRenderer.js';
 import { createDirectionsLayer } from '../layers/directions/index.js';
@@ -33,17 +32,6 @@ function viewer(t) {
 function assertCredit(v) {
   assert.ok(v.credits.some((credit) => credit.showOnScreen && credit.html.includes('>© OpenStreetMap<')));
 }
-for (const index of [0, 1]) test(`${index ? 'dams' : 'datacenters'} introduce the shared OSM credit when data displays`, async (t) => {
-  const v = viewer(t);
-  t.mock.method(globalThis, 'fetch', async () => ({ ok: true, text: async () => JSON.stringify({ type: 'Feature', id: 'test', properties: { name: 'Site' }, geometry: { type: 'Polygon', coordinates: [[[0, 0], [0.01, 0], [0, 0.01], [0, 0]]] } }) }));
-  const layer = createInfrastructureLayers({ overlayHost, registerEntityContext: noop, selectEntityContext: noop, clearSelectedEntityContextForLayer: noop, removeEntityContextsForLayer: noop, governorRequestRender: noop, showOsmCredit, hideOsmCredit })[index];
-  await layer.enable(v);
-  assert.equal(layer.getStats().count, 1);
-  assertCredit(v);
-  layer.destroy(v);
-  assert.equal(v.credits.filter(c => c.showOnScreen).length, 0);
-});
-
 test('voice route geometry introduces the shared OSM credit', (t) => {
   const v = viewer(t), renderer = createWorldAnnotationRenderer(v);
   renderer.add({ id: 'route', type: 'route', color: 'primary', anchor: { lat: 0, lon: 0 }, path: [{ lat: 0, lon: 0 }, { lat: 0.01, lon: 0.01 }] });

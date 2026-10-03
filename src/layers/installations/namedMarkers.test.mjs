@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import * as C from 'cesium';
 import { createNamedMarkers } from './namedMarkers.js';
 import { createLifecycle } from './lifecycle.js';
-import { createLocalInfrastructureOverlayEntry } from '../../data/localGeojsonCore.js';
 
 function setup(t) {
   let labels = [], options, publications = 0, visible = false;
@@ -132,20 +131,6 @@ test('the bounded host cohort ranks wide points and polygon titles by area', (t)
   assert.equal(h.projections.size, 1, 'point projection reuses scratch storage');
   h.lifecycle.destroy(h.state.viewer);
   assert.equal(h.labels.length, 0);
-});
-
-
-test('wide and polygon titles use the Data Centers entry contract and persistent shared domain', (t) => {
-  const h = setup(t);
-  h.markers.sync([h.records[0], { ...h.records[1], pointOnly: false }]);
-  assert.equal(h.options.moving, false);
-  assert.equal(h.options.solveIntervalMs, undefined);
-  assert.equal(h.options.maxVisible, 24);
-  for (const entry of h.labels) {
-    const reference = createLocalInfrastructureOverlayEntry({ id: entry.id, layerId: 'military-installations', position: entry.position, properties: { name: entry.title }, priority: entry.priority, accent: entry.accent });
-    assert.deepEqual(entry, { ...reference, selected: false });
-  }
-  h.lifecycle.destroy(h.state.viewer);
 });
 
 

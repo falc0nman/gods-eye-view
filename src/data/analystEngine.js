@@ -57,16 +57,6 @@ export const ANALYST_LAYERS = {
     text: ['name', 'noradId', 'satelliteClass', 'group'],
     flags: [],
   },
-  'local-datacenters': {
-    numeric: [],
-    text: ['name', 'operator', 'capacity'],
-    flags: [],
-  },
-  'local-dams': {
-    numeric: [],
-    text: ['name', 'operator', 'river', 'output'],
-    flags: [],
-  },
 };
 
 const EARTH_R_KM = 6371;

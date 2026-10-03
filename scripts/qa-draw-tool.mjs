@@ -763,67 +763,7 @@ async function findClickableTarget() {
     if (spot) return { ...spot, layer: 'CCTV camera' };
   }
 
-  // Bundled infrastructure as the keyless fallback: a different guarded handler,
-  // the same shared claim, and always present without a key.
-  const site = await page
-    .evaluate(async () => {
-      const viewer = window.__godsEyeView.viewer;
-      await window.__godsEyeView.dataManager.setEnabled(
-        'local-datacenters',
-        true,
-        {
-          origin: 'user',
-        },
-      );
-      const centreOf = (entity) => {
-        const time = viewer.clock.currentTime;
-        const point = entity.position?.getValue?.(time);
-        if (point) return point;
-        const hierarchy = entity.polygon?.hierarchy?.getValue?.(time);
-        if (hierarchy?.positions?.length) return hierarchy.positions[0];
-        const line = entity.polyline?.positions?.getValue?.(time);
-        return line?.length ? line[0] : null;
-      };
-      for (let attempt = 0; attempt < 40; attempt += 1) {
-        for (let i = 0; i < viewer.dataSources.length; i += 1) {
-          for (const entity of viewer.dataSources.get(i).entities.values) {
-            if (entity.__localLayerId !== 'local-datacenters') continue;
-            const point = centreOf(entity);
-            if (!point) continue;
-            const carto = window.Cesium
-              ? window.Cesium.Cartographic.fromCartesian(point)
-              : viewer.scene.globe.ellipsoid.cartesianToCartographic(point);
-            if (!carto) continue;
-            return {
-              lon: (carto.longitude * 180) / Math.PI,
-              lat: (carto.latitude * 180) / Math.PI,
-            };
-          }
-        }
-        await new Promise((resolve) => setTimeout(resolve, 500));
-      }
-      return null;
-    })
-    .catch(() => null);
-  if (!site) return null;
-  await page.evaluate((spot) => {
-    const viewer = window.__godsEyeView.viewer;
-    viewer.camera.cancelFlight?.();
-    viewer.camera.setView({
-      destination: viewer.scene.globe.ellipsoid.cartographicToCartesian({
-        longitude: (spot.lon * Math.PI) / 180,
-        latitude: (spot.lat * Math.PI) / 180,
-        height: 2500,
-      }),
-      orientation: { heading: 0, pitch: (-88 * Math.PI) / 180, roll: 0 },
-    });
-    viewer.scene.requestRender();
-  }, site);
-  await wait(4000);
-  const spot = await onScreen(
-    (entity) => entity.__localLayerId === 'local-datacenters',
-  );
-  return spot ? { ...spot, layer: 'data centre' } : null;
+  return null;
 }
 
 /**

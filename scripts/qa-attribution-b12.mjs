@@ -10,7 +10,6 @@
  * This script drives the REAL app headless and proves:
  *   (i)   per-layer credits are registered in viewer.creditDisplay (H11),
  *         and appear in the "Data attribution" lightbox when opened;
- *   (ii)  enabling datacenters keeps their credits present;
  *   (iii) toggling clean-view keeps #cesium-credits visible (screenshot);
  *   (iv)  toggling recording-mode keeps #cesium-credits visible (screenshot).
  *
@@ -57,7 +56,7 @@ function check(name, ok, detail) {
 
 // Substrings that MUST be present across the registered per-layer credits.
 const REQUIRED_CREDIT_SUBSTRINGS = [
-  'OpenStreetMap contributors', // ODbL — datacenters/dams/roads
+  'OpenStreetMap contributors', // ODbL — roads
   'adsb.lol',                    // ODbL — military traces
   'CelesTrak',                   // satellites
   'OpenSky Network',             // flights
@@ -295,26 +294,6 @@ async function main() {
   await page.screenshot({ path: resolve(SHOT_DIR, 'attribution-lightbox-mobile.png') });
   await page.evaluate(() => window.__godsEyeView.viewer.creditDisplay.hideLightbox());
   await page.setViewport({ width: 1440, height: 900, deviceScaleFactor: 1 });
-
-  // ── (ii) enable datacenters; credits still present ────────
-  console.log('\nH11 — enabling datacenters');
-  const layerIds = await page.evaluate(() => {
-    const dm = window.__godsEyeView.dataManager;
-    return [...dm.layers.keys()];
-  });
-  // Find the datacenter layer id by fuzzy match on the id string.
-  const dcId = layerIds.find((id) => /datacenter/i.test(id));
-  check('found datacenter layer id', !!dcId, `dc=${dcId}`);
-  if (dcId) await page.evaluate((id) => window.__godsEyeView.dataManager.setEnabled(id, true), dcId);
-  await new Promise((r) => setTimeout(r, 800));
-  const afterEnableHtml = await page.evaluate(() =>
-    (window.__godsEyeView.viewer.creditDisplay._staticCredits || []).map((c) => c.html),
-  );
-  check(
-    'datacenter credit (OSM/ODbL) still present after enable',
-    afterEnableHtml.some((h) => h.includes('OpenStreetMap contributors')),
-    '',
-  );
 
   // helper: is #cesium-credits visible (line rendered, not display:none)?
   const creditVisibility = async () =>

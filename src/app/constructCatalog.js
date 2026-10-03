@@ -21,8 +21,6 @@ import { createApplicationSatellites } from './layers/satellites.js';
 import { createApplicationLaunches } from './layers/rocketLaunches.js';
 import { createApplicationLocalAdsb } from './layers/localAdsb.js';
 import { createApplicationAwareness } from './layers/militaryAwareness.js';
-import { createInfrastructureLayers } from '../data/infrastructure.js';
-import { localGeoJsonServices } from './localGeojsonServices.js';
 
 const SOURCE_METHODS = Object.freeze({
   flights: ['getSnapshot'],
@@ -164,7 +162,6 @@ export function createApplicationCatalog({
         createNexradLayer({ source: sources.nexrad }),
         createApplicationNwsWarnings({ source: sources['nws-warnings'] }),
         createApplicationTeamChasers({ source: sources['team-chasers'] }),
-        ...createInfrastructureLayers(localGeoJsonServices),
       ],
       metadata,
     );

@@ -38,7 +38,7 @@ try {
     window.__qaComponents = app;
     await application.start();
     await app.styleManager.initialRestorePromise;
-    const enabled = await app.dataManager.setEnabled('local-datacenters', true);
+    const enabled = await app.dataManager.setEnabled('cctv', true);
     const annotation = await app.annotations.annotate([
       {
         type: 'pin',

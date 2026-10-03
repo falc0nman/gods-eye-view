@@ -6,7 +6,7 @@ import * as Cesium from 'cesium';
  * Legal requirement (see DATA_SOURCES.md, findings H10/H11 in
  * docs/pre-ship-audit-2026-07-01.md): every third-party data layer this app can
  * display carries its own license and required attribution — ODbL (OSM
- * datacenters/dams, adsb.lol, Overpass roads), CelesTrak, City of Austin, Fintraffic (CC BY 4.0),
+ * adsb.lol, Overpass roads), CelesTrak, City of Austin, Fintraffic (CC BY 4.0),
  * The MIT code license does NOT cover this data.
  *
  * These credits are registered ONCE at init as STATIC credits with
@@ -291,10 +291,6 @@ export const DATA_CREDITS = [
       'ECMWF does not accept any liability whatsoever for any error or omission in the data, their availability, or for any loss or damage arising from their use.',
   },
   // ── Bundled snapshots ───────────────────────────────────────────
-  {
-    key: 'dams',
-    html: 'Dams: Open Infrastructure Map',
-  },
   {
     key: 'drivebc-cctv',
     html:

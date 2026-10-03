@@ -133,8 +133,6 @@ const schemas = [
             'cctv',
             'radio',
             'ais-live-vessels',
-            'local-datacenters',
-            'local-dams',
             'local-adsb',
             'weather-radar',
             'nexrad',
@@ -165,8 +163,6 @@ const schemas = [
             'cctv',
             'radio',
             'ais-live-vessels',
-            'local-datacenters',
-            'local-dams',
             'weather-radar',
             'nexrad',
             'nws-warnings',
@@ -273,10 +269,6 @@ const schemas = [
         scope: {
           type: 'string',
           enum: ['auto', 'selected', 'in_view'],
-        },
-        layerId: {
-          type: 'string',
-          enum: ['local-datacenters', 'local-dams'],
         },
         limit: {
           type: 'number',
@@ -776,14 +768,7 @@ const schemas = [
           type: 'array',
           items: {
             type: 'string',
-            enum: [
-              'flights',
-              'military',
-              'ais-live-vessels',
-              'satellites',
-              'local-datacenters',
-              'local-dams',
-            ],
+            enum: ['flights', 'military', 'ais-live-vessels', 'satellites'],
           },
         },
         scope: {

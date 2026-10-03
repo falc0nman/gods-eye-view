@@ -81,9 +81,6 @@
     "ws": "^8.21.0"
   },
   "exports": {
-    "./infrastructure": "./src/data/infrastructure.js",
-    "./infrastructure/geojson": "./src/data/localGeojsonCore.js",
-    "./infrastructure/lod": "./src/data/localGeojsonLod.js",
     "./application": "./src/app/application.js",
     "./application/viewer": "./src/app/viewer.js",
     "./build/vite": {

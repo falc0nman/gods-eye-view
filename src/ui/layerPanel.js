@@ -34,7 +34,7 @@ const PANEL_GROUPS = [
   },
   {
     label: 'Infrastructure',
-    ids: ['military-installations', 'local-datacenters', 'local-dams'],
+    ids: ['military-installations'],
   },
   {
     label: 'Events',
@@ -64,7 +64,6 @@ const PANEL_POSITIONS = new Map(
 const PANEL_LABELS = {
   'ais-live-vessels': 'Live Vessels',
   cctv: 'Cameras',
-  'local-datacenters': 'Data Centers',
 };
 
 function panelLabel(layer) {

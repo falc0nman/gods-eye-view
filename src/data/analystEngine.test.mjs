@@ -195,20 +195,13 @@ test('analyst: route fields queryable from cached enrichment only', async () => 
   assert.deepEqual(r.items.map((i) => i.id), ['SWA1'], 'null route fields never match');
 });
 
-test('analyst: satellites and local infrastructure are queryable layers', async () => {
+test('analyst: satellites are a queryable layer', async () => {
   const SATS = [
     { id: 'ISS (ZARYA)', noradId: '25544', name: 'ISS (ZARYA)', lat: 30.3, lon: -97.7, altitudeM: 410000, satelliteClass: 'STATION · ISS', group: 'stations' },
     { id: 'GPS BIIR-2', noradId: '24876', name: 'GPS BIIR-2', lat: 51.0, lon: 0.0, altitudeM: 20200000, satelliteClass: 'NAV · GPS', group: 'gps-ops' },
   ];
-  const DAMS = [
-    { id: 'Austin Dam', name: 'Austin Dam', lat: 30.27, lon: -97.74, operator: 'LCRA', river: 'Colorado', output: '2 MW' },
-    { id: 'Far Dam', name: 'Far Dam', lat: 45.0, lon: -122.0, operator: 'USACE', river: 'Columbia', output: '1000 MW' },
-  ];
-  const DCS = [
-    { id: 'AUS-1', name: 'AUS-1', lat: 30.28, lon: -97.75, operator: 'Example Cloud', capacity: '27 MW' },
-  ];
   const eng = createAnalystEngine({
-    getRecords: (key) => ({ satellites: SATS, 'local-dams': DAMS, 'local-datacenters': DCS }[key] || []),
+    getRecords: (key) => ({ satellites: SATS }[key] || []),
     resolveRegionRing: async (name) => (/texland/i.test(name) ? TEXLAND : null),
     getViewContext: () => ({ lat: 30.27, lon: -97.74, viewRadiusKm: 150 }),
   });
@@ -226,20 +219,6 @@ test('analyst: satellites and local infrastructure are queryable layers', async 
     filters: [{ field: 'satelliteClass', op: 'contains', value: 'NAV' }],
   });
   assert.deepEqual(nav.items.map((i) => i.id), ['GPS BIIR-2']);
-
-  const dams = await eng.query({
-    layers: ['local-dams'], scope: { kind: 'view' }, sortBy: 'distance', limit: 5,
-  });
-  assert.equal(dams.count, 1);
-  assert.equal(dams.items[0].id, 'Austin Dam');
-  assert.equal(dams.items[0].river, 'Colorado');
-
-  const dcs = await eng.query({
-    layers: ['local-datacenters'], scope: { kind: 'region', name: 'Texland' },
-    filters: [{ field: 'operator', op: 'contains', value: 'cloud' }],
-  });
-  assert.equal(dcs.count, 1);
-  assert.equal(dcs.items[0].id, 'AUS-1');
 });
 
 test('helpers: haversine sanity + scope radius', () => {
@@ -251,11 +230,11 @@ test('helpers: haversine sanity + scope radius', () => {
 
 test('bounded loaded cohorts disclose truncation before filtering and retain it on follow-up', async () => {
   const engine = createAnalystEngine({
-    getRecords: () => [{ id: 'sample dam', lat: 0, lon: 0, name: 'sample' }],
+    getRecords: () => [{ id: 'sample sat', lat: 0, lon: 0, name: 'sample' }],
     getRecordCoverage: () => ({ basis: 'bounded-loaded-records', recordsExamined: 1, loadedCount: 3000, sourceTruncated: true }),
     getViewContext: () => ({ lat: 0, lon: 0, viewRadiusKm: 25 }),
   });
-  const result = await engine.query({ layers: ['local-dams'], scope: { kind: 'anywhere' }, sortBy: 'distance' });
+  const result = await engine.query({ layers: ['satellites'], scope: { kind: 'anywhere' }, sortBy: 'distance' });
   assert.equal(result.count, 1);
   assert.equal(result.coverage.layersQueried[0].sourceTruncated, true);
   assert.match(result.coverage.note, /omitted records may change the nearest item or count/);

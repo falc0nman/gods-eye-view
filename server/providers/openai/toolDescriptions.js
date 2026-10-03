@@ -82,7 +82,7 @@ export const ACTION_DESCRIPTIONS = {
       properties: {
         layerId: {
           description:
-            'Common-name mapping for the non-obvious ids: space mission(s) → rocket-launches; ships/vessels/boats → ais-live-vessels; datacenters → local-datacenters; dams → local-dams; street traffic/congestion → traffic; traffic cameras → cctv; internet radio/stations → radio; local ADS-B/my receiver/my antenna (aircraft heard by a local RTL-SDR receiver) → local-adsb; radar/weather radar/rain (national MRMS mosaic) → weather-radar; single-radar NEXRAD/velocity/correlation coefficient/level 3 radar → nexrad; storm/tornado/severe/flash flood warnings → nws-warnings; chasers/my team/team positions → team-chasers.',
+            'Common-name mapping for the non-obvious ids: space mission(s) → rocket-launches; ships/vessels/boats → ais-live-vessels; street traffic/congestion → traffic; traffic cameras → cctv; internet radio/stations → radio; local ADS-B/my receiver/my antenna (aircraft heard by a local RTL-SDR receiver) → local-adsb; radar/weather radar/rain (national MRMS mosaic) → weather-radar; single-radar NEXRAD/velocity/correlation coefficient/level 3 radar → nexrad; storm/tornado/severe/flash flood warnings → nws-warnings; chasers/my team/team positions → team-chasers.',
           $position: 1,
         },
       },
@@ -155,10 +155,6 @@ export const ACTION_DESCRIPTIONS = {
         scope: {
           description:
             'Use auto by default. selected returns the clicked/selected entity; in_view returns visible entities near the screen center.',
-          $position: 2,
-        },
-        layerId: {
-          description: 'Optional layer filter for visible entity context.',
           $position: 2,
         },
       },
@@ -528,7 +524,7 @@ export const ACTION_DESCRIPTIONS = {
   },
   analyst_query: {
     description:
-      'Answer questions ABOUT the data currently loaded on the map — counts, lists, superlatives, and attribute filters over live layers (flights, military, ships, satellites, datacenters, dams). Examples: "how many flights over Texas", "which ships are headed to Oakland", "anything above 40,000 feet", "fastest thing in view". For satellites and infrastructure, counts and ranks cover only bounded examined loaded records; omitted records can change nearest/count. Queries ONLY client-side data from ENABLED layers — if the needed layer is off, say so and offer to enable it. For a follow-up about the previous answer\'s set ("which of those is closest?"), set followUp=true and send only the new filters/sort.',
+      'Answer questions ABOUT the data currently loaded on the map — counts, lists, superlatives, and attribute filters over live layers (flights, military, ships, satellites). Examples: "how many flights over Texas", "which ships are headed to Oakland", "anything above 40,000 feet", "fastest thing in view". For satellites, counts and ranks cover only bounded examined loaded records; omitted records can change nearest/count. Queries ONLY client-side data from ENABLED layers — if the needed layer is off, say so and offer to enable it. For a follow-up about the previous answer\'s set ("which of those is closest?"), set followUp=true and send only the new filters/sort.',
     $position: 1,
     parameters: {
       properties: {

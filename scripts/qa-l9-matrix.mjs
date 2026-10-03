@@ -171,8 +171,6 @@ const CREDIT_EXPECTATIONS = {
   radio: /Radio Browser/i,
   'ais-live-vessels': /AISStream/i,
   'military-installations': /OpenStreetMap/i,
-  'local-datacenters': /OpenStreetMap/i,
-  'local-dams': /OpenStreetMap/i,
   'local-neighborhoods': /DataSF|San Francisco/i,
   'weather-effects': /Open-Meteo/i,
 };
@@ -667,7 +665,7 @@ check({
     // blockers because both are legitimately present in the shipping tree: one
     // is the name of the auto-detection default view (README, CHANGELOG,
     // src/data/*), the other appears inside the bundled public geodata
-    // (datacenter points). Scanning for them
+    // data. Scanning for them
     // produces only false positives — flagged as a stale checklist item in
     // the maintainers' release runbook, not silently honoured.
     //
@@ -1039,7 +1037,7 @@ const BROWSER_CHECKS = [
   ['C7', 'CCTV layer populates and its frame loop is healthy'],
   ['C8', 'Vessels: live rows when keyed, honest UNAVAILABLE when not'],
   ['C10', 'Traffic: LIVE mode when keyed, clearly-labelled SIMULATION when not'],
-  ['C11', 'Bundled layers render: datacenters, dams, installations'],
+  ['C11', 'Mapped installations render'],
   ['C12', 'Attribution lightbox lists a credit for every enabled layer'],
   ['C13', 'Clean-UI keeps the Google/Cesium credit line visible (ToS)'],
   ['C14', 'No key material reaches browser state, URLs or storage'],
@@ -1125,13 +1123,13 @@ check({
   heavy: true, run: harness({ id: 'D10', script: 'qa-voice-routing.mjs', args: ['--layer', 'behavior', '--url', APP_URL], timeoutMs: 1500000 }),
 });
 check({
-  id: 'D12', group: 'D', desc: 'qa-overlay-baseline (datacenters scene) — overlay/label baseline',
+  id: 'D12', group: 'D', desc: 'qa-overlay-baseline (CCTV city scene) — overlay/label baseline',
   heavy: true,
   run: harness({
     id: 'D12',
     script: 'qa-overlay-baseline.mjs',
-    args: ['--url', APP_URL, '--scene', 'datacenters', '--json', OVERLAY_JSON],
-    parse: readOverlaySummary('local-datacenters', OVERLAY_JSON),
+    args: ['--url', APP_URL, '--scene', 'cctv-city', '--json', OVERLAY_JSON],
+    parse: readOverlaySummary('cctv', OVERLAY_JSON),
     timeoutMs: 900000,
   }),
 });
@@ -1362,7 +1360,7 @@ async function runBrowserGroup(record) {
     await evalBounded(async () => {
       const dm = window.__godsEyeView.dataManager;
       const heavy = ['cctv', 'traffic', 'flights', 'satellites',
-        'local-datacenters', 'local-dams', 'military-installations'];
+        'military-installations'];
       for (const id of heavy) {
         if (!dm.layers.has(id)) continue;
         try {
@@ -1582,65 +1580,6 @@ async function runBrowserGroup(record) {
   });
 
   await step('C11', async () => {
-    // These are GLOBAL datasets and their rendered counts are viewport-scoped.
-    // C10 leaves the camera at 2,500 m over Austin, where a worldwide
-    // datacenter/dam set legitimately has nothing in view — inheriting that
-    // camera made this check report an empty layer that was actually fine.
-    // Establish the camera this check needs instead of inheriting one.
-    await evalBounded(async () => {
-      const g = window.__godsEyeView;
-      g.viewer.camera.cancelFlight();
-      g.styleManager.applyCameraState({ lat: 20, lon: 0, alt: 14000000, heading: 0, pitch: -90 }, 1.5);
-      await new Promise((r) => setTimeout(r, 4000));
-    }, null, 30000);
-    await new Promise((r) => setTimeout(r, 2000));
-
-    const bundled = ['local-datacenters', 'local-dams'];
-    const out = [];
-    const stillLoading = [];
-    let loadNote = '';
-    for (const id of bundled) {
-      // eslint-disable-next-line no-await-in-loop
-      const r = await settle(id, 45);
-      const s = r.stats || {};
-      const label = id.replace(/^local-/, '');
-      out.push(`${label}=${r.missing ? 'MISSING' : (s.count ?? 0)}`);
-      // "Still loading when my budget expired" is not "empty". Under full-run
-      // load these can take longer than an isolated run, and calling that a
-      // product failure is a false accusation — say the measurement was
-      // inconclusive instead.
-      if (!r.missing && !(s.count > 0) && (s.loading || s.loadingLabel) && !s.error) stillLoading.push(label);
-    }
-    if (stillLoading.length) {
-      return crash(`still loading when the ${45}s budget expired: ${stillLoading.join(', ')} [all: ${out.join(', ')}] — this check could not determine whether they render, so it verified nothing`);
-    }
-    let zero = out.filter((o) => /=0$|MISSING/.test(o));
-    if (zero.length) {
-      // A bundled layer can read 0 while the heavy layers are live (flights,
-      // CCTV, traffic) — the perf-wave budgets and scope mask legitimately
-      // suppress work under load. This check claims "bundled layers render",
-      // not "they render while everything else is on", and it must not guess
-      // between suppression-by-budget and a real render failure. Put the stage
-      // down and measure again: that is conclusive either way.
-      const contested = zero.map((o) => o.split('=')[0]);
-      await quiesce();
-      const retried = [];
-      for (const label of contested) {
-        const id = bundled.find((b2) => b2.replace(/^local-/, '') === label);
-        if (!id) continue;
-        // eslint-disable-next-line no-await-in-loop
-        const r2 = await settle(id, 45);
-        retried.push(`${label}=${r2.stats?.count ?? 0}`);
-      }
-      const stillZero = retried.filter((o) => /=0$/.test(o));
-      if (stillZero.length) {
-        return fail(`empty bundled layer(s) even on a quiet stage: ${stillZero.join(', ')} [under load: ${out.join(', ')}]`);
-      }
-      // Do NOT return here: the installations assertion below is part of this
-      // check's claim and must still run.
-      loadNote = ` (under load: ${out.join(', ')}; on a quiet stage: ${retried.join(', ')} — the zero reading was load-related suppression, not a render failure)`;
-    }
-    zero = [];
 
     // military-installations is named in this check's description, so it is
     // asserted — not quietly excluded. It is viewport-scoped (≤10° span,
@@ -1685,8 +1624,8 @@ async function runBrowserGroup(record) {
       // eslint-disable-next-line no-await-in-loop
       await new Promise((r) => setTimeout(r, 1000));
     }
-    if (mi.missing) return fail(`military-installations layer is not registered [bundled: ${out.join(', ')}]`);
-    if (ms.count > 0) return pass(`${out.join(', ')}, military-installations=${ms.count} over ${box.name}${loadNote}`);
+    if (mi.missing) return fail('military-installations layer is not registered');
+    if (ms.count > 0) return pass(`military-installations=${ms.count} over ${box.name}`);
     if (/zoom-in/.test(String(ms.status || ''))) {
       return fail(`military-installations refused the ${box.span * 2}° box over ${box.name} as too wide (status=${ms.status}, error="${ms.error}") — the probe camera and the layer's own ≤10° gate disagree`);
     }
@@ -1697,15 +1636,15 @@ async function runBrowserGroup(record) {
       // positively identified ENV condition — anything else is a product FAIL.
       const honestOutage = api.status === 503 && /temporarily unavailable/i.test(String(api.text || ''));
       if (honestOutage) {
-        return skip(`bundled layers OK (${out.join(', ')}); military-installations could not be checked — its upstream is down and the proxy says so honestly (HTTP 503 "${String(api.json?.error || '').slice(0, 60)}")`, 'ENV');
+        return skip(`military-installations could not be checked — its upstream is down and the proxy says so honestly (HTTP 503 "${String(api.json?.error || '').slice(0, 60)}")`, 'ENV');
       }
       return fail(`military-installations rendered 0 and its API returned HTTP ${api.status} for ${box.name} — a responsive app failing this route is a product failure: ${String(api.text || '').slice(0, 100)}`);
     }
     if (apiRows === null) return crash(`could not read a row count from /api/military-installations to cross-check the empty layer: ${String(api.text || '').slice(0, 100)}`);
     if (apiRows > 0) {
-      return fail(`/api/military-installations returned ${apiRows} features over ${box.name} but the layer rendered 0 (status=${ms.status}, error=${ms.error || 'none'}) [bundled: ${out.join(', ')}]`);
+      return fail(`/api/military-installations returned ${apiRows} features over ${box.name} but the layer rendered 0 (status=${ms.status}, error=${ms.error || 'none'})`);
     }
-    return skip(`bundled layers OK (${out.join(', ')}); military-installations rendered 0 AND its API returned 0 features over ${box.name} — positively an upstream-data condition, not a render failure`, 'ENV');
+    return skip(`military-installations rendered 0 AND its API returned 0 features over ${box.name} — positively an upstream-data condition, not a render failure`, 'ENV');
   });
 
   await step('C12', async () => {
@@ -1713,7 +1652,7 @@ async function runBrowserGroup(record) {
     // standalone (`--only C12`) nothing is on, and it would pass vacuously off
     // the static credit list — so self-arm a deterministic set first.
     const armed = (await evalBounded(() => [...(window.__godsEyeView.dataManager.getEnabledLayerIds?.() || [])], null, 20000)) || [];
-    const SELF_ARM = ['flights', 'satellites', 'local-datacenters'];
+    const SELF_ARM = ['flights', 'satellites', 'cctv'];
     if (armed.length === 0) {
       for (const id of SELF_ARM) {
         // eslint-disable-next-line no-await-in-loop

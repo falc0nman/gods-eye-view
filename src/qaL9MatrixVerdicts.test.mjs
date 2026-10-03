@@ -208,7 +208,7 @@ function fail(detail) { return { status: FAIL, detail }; }
 test('every layer the matrix can enable has an attribution expectation', () => {
   // C11 enables military-installations, which the old check filtered out.
   for (const id of ['flights', 'satellites', 'cctv', 'traffic',
-    'ais-live-vessels', 'military-installations', 'local-datacenters', 'local-dams']) {
+    'ais-live-vessels', 'military-installations']) {
     const expectation = requiredCreditFor(id);
     assert.ok(expectation?.regex, `${id} needs a credit expectation`);
   }

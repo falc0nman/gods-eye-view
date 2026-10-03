@@ -112,7 +112,6 @@ const appState = (page) => page.evaluate(() => {
   const counts = {};
   const all = dm?.getAll?.() || [];
   for (const id of [
-    'local-datacenters', 'local-dams',
     'weather-radar', 'nws-warnings', 'team-chasers', 'flights', 'military', 'rocket-launches', 'satellites',
   ]) {
     layers[id] = !!dm?.isEnabled?.(id);
@@ -591,11 +590,6 @@ async function main() {
     record('STORM CHASE enables radar, warnings and chasers',
       ['weather-radar', 'nws-warnings', 'team-chasers'].every((id) => state.layers[id]),
       ['weather-radar', 'nws-warnings', 'team-chasers'].map((id) => `${id}=${state.layers[id]}`).join(' '));
-    record(
-      'no mission turns on the bundled infrastructure layers any more',
-      !state.layers['local-datacenters'] && !state.layers['local-dams'],
-      'the removed tile left nothing enabling ~5,700 entities at globe scale',
-    );
     shots.push(await shoot(page, 'mission-storm-chase'));
     });
 

@@ -9,7 +9,7 @@
  *
  * Usage:
  *   node scripts/qa-overlay-baseline.mjs
- *   node scripts/qa-overlay-baseline.mjs --scene datacenters
+ *   node scripts/qa-overlay-baseline.mjs --scene cctv-city
  *   node scripts/qa-overlay-baseline.mjs --scene cctv-street,detection-50
  *   node scripts/qa-overlay-baseline.mjs --json /tmp/overlay-baseline.json
  *   node scripts/qa-overlay-baseline.mjs --screenshots-dir /tmp/overlay-shots
@@ -37,9 +37,6 @@ const KNOWN_OVERLAY_CANVASES = new Set([
 ]);
 
 const SCENES = Object.freeze([
-  { id: 'datacenters', layers: ['local-datacenters'], camera: [-98, 38, 6_000_000, 0, -Math.PI / 2] },
-  { id: 'dams', layers: ['local-dams'], camera: [-98, 38, 6_000_000, 0, -Math.PI / 2] },
-  { id: 'datacenters+dams', layers: ['local-datacenters', 'local-dams'], camera: [-98, 38, 6_000_000, 0, -Math.PI / 2] },
   { id: 'cctv-street', layers: ['cctv'], cctvHeightM: 1_500 },
   { id: 'cctv-city', layers: ['cctv'], cctvHeightM: 6_000 },
   { id: 'cctv-high', layers: ['cctv'], cctvHeightM: 12_000 },
@@ -53,7 +50,6 @@ const SCENES = Object.freeze([
 ]);
 
 const SCENE_ALIASES = Object.freeze({
-  'datacenters-dams': 'datacenters+dams',
   'tracked-civil': 'tracked-civil-aircraft',
   missions: 'missions-selected',
   cockpit: 'cockpit-mode',
@@ -384,7 +380,7 @@ async function readLayerState(page, layerId) {
 
 async function waitForLayer(page, layerId) {
   const dataBearing = new Set([
-    'local-datacenters', 'local-dams', 'cctv',
+    'cctv',
     'ais-live-vessels', 'flights', 'satellites', 'rocket-launches',
   ]);
   if (!dataBearing.has(layerId)) return readLayerState(page, layerId);
