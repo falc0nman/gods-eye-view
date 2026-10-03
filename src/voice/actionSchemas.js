@@ -128,7 +128,6 @@ const schemas = [
             'flights',
             'military',
             'satellites',
-            'rocket-launches',
             'traffic',
             'cctv',
             'radio',
@@ -206,7 +205,7 @@ const schemas = [
       properties: {
         mode: {
           type: 'string',
-          enum: ['off', 'contacts', 'flights', 'space-missions', 'missions'],
+          enum: ['off', 'contacts', 'flights'],
         },
       },
       required: ['mode'],

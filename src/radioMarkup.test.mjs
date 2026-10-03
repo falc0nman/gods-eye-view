@@ -18,7 +18,6 @@ const ui = readShellSource();
 const radio = ['playback', 'interaction'].map(name =>
   readFileSync(new URL(`./layers/radio/${name}.js`, import.meta.url), 'utf8')
 ).join('\n').replace(/layerState\.|parts\.\w+\./g, '');
-const rocketLaunches = readLayerSource(new URL('./data/rocketLaunches.js', import.meta.url), 'utf8');
 const realtime = readRealtimeSource();
 const voice = readFileSync(new URL('./voice/actionSchemas.js', import.meta.url), 'utf8') + '\n' + ['toolDescriptions', 'instructions'].map(name => readFileSync(new URL(`../server/providers/openai/${name}.js`, import.meta.url), 'utf8')).join('\n');
 const css = readStylesheet(new URL('../style.css', import.meta.url));
@@ -119,7 +118,7 @@ test('the Context tool pins its enums and required arguments', () => {
   assert.deepEqual(contextMode.parameters.required, ['mode']);
   assert.deepEqual(
     contextMode.parameters.properties.mode.enum,
-    ['off', 'contacts', 'flights', 'space-missions', 'missions'],
+    ['off', 'contacts', 'flights'],
   );
 });
 
@@ -192,18 +191,13 @@ test('no unchanged Realtime tool definition drifts silently', () => {
   assert.equal(digest, '1a094c509b54d5cd', 'an unchanged Realtime tool definition drifted');
 });
 
-test('Radio volume and mission speed share the Sharpen slider visual language', () => {
+test('Radio volume shares the Sharpen slider visual language', () => {
   for (const id of ['context-radio-mini-volume', 'radio-volume', 'sdr-volume']) {
     assert.match(
       html,
       new RegExp(`id="${id}"[^>]*class="gev-quantitative-slider"[^>]*type="range"`),
     );
   }
-  assert.match(
-    rocketLaunches,
-    /id="space-mission-replay-speed" class="gev-quantitative-slider" type="range" min="0\.25" max="4" step="0\.25" value="1"/,
-  );
-  assert.match(rocketLaunches, /class="gev-slider-value"[^>]*data-mission-replay-speed-output/);
   assert.match(css, /\.gev-quantitative-slider\s*\{[\s\S]*?min-width: 0;[\s\S]*?height: 18px;/);
   assert.match(css, /\.gev-quantitative-slider::-webkit-slider-runnable-track\s*\{[\s\S]*?height: 3px;[\s\S]*?background: rgba\(255, 255, 255, 0\.08\);/);
   assert.match(css, /\.gev-quantitative-slider::-webkit-slider-thumb\s*\{[\s\S]*?width: 10px;[\s\S]*?height: 10px;[\s\S]*?border-radius: 50%;[\s\S]*?background: var\(--accent\);/);

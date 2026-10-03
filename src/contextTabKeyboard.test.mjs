@@ -17,8 +17,8 @@ const html = expandApplicationHtml(readFileSync(new URL('../index.html', import.
 const ui = readShellSource();
 const css = readStylesheet(new URL('../style.css', import.meta.url));
 
-test('Contacts and Space Missions both participate in the ordinary Tab sequence', () => {
-  for (const id of ['global-context-flights-btn', 'global-context-missions-btn']) {
+test('Contacts participates in the ordinary Tab sequence', () => {
+  for (const id of ['global-context-flights-btn']) {
     const button = html.match(new RegExp(`<button id="${id}"[\\s\\S]*?</button>`));
     assert.ok(button, `${id} is missing`);
     assert.match(button[0], /role="tab"/);

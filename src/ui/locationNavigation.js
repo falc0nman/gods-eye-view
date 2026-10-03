@@ -311,7 +311,6 @@ export class LocationNavigation {
       satellitesLayer,
       aisLiveVesselsLayer,
       militaryAwarenessLayer,
-      rocketLaunchesLayer,
     } = this.services;
     if (this._disposed)
       return Promise.resolve({
@@ -346,11 +345,6 @@ export class LocationNavigation {
     }
     try {
       satellitesLayer.stopTracking?.({ origin: 'tool' });
-    } catch {
-      /* best-effort release */
-    }
-    try {
-      rocketLaunchesLayer.releaseCameraOwnership?.();
     } catch {
       /* best-effort release */
     }

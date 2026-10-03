@@ -5,7 +5,6 @@ import { fileURLToPath } from 'node:url';
 import { vesselOverlayCohortLimit } from '../data/vesselLabels.js';
 import { CCTV_AMBIENT_CARD_MAX } from '../data/cctvLod.js';
 import { AMBIENT_CARD_COLLISION_CAPACITY } from './worldOverlay.js';
-import { ROCKET_MISSION_AMBIENT_OVERLAY_COHORT_LIMIT } from '../data/rocketLaunches.js';
 import { RADIO_OVERLAY_COHORT_LIMIT } from '../data/radio.js';
 import { isCalibratedAllocationRuntime } from '../../scripts/run-unit-tests.mjs';
 
@@ -149,14 +148,7 @@ const WORKLOADS = [
     saturated: true,
     ambientCardCapacity: AMBIENT_CARD_COLLISION_CAPACITY,
   },
-  {
-    name: 'with the bounded rocket-mission ambient cohort',
-    profile: 'rocket-missions',
-    entries: ROCKET_MISSION_AMBIENT_OVERLAY_COHORT_LIMIT,
-    candidates: ROCKET_MISSION_AMBIENT_OVERLAY_COHORT_LIMIT,
-    maxBytesPerFrame: 6_000,
-    saturated: true,
-  },
+
   {
     name: 'with final Phase 5 host sources live (pre-cable-migration surface)',
     profile: 'phase5-military',
@@ -169,22 +161,7 @@ const WORKLOADS = [
     saturated: true,
     ambientCardCapacity: AMBIENT_CARD_COLLISION_CAPACITY,
   },
-  {
-    name: 'with final Phase 5 sources and bounded rocket-mission markers live',
-    profile: 'phase5-rockets',
-    entries: vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
-      + 2
-      + ROCKET_MISSION_AMBIENT_OVERLAY_COHORT_LIMIT,
-    candidates: vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
-      + 2
-      + ROCKET_MISSION_AMBIENT_OVERLAY_COHORT_LIMIT,
-    // 142,000 deliberately carries ~6% headroom (vs the ~3.3% the previous
-    // aggregate row ran at): a chosen margin correction, not drift.
-    maxBytesPerFrame: 142_000,
-    maxBytesPerCandidatePerFrame: 225,
-    saturated: true,
-    ambientCardCapacity: AMBIENT_CARD_COLLISION_CAPACITY,
-  },
+
   {
     // Calibrated 2026-08-18 with the 160-winner submarine-cable cohort folded
     // in (164,711 B/frame median on Node 24.19). GW-57 removed that cohort;
@@ -194,10 +171,10 @@ const WORKLOADS = [
     profile: 'all-live-radio',
     entries: vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
       + 2
-      + ROCKET_MISSION_AMBIENT_OVERLAY_COHORT_LIMIT + RADIO_OVERLAY_COHORT_LIMIT + 1,
+      + RADIO_OVERLAY_COHORT_LIMIT + 1,
     candidates: vesselOverlayCohortLimit(1600, 900) + 1 + CCTV_AMBIENT_CARD_MAX + 1
       + 2
-      + ROCKET_MISSION_AMBIENT_OVERLAY_COHORT_LIMIT + RADIO_OVERLAY_COHORT_LIMIT + 1,
+      + RADIO_OVERLAY_COHORT_LIMIT + 1,
     maxBytesPerFrame: 182_000,
     maxBytesPerCandidatePerFrame: 225,
     saturated: true,

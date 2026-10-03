@@ -18,7 +18,6 @@ import { createApplicationDirections } from './layers/directions.js';
 import { createApplicationRecentImagery } from './layers/recentImagery.js';
 import { createApplicationInstallations } from './layers/militaryInstallations.js';
 import { createApplicationSatellites } from './layers/satellites.js';
-import { createApplicationLaunches } from './layers/rocketLaunches.js';
 import { createApplicationLocalAdsb } from './layers/localAdsb.js';
 import { createApplicationAwareness } from './layers/militaryAwareness.js';
 
@@ -37,7 +36,6 @@ const SOURCE_METHODS = Object.freeze({
   ],
   installations: ['getMappedSites', 'searchNearby'],
   satellites: ['readGroup'],
-  launches: ['getLaunches', 'getActiveTle'],
   wind: ['getSnapshot'],
   weather: ['getSnapshot'],
   cyclones: ['getSnapshot'],
@@ -128,7 +126,6 @@ export function createApplicationCatalog({
           ...(resolveAsset ? { resolveAsset } : {}),
         }),
         satellites,
-        createApplicationLaunches({ source: sources.launches, satellites }),
         createApplicationTraffic({ source: sources.traffic, surface }),
         createApplicationCctv({ surface, source: sources.cctv }),
         createApplicationRadio({ surface, source: sources.radio }),

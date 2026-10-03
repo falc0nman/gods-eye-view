@@ -82,7 +82,7 @@ export const ACTION_DESCRIPTIONS = {
       properties: {
         layerId: {
           description:
-            'Common-name mapping for the non-obvious ids: space mission(s) → rocket-launches; ships/vessels/boats → ais-live-vessels; street traffic/congestion → traffic; traffic cameras → cctv; internet radio/stations → radio; local ADS-B/my receiver/my antenna (aircraft heard by a local RTL-SDR receiver) → local-adsb; radar/weather radar/rain (national MRMS mosaic) → weather-radar; single-radar NEXRAD/velocity/correlation coefficient/level 3 radar → nexrad; storm/tornado/severe/flash flood warnings → nws-warnings; chasers/my team/team positions → team-chasers.',
+            'Common-name mapping for the non-obvious ids: ships/vessels/boats → ais-live-vessels; street traffic/congestion → traffic; traffic cameras → cctv; internet radio/stations → radio; local ADS-B/my receiver/my antenna (aircraft heard by a local RTL-SDR receiver) → local-adsb; radar/weather radar/rain (national MRMS mosaic) → weather-radar; single-radar NEXRAD/velocity/correlation coefficient/level 3 radar → nexrad; storm/tornado/severe/flash flood warnings → nws-warnings; chasers/my team/team positions → team-chasers.',
           $position: 1,
         },
       },
@@ -107,7 +107,7 @@ export const ACTION_DESCRIPTIONS = {
   },
   set_context_mode: {
     description:
-      'Enter or exit the Global Context sub-mode used by Contacts and Space Missions. Use Contacts only when the user explicitly requests Contacts, and Space Missions only when explicitly requested. A request to open the parent Context panel alone uses set_panel_open and must not activate either sub-mode. Selecting an aircraft does not imply Context.',
+      'Enter or exit the Global Context sub-mode used by Contacts. Use Contacts only when the user explicitly requests Contacts. A request to open the parent Context panel alone uses set_panel_open and must not activate the sub-mode. Selecting an aircraft does not imply Context.',
     $position: 1,
     parameters: {
       properties: {

@@ -98,11 +98,6 @@ const CONTEXT_MODE_ALIASES = new Map([
   ['contacts', 'flights'],
   ['contact', 'flights'],
   ['flights', 'flights'],
-  ['space missions', 'space-missions'],
-  ['space-mission', 'space-missions'],
-  ['space mission', 'space-missions'],
-  ['space-missions', 'space-missions'],
-  ['missions', 'space-missions'],
 ]);
 /**
  * Every model-readable field that carries a context-mode id, and what an
@@ -185,9 +180,6 @@ const LAYER_ALIASES = new Map([
   ['team chasers', 'team-chasers'],
   ['my team', 'team-chasers'],
   ['satellites', 'satellites'],
-  ['space mission', 'rocket-launches'],
-  ['space missions', 'rocket-launches'],
-  ['missions', 'rocket-launches'],
   ['traffic', 'traffic'],
   ['street traffic', 'traffic'],
   ['cctv', 'cctv'],
@@ -392,7 +384,7 @@ export function createGevActionRunner({
             changeOptions,
           );
         }
-        if (layerId === 'rocket-launches' || layerId === 'satellites') {
+        if (layerId === 'satellites') {
           await styleManager?._waitForContextLayerSettlement?.();
         }
       } catch (error) {

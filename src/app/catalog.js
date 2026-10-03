@@ -8,7 +8,6 @@ const CONTROL_LAYER_IDS = Object.freeze({
   aisLiveVesselsLayer: 'ais-live-vessels',
   militaryAwarenessLayer: 'military-awareness',
   militaryInstallationsLayer: 'military-installations',
-  rocketLaunchesLayer: 'rocket-launches',
   localAdsbLayer: 'local-adsb',
 });
 

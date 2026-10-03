@@ -3,9 +3,7 @@ import assert from 'node:assert/strict';
 import createViteConfig, {
   adsbLolFallbackAnchor,
   coalesceProxyRequest,
-  launchLibraryRequestHeaders,
   keylessGooglePlacesResponse,
-  LL2_CACHE_TTL_MS,
   readResponseJsonCapped,
   validMilitaryInstallationBox,
   validRegionalPoint,
@@ -46,21 +44,11 @@ test('new data proxies install the same routes in dev and preview servers', () =
   const config = createViteConfig({ mode: 'test' });
   const byName = new Map(config.plugins.map((plugin) => [plugin.name, plugin]));
   for (const name of [
-    'rocket-launches-proxy',
     'military-installations-proxy',
   ]) {
     assert.equal(typeof byName.get(name)?.configureServer, 'function', `${name} dev hook`);
     assert.equal(typeof byName.get(name)?.configurePreviewServer, 'function', `${name} preview hook`);
   }
-});
-
-test('Launch Library uses a 15-minute cache and optional server-side token header', () => {
-  assert.equal(LL2_CACHE_TTL_MS, 15 * 60_000);
-  assert.deepEqual(launchLibraryRequestHeaders(''), { Accept: 'application/json' });
-  assert.deepEqual(launchLibraryRequestHeaders(' secret '), {
-    Accept: 'application/json',
-    Authorization: 'Token secret',
-  });
 });
 
 test('proxy request coalescing shares one per-key refresh and clears it after settlement', async () => {

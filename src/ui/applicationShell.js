@@ -127,7 +127,6 @@ export class StyleManager extends ShellFacade {
         satellitesLayer,
         aisLiveVesselsLayer,
         militaryAwarenessLayer,
-        rocketLaunchesLayer: services.rocketLaunchesLayer,
       },
       searchInput: this._locationSearch,
       interruptCameraMotion: services.interruptCameraMotion,
@@ -310,7 +309,6 @@ export class StyleManager extends ShellFacade {
         satellitesLayer: services.satellitesLayer,
         aisLiveVesselsLayer: services.aisLiveVesselsLayer,
         militaryAwarenessLayer: services.militaryAwarenessLayer,
-        rocketLaunchesLayer: services.rocketLaunchesLayer,
       },
       elements: {
         _locationPills: this._locationPills,

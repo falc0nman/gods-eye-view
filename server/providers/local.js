@@ -1,5 +1,5 @@
 import { openSkyProxy } from './aircraft/opensky.js';
-import { celestrakProxy, rocketLaunchesProxy } from './space.js';
+import { celestrakProxy } from './space.js';
 import { tomtomProxy } from './traffic.js';
 import { terrainHeightsProxy } from './terrain.js';
 import { adsbdbProxy } from './aircraft/enrichment.js';
@@ -37,7 +37,6 @@ function localProviderRegistry({ notificationTransport } = {}) {
   registry.registerLegacy('opensky', openSkyProxy);
   registry.registerLegacy('celestrak', celestrakProxy);
   registry.registerLegacy('tomtom', tomtomProxy);
-  registry.registerLegacy('rocket-launches', rocketLaunchesProxy);
   registry.registerLegacy('terrain-heights', terrainHeightsProxy);
   registry.registerLegacy('adsbdb', adsbdbProxy);
   registry.registerLegacy('overpass', overpassProxy);
@@ -75,7 +74,6 @@ export {
   CCTV_FRAME_FETCH_TIMEOUT_MS,
   fetchCctvImageFromUpstream,
 } from './cctv.js';
-export { LL2_CACHE_TTL_MS, launchLibraryRequestHeaders } from './space.js';
 export { googlePlacesContextProxy } from './places.js';
 export { googleServerApiKey } from './places.js';
 export { keylessGooglePlacesResponse } from './places.js';

@@ -39,7 +39,7 @@ test('catalogs construct distinct layers and classification from their supplied 
     signal: b.signal,
     surface: fixtureSurface(b.signal),
   });
-  assert.equal(first.layers.length, 21);
+  assert.equal(first.layers.length, 20);
   for (const id of ['nexrad', 'nws-warnings', 'team-chasers'])
     assert.ok(first.get(id), `${id} (storm chase) is registered`);
   assert.ok(first.get('local-adsb'), 'Local ADS-B is registered');
@@ -68,7 +68,7 @@ test('catalogs construct distinct layers and classification from their supplied 
   // GW-53: the Bhote Koshi event pack is removed.
   assert.equal(first.get('bhote-koshi-2026'), undefined);
   assert.equal(first.get('bhote-koshi-locator'), undefined);
-  // GW-57: submarine cables, ALPR, earthquakes, fires, bikeshare, transit, data centers and dams are removed.
+  // GW-57: submarine cables, ALPR, earthquakes, fires, bikeshare, transit, data centers, dams and launches are removed.
   assert.equal(first.get('telegeography-submarine-cables'), undefined);
   assert.equal(first.get('alpr-cameras'), undefined);
   assert.equal(first.get('earthquakes'), undefined);
@@ -78,6 +78,7 @@ test('catalogs construct distinct layers and classification from their supplied 
   assert.equal(first.get('transit'), undefined);
   assert.equal(first.get('local-datacenters'), undefined);
   assert.equal(first.get('local-dams'), undefined);
+  assert.equal(first.get('rocket-launches'), undefined);
   const lifecycle = new LayerLifecycle({});
   for (const layer of first.layers) lifecycle.register(layer);
   const rows = lifecycle.getAll();

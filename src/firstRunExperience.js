@@ -88,11 +88,6 @@ export const FIRST_RUN_MISSIONS = Object.freeze({
     contextMode: 'contacts',
     busyText: 'Starting live contacts…',
   }),
-  'space-missions': Object.freeze({
-    kind: 'context',
-    contextMode: 'space-missions',
-    busyText: 'Opening space missions…',
-  }),
   explore: Object.freeze({ kind: 'none' }),
 });
 

@@ -385,7 +385,7 @@ function missionSpy({ contextOk = true, layerResult = () => true, globe = async 
     deps: {
       setContextMode: async (mode) => {
         calls.contextModes.push(mode);
-        return contextOk ? { ok: true, mode } : { ok: false, failedLayerIds: ['rocket-launches'] };
+        return contextOk ? { ok: true, mode } : { ok: false, failedLayerIds: ['military-awareness'] };
       },
       setLayerEnabled: async (layerId) => {
         calls.layerIds.push(layerId);
@@ -399,7 +399,7 @@ function missionSpy({ contextOk = true, layerResult = () => true, globe = async 
   };
 }
 
-test('the menu is the four owner-ordered missions', () => {
+test('the menu is the three owner-ordered missions', () => {
   // INFRASTRUCTURE was removed after the owner playtested it: enabling all
   // three bundled layers at once put ~5,700 entities on a full-earth view and
   // tanked the frame rate. The layers stay reachable by hand and by voice; what
@@ -407,7 +407,7 @@ test('the menu is the four owner-ordered missions', () => {
   // globe-LOD declutter first.
   assert.deepEqual(Object.keys(FIRST_RUN_MISSIONS), [
     // STORM CHASE leads: this deployment is a storm-chasing team's console.
-    'storm-chase', 'contacts', 'space-missions', 'explore',
+    'storm-chase', 'contacts', 'explore',
   ]);
   // GW-58 removed ENVIRONMENTAL with the earthquake and fire layers it drove.
   assert.equal(FIRST_RUN_MISSIONS.environmental, undefined);
@@ -415,8 +415,8 @@ test('the menu is the four owner-ordered missions', () => {
     'the infrastructure mission must be gone, not dormant');
 });
 
-test('Live Contacts and Space Missions go through the one setContextMode facade', async () => {
-  for (const [choice, mode] of [['contacts', 'contacts'], ['space-missions', 'space-missions']]) {
+test('Live Contacts goes through the one setContextMode facade', async () => {
+  for (const [choice, mode] of [['contacts', 'contacts']]) {
     const spy = missionSpy();
     const outcome = await runFirstRunChoice(choice, spy.deps);
     assert.equal(outcome.ok, true);
@@ -448,9 +448,9 @@ test('Explore manually touches nothing at all, and an unknown choice is inert', 
 
 test('a failed Context mission reports the layers the facade named', async () => {
   const spy = missionSpy({ contextOk: false });
-  const outcome = await runFirstRunChoice('space-missions', spy.deps);
+  const outcome = await runFirstRunChoice('contacts', spy.deps);
   assert.equal(outcome.ok, false);
-  assert.deepEqual(outcome.result.failedLayerIds, ['rocket-launches']);
+  assert.deepEqual(outcome.result.failedLayerIds, ['military-awareness']);
 });
 
 test('no mission writes a preference the visitor did not choose by picking it', () => {
@@ -504,7 +504,7 @@ test('markup, startup ordering and accessibility remain pinned', () => {
   const css = readStylesheet(new URL('../style.css', import.meta.url));
 
   assert.match(html, /id="first-run-launcher" role="dialog"[^>]*aria-labelledby="first-run-title"[^>]*hidden/);
-  assert.equal((html.match(/data-first-run-choice=/g) || []).length, 4);
+  assert.equal((html.match(/data-first-run-choice=/g) || []).length, 3);
   assert.match(html, /data-first-run-status[^>]*role="status"[^>]*aria-live="polite"/);
   assert.match(html, /<input type="checkbox" data-first-run-suppress \/>/);
   assert.doesNotMatch(html, /data-first-run-choice="environmental"/);
@@ -520,7 +520,7 @@ test('markup, startup ordering and accessibility remain pinned', () => {
 
   // Menu order is the owner's, read straight off the markup.
   const order = [...html.matchAll(/data-first-run-choice="([a-z-]+)"/g)].map((match) => match[1]);
-  assert.deepEqual(order, ['storm-chase', 'contacts', 'space-missions', 'explore']);
+  assert.deepEqual(order, ['storm-chase', 'contacts', 'explore']);
   assert.doesNotMatch(html, /data-first-run-choice="infrastructure"/,
     'the removed tile must leave no markup behind');
 
@@ -613,10 +613,10 @@ test('the voice TOOL SCHEMA matches the pinned release — the mission mapping i
   // Re-derived again for the storm-chase layer ids and their mapping, and
   // for each GW-57 removal taking its layers out of enums, mappings and
   // analyst fields.
-  assert.equal(block.length, 25839, 'serialized tool schema length drifted');
+  assert.equal(block.length, 25684, 'serialized tool schema length drifted');
   assert.equal(
     crypto.createHash('sha256').update(block).digest('hex'),
-    '0e1cf6623a5117eb1c5f8d8ccb874c17c6110418771b38bf4a7e0bc7d72e05dc',
+    '6249f8f5f5f1157fd3c6a5c236efd66ea96c000a204940d171eab18536d65532',
     'the first-run missions must ride EXISTING tools: no schema edit, no cache bust',
   );
   const instructions = fs.readFileSync(new URL('../server/providers/openai/instructions.js', import.meta.url), 'utf8');

@@ -789,8 +789,8 @@ test('generic voice visibility preserves a manager resource-cancellation envelop
     camera: { moveEnd: { addEventListener() {} } },
   };
   const dataManager = {
-    layers: new Map([['rocket-launches', { module: {} }]]),
-    getAll: () => [{ id: 'rocket-launches', name: 'Space Missions' }],
+    layers: new Map([['satellites', { module: {} }]]),
+    getAll: () => [{ id: 'satellites', name: 'Satellites' }],
     getLayerLifecycleState: () => ({ enabled: false, lifecycleState: 'disabled', uncertain: false }),
     _setEnabledWithIntent: () => ({ intentEpoch: 7, promise: Promise.resolve(false) }),
     _waitForVisibilityIntent: async () => ({
@@ -810,11 +810,11 @@ test('generic voice visibility preserves a manager resource-cancellation envelop
     styleManager: { _waitForContextLayerSettlement: async () => {} },
     dataManager,
   });
-  const result = await runner('set_layer_visibility', { layerId: 'space missions', enabled: true });
+  const result = await runner('set_layer_visibility', { layerId: 'satellites', enabled: true });
   assert.deepEqual(result, {
     ok: false,
     action: 'set_layer_visibility',
-    layerId: 'rocket-launches',
+    layerId: 'satellites',
     cancelled: true,
     phase: 'update',
     cancellationReason: 'resource-abort',
@@ -836,8 +836,8 @@ test('generic voice visibility preserves caller-abort phase before the stale-tur
   };
   const controller = new AbortController();
   const dataManager = {
-    layers: new Map([['rocket-launches', { module: {} }]]),
-    getAll: () => [{ id: 'rocket-launches', name: 'Space Missions' }],
+    layers: new Map([['satellites', { module: {} }]]),
+    getAll: () => [{ id: 'satellites', name: 'Satellites' }],
     getLayerLifecycleState: () => ({ enabled: false, lifecycleState: 'disabled', uncertain: false }),
     _setEnabledWithIntent: () => ({ intentEpoch: 11, promise: Promise.resolve(false) }),
     _waitForVisibilityIntent: async () => ({
@@ -856,7 +856,7 @@ test('generic voice visibility preserves caller-abort phase before the stale-tur
   });
   controller.abort();
 
-  const result = await runner('set_layer_visibility', { layerId: 'rocket-launches', enabled: true }, {
+  const result = await runner('set_layer_visibility', { layerId: 'satellites', enabled: true }, {
     signal: controller.signal,
     isCurrent: () => false,
   });
@@ -880,8 +880,8 @@ test('generic voice visibility preserves an exact commit when a newer turn arriv
   const settlementEntered = new Promise((resolve) => { settlementStarted = resolve; });
   const settlementPending = new Promise((resolve) => { releaseSettlement = resolve; });
   const dataManager = {
-    layers: new Map([['rocket-launches', { module: {} }]]),
-    getAll: () => [{ id: 'rocket-launches', name: 'Space Missions' }],
+    layers: new Map([['satellites', { module: {} }]]),
+    getAll: () => [{ id: 'satellites', name: 'Satellites' }],
     getLayerLifecycleState: () => ({ enabled: true, lifecycleState: 'enabled', uncertain: false }),
     _setEnabledWithIntent: () => ({ intentEpoch: 13, promise: Promise.resolve(true) }),
     _waitForVisibilityIntent: async () => ({
@@ -904,7 +904,7 @@ test('generic voice visibility preserves an exact commit when a newer turn arriv
     dataManager,
   });
 
-  const work = runner('set_layer_visibility', { layerId: 'rocket-launches', enabled: true }, {
+  const work = runner('set_layer_visibility', { layerId: 'satellites', enabled: true }, {
     signal: controller.signal,
     isCurrent: () => !controller.signal.aborted,
   });
@@ -930,8 +930,8 @@ test('late voice abort cannot revoke a committed manager event and leaves the in
   const dataManager = new DataLayerManager(viewer);
   const lifecycleCalls = [];
   dataManager.register({
-    id: 'rocket-launches',
-    name: 'Space Missions',
+    id: 'satellites',
+    name: 'Satellites',
     source: 'test',
     updateInterval: -1,
     async init() { lifecycleCalls.push('init'); },
@@ -955,7 +955,7 @@ test('late voice abort cannot revoke a committed manager event and leaves the in
     dataManager,
   });
   const controller = new AbortController();
-  const work = runner('set_layer_visibility', { layerId: 'rocket-launches', enabled: true }, {
+  const work = runner('set_layer_visibility', { layerId: 'satellites', enabled: true }, {
     signal: controller.signal,
     isCurrent: () => !controller.signal.aborted,
   });
@@ -965,12 +965,12 @@ test('late voice abort cannot revoke a committed manager event and leaves the in
   releaseSettlement();
   const result = await work;
   assert.equal(result.ok, true);
-  assert.equal(dataManager.isEnabled('rocket-launches'), true);
+  assert.equal(dataManager.isEnabled('satellites'), true);
   assert.equal(events.filter((event) => event.type === 'visibility' && event.enabled === true).length, 1);
   assert.equal(events.some((event) => event.type === 'visibility-cancelled'), false);
 
-  assert.equal(await dataManager.setEnabled('rocket-launches', false, { origin: 'programmatic' }), true);
-  assert.equal(dataManager.isEnabled('rocket-launches'), false);
+  assert.equal(await dataManager.setEnabled('satellites', false, { origin: 'programmatic' }), true);
+  assert.equal(dataManager.isEnabled('satellites'), false);
   assert.deepEqual(lifecycleCalls, ['init', 'enable', 'update', 'disable']);
 });
 
@@ -1066,39 +1066,6 @@ test('generic layer visibility exposes lifecycle truth for every manager phase a
   });
 });
 
-test('generic voice visibility maps Space Missions to the explicit mission layer', async () => {
-  globalThis.window = globalThis.window || { clearTimeout, setTimeout, requestIdleCallback: null };
-  const viewer = {
-    clock: { onTick: { addEventListener: () => () => {} } },
-    scene: { canvas: { addEventListener() {}, removeEventListener() {} } },
-    camera: { moveEnd: { addEventListener() {} } },
-  };
-  const calls = [];
-  let contextSettled = false;
-  const dataManager = {
-    layers: new Map([['rocket-launches', { module: {} }]]),
-    getAll: () => [{ id: 'rocket-launches', name: 'Space Missions' }],
-    getLayerLifecycleState: () => ({ enabled: true, lifecycleState: 'enabled', uncertain: false }),
-    async setEnabled(...args) { calls.push(args); return true; },
-  };
-  const runner = createGevActionRunner({
-    viewer,
-    styleManager: {
-      async _waitForContextLayerSettlement() {
-        contextSettled = true;
-        calls.push(['context-settled']);
-      },
-    },
-    dataManager,
-  });
-  const result = await runner('set_layer_visibility', { layerId: 'space missions', enabled: true });
-  assert.equal(result.ok, true);
-  assert.deepEqual(calls, [
-    ['rocket-launches', true, { origin: 'voice' }],
-    ['context-settled'],
-  ]);
-  assert.equal(contextSettled, true);
-});
 
 test('voice CCTV focus reports tracking ownership separately from no active camera', () => {
   assert.deepEqual(
@@ -2292,7 +2259,7 @@ test('a lost cross-mode switch reports every mode field in the shared vocabulary
     styleManager,
     dataManager: { layers: new Map(), getAll: () => [] },
   });
-  const result = await runner('set_context_mode', { mode: 'space-missions' });
+  const result = await runner('set_context_mode', { mode: 'contacts' });
   assert.equal(result.mode, 'off');
   assert.equal(result.modeInternal, null);
   assert.equal(result.priorMode, 'contacts', 'the mode that was lost is named the way the tools name it');

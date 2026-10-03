@@ -37,10 +37,6 @@ const PANEL_GROUPS = [
     ids: ['military-installations'],
   },
   {
-    label: 'Events',
-    ids: ['rocket-launches'],
-  },
-  {
     label: 'Weather',
     ids: [
       'wind',

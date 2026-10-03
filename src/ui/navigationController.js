@@ -135,7 +135,6 @@ export class NavigationController {
       satellitesLayer,
       aisLiveVesselsLayer,
       militaryAwarenessLayer,
-      rocketLaunchesLayer,
     } = this.tracking;
     let contactSelected = false;
     try {
@@ -166,11 +165,6 @@ export class NavigationController {
     }
     try {
       satellitesLayer.stopTracking?.({ origin: trackingOrigin });
-    } catch {
-      /* best-effort release */
-    }
-    try {
-      rocketLaunchesLayer.releaseCameraOwnership?.();
     } catch {
       /* best-effort release */
     }

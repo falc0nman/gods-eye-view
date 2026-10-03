@@ -116,8 +116,6 @@ export const WORLD_OVERLAY_OCCLUDER_SELECTORS = Object.freeze([
   '.hud-bottom-right',
   '.hud-top-bar',
   '.hud-bottom-bar',
-  '#space-mission-panel',
-  '#space-mission-panel-host',
   '#military-awareness-panel',
   // Cockpit: solid backdrop-filled windows only (both bounded to
   // `min(340px, 28vw)` wide and `min(42vh, 410px)` tall, both `hidden` until

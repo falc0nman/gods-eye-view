@@ -90,7 +90,6 @@ test('accepted navigation releases through PR15-aware ownership before flight', 
   ordered(release, [
     'origin: trackingOrigin',
     'satellitesLayer.stopTracking?.({ origin: trackingOrigin })',
-    'rocketLaunchesLayer.releaseCameraOwnership?.()',
     'this.viewer.trackedEntity = undefined;',
     "interruptCameraMotion('explicit-navigation')",
     'this.viewer.camera.cancelFlight();',

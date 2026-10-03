@@ -1,17 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { promises as fsp } from 'node:fs';
-import {
-  celestrakProxy,
-  rocketLaunchesProxy,
-  launchLibraryRequestHeaders,
-  LL2_CACHE_TTL_MS,
-} from 'gods-eye-view/server/providers/space';
-import {
-  celestrakTleUrl,
-  launchLibraryRecentUrl,
-} from 'gods-eye-view/sources/space';
-import * as compatibility from '../../server/providers/local.js';
+import { celestrakProxy } from 'gods-eye-view/server/providers/space';
+import { celestrakTleUrl } from 'gods-eye-view/sources/space';
 
 function install(plugin, preview = false) {
   const routes = new Map();
@@ -47,31 +38,12 @@ function isolateDisk(t) {
   t.mock.method(fsp, 'writeFile', async () => {});
 }
 
-test('portable requests keep fixed origins, encode group data and preserve the 30-day UTC window', () => {
+test('portable requests keep fixed origins and encode group data', () => {
   const tle = celestrakTleUrl('stations&FORMAT=json');
   assert.equal(tle.origin, 'https://celestrak.org');
   assert.equal(tle.pathname, '/NORAD/elements/gp.php');
   assert.equal(tle.searchParams.get('GROUP'), 'stations&FORMAT=json');
   assert.equal(tle.searchParams.get('FORMAT'), 'tle');
-  const end = new Date('2026-03-01T12:34:56.000Z');
-  const url = launchLibraryRecentUrl(end);
-  assert.equal(url.origin, 'https://ll.thespacedevs.com');
-  assert.equal(url.pathname, '/2.3.0/launches/');
-  assert.deepEqual(Object.fromEntries(url.searchParams), {
-    net__gte: '2026-01-30T12:34:56.000Z',
-    net__lte: '2026-03-01T12:34:56.000Z',
-    limit: '100',
-    mode: 'detailed',
-  });
-  assert.equal(end.toISOString(), '2026-03-01T12:34:56.000Z');
-});
-
-test('compatibility exports retain the same LL2 header helper and TTL', () => {
-  assert.equal(
-    compatibility.launchLibraryRequestHeaders,
-    launchLibraryRequestHeaders,
-  );
-  assert.equal(compatibility.LL2_CACHE_TTL_MS, LL2_CACHE_TTL_MS);
 });
 
 test('exported CelesTrak plugin coalesces refreshes, retains stale TLEs, and reads disk in a new instance', async (t) => {
@@ -119,30 +91,3 @@ test('exported CelesTrak plugin coalesces refreshes, retains stale TLEs, and rea
   assert.equal(disk.headers['x-tle-cache'], 'HIT');
   assert.equal(disk.body, tle);
 });
-
-for (const preview of [false, true])
-  test(`exported launch plugin preserves optional server auth and cache in ${preview ? 'preview' : 'development'}`, async (t) => {
-    isolateDisk(t);
-    const prior = process.env.LL2_API_TOKEN;
-    t.after(() => {
-      if (prior === undefined) delete process.env.LL2_API_TOKEN;
-      else process.env.LL2_API_TOKEN = prior;
-    });
-    process.env.LL2_API_TOKEN = ' fixture-token ';
-    let calls = 0;
-    t.mock.method(globalThis, 'fetch', async (url, options) => {
-      calls++;
-      assert.equal(url.searchParams.get('limit'), '100');
-      assert.equal(options.headers.Authorization, 'Token fixture-token');
-      return Response.json({ results: [{ id: 'launch-fixture' }] });
-    });
-    const request = install(rocketLaunchesProxy(), preview);
-    assert.equal((await request('/api/launches', '/', 'POST')).status, 405);
-    const first = await request('/api/launches');
-    assert.equal(first.headers['X-GEV-Cache'], 'MISS');
-    assert.doesNotMatch(first.body, /fixture-token/);
-    const hit = await request('/api/launches');
-    assert.equal(hit.headers['X-GEV-Cache'], 'HIT');
-    assert.equal(hit.body, first.body);
-    assert.equal(calls, 1);
-  });

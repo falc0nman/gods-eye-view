@@ -33,12 +33,6 @@ import {
   createCctvProjectionOverlayEntry,
 } from '../data/cctv.js';
 import {
-  createRocketMissionMarkerOverlayEntry,
-  ROCKET_MISSION_AMBIENT_OVERLAY_COHORT_LIMIT,
-  ROCKET_MISSION_AMBIENT_OVERLAY_COLLISION_CAPACITY,
-  ROCKET_MISSION_AMBIENT_OVERLAY_SOURCE_ID,
-} from '../data/rocketLaunches.js';
-import {
   createRadioClusterOverlayEntry,
   createRadioSelectedOverlayEntry,
   RADIO_OVERLAY_COHORT_LIMIT,
@@ -555,93 +549,17 @@ function buildPhase5MilitaryWorkload(count) {
   return workload;
 }
 
-function appendRocketMissionAmbientWorkload(workload, count) {
-  const entries = [];
-  for (let index = 0; index < count; index++) {
-    const column = index % 8;
-    const row = Math.floor(index / 8);
-    const baseX = -0.78 + column * 0.22;
-    const baseY = -0.68 + row * 0.24;
-    const position = new Cesium.Cartesian3(baseX, baseY, 0);
-    workload.positions.push(position);
-    workload.drifts.push({
-      baseX,
-      baseY,
-      phase: index * 0.33,
-      rate: 0.3 + (index % 6) * 0.06,
-    });
-    const entry = createRocketMissionMarkerOverlayEntry(
-      {
-        id: `allocation-${index}`,
-        name: `MISSION ${1000 + index} | PAYLOAD`,
-        launchSite: `Launch Complex ${index}`,
-        launchTime: new Date(
-          Date.UTC(2026, 6, 31) - index * 60_000,
-        ).toISOString(),
-      },
-      () => position,
-    );
-    entry.horizonCull = false;
-    entries.push(entry);
-  }
-  workload.registrations.push({
-    sourceId: ROCKET_MISSION_AMBIENT_OVERLAY_SOURCE_ID,
-    entries,
-    options: {
-      cohortLimit: ROCKET_MISSION_AMBIENT_OVERLAY_COHORT_LIMIT,
-      collisionCapacity: ROCKET_MISSION_AMBIENT_OVERLAY_COLLISION_CAPACITY,
-    },
-  });
-  return workload;
-}
-
-function buildRocketMissionAmbientWorkload(count) {
-  if (count !== ROCKET_MISSION_AMBIENT_OVERLAY_COHORT_LIMIT) {
-    throw new Error(
-      `rocket-missions requires ${ROCKET_MISSION_AMBIENT_OVERLAY_COHORT_LIMIT} entries`,
-    );
-  }
-  return appendRocketMissionAmbientWorkload(
-    {
-      entries: [],
-      positions: [],
-      drifts: [],
-      registrations: [],
-    },
-    count,
-  );
-}
-
-function buildPhase5RocketMissionWorkload(count) {
-  const phase5Count =
-    vesselOverlayCohortLimit(VIEWPORT_WIDTH, VIEWPORT_HEIGHT) +
-    1 +
-    CCTV_AMBIENT_CARD_MAX +
-    1 +
-    2;
-  const expectedCount =
-    phase5Count + ROCKET_MISSION_AMBIENT_OVERLAY_COHORT_LIMIT;
-  if (count !== expectedCount) {
-    throw new Error(`phase5-rockets requires ${expectedCount} entries`);
-  }
-  return appendRocketMissionAmbientWorkload(
-    buildPhase5MilitaryWorkload(phase5Count),
-    ROCKET_MISSION_AMBIENT_OVERLAY_COHORT_LIMIT,
-  );
-}
-
 function buildAllLiveRadioWorkload(count) {
   const phase5Count =
     vesselOverlayCohortLimit(VIEWPORT_WIDTH, VIEWPORT_HEIGHT) +
     1 +
     CCTV_AMBIENT_CARD_MAX +
     1 +
-    2 +
-    ROCKET_MISSION_AMBIENT_OVERLAY_COHORT_LIMIT;
+    2;
   const expectedCount = phase5Count + RADIO_OVERLAY_COHORT_LIMIT + 1;
   if (count !== expectedCount)
     throw new Error(`all-live-radio requires ${expectedCount} entries`);
-  const workload = buildPhase5RocketMissionWorkload(phase5Count);
+  const workload = buildPhase5MilitaryWorkload(phase5Count);
   const entries = [];
   for (let index = 0; index < RADIO_OVERLAY_COHORT_LIMIT; index += 1) {
     const position = new Cesium.Cartesian3(
@@ -783,13 +701,9 @@ function main() {
                   ? buildPhase5CivilWorkload(ENTRY_COUNT)
                   : PROFILE === 'phase5-military'
                     ? buildPhase5MilitaryWorkload(ENTRY_COUNT)
-                    : PROFILE === 'rocket-missions'
-                      ? buildRocketMissionAmbientWorkload(ENTRY_COUNT)
-                      : PROFILE === 'phase5-rockets'
-                        ? buildPhase5RocketMissionWorkload(ENTRY_COUNT)
-                        : PROFILE === 'all-live-radio'
-                          ? buildAllLiveRadioWorkload(ENTRY_COUNT)
-                          : buildWorkload(ENTRY_COUNT);
+                    : PROFILE === 'all-live-radio'
+                      ? buildAllLiveRadioWorkload(ENTRY_COUNT)
+                      : buildWorkload(ENTRY_COUNT);
   const { entries, positions, drifts } = workload;
   const solveIntervalMs = Number(process.env.GEV_ALLOC_SOLVE_MS) || 125;
   const detectionActive = !!workload.detectionLayer;
